@@ -257,6 +257,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
             {endpoint && (
               <div className={cn('flex', isRTL ? 'flex-row-reverse' : 'flex-row')}>
                 <TextareaAutosize
+                  placeholder="Ask OptimismAI"
                   {...registerProps}
                   ref={(e) => {
                     ref(e);
