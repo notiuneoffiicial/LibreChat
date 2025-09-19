@@ -4,10 +4,10 @@ interface:
   customWelcome: "Welcome to OptimismAI ✨"
   # Legal links (your Framer pages)
   privacyPolicy:
-    externalUrl: "https://optimismai.com/privacy"
+    externalUrl: "https://optimismai.app/privacy"
     openNewTab: true
   termsOfService:
-    externalUrl: "https://optimismai.com/terms"
+    externalUrl: "https://optimismai.app/terms"
     openNewTab: true
 
   # Show the right panel, but trim what’s inside
