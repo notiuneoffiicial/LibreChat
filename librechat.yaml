@@ -1,15 +1,31 @@
 # OptimismAI - LibreChat configuration
-# Ref: https://www.librechat.ai/docs/configuration/librechat_yaml
+# https://www.librechat.ai/docs/configuration/librechat_yaml
 
-# Required by LibreChat (match your current version or keep this)
 version: 1.2.1
-
-# Safe default; set to false if you want to ensure no cached config is used
 cache: false
 
-# -------- Interface / UI --------
+# ---- Register AnythingLLM (OpenAI-compatible) as a custom endpoint ----
+# Your instance: https://anythingllm-production-5629.up.railway.app/
+# OpenAI-compatible base: /v1/openai
+endpoints:
+  custom:
+    - name: "OptimismAI"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
+      baseURL: "https://anythingllm-production-5629.up.railway.app/v1/openai"
+      # Use an env var for the key; set it in Railway (see instructions below)
+      apiKey: "${OPTIMISMAI_ALLM_KEY}"
+      # If your build requires explicit header, uncomment extraHeaders below:
+      # extraHeaders:
+      #   Authorization: "Bearer ${OPTIMISMAI_ALLM_KEY}"
+      models:
+        # We expose a single logical "model" id to LibreChat; the shim isn't needed
+        # because AnythingLLM speaks OpenAI format here.
+        default: ["optimismai"]
+      modelDisplayLabel: "OptimismAI"
+      titleConvo: true
+      titleModel: "optimismai"
+
+# ---- Interface / UI ----
 interface:
-  # Branding copy
   customWelcome: "Welcome to OptimismAI ✨"
   privacyPolicy:
     externalUrl: "https://optimismai.app/privacy"
@@ -18,40 +34,35 @@ interface:
     externalUrl: "https://optimismai.app/terms"
     openNewTab: true
 
-  # Show right panel but trim items
+  # Keep right panel but trim items
   sidePanel: true
   bookmarks: true
-  # "Memories" lives in features/panels controlled elsewhere; keeping panel enabled
   prompts: false
-  agents: false
-  # hides Agent Builder & Marketplace UI
-  # Remove advanced knobs the user doesn’t need
+  agents: false          # hides Agent Builder/Marketplace & artifacts
+
+  # Remove advanced knobs
   modelSelect: false
   parameters: false
   presets: false
 
-  # Disable Code Interpreter UI button (Run Code) and Artifacts (via agents=false)
+  # Disable Code Interpreter button
   runCode: false
 
-  # Keep web search button visible; provider is defined below (admin-only)
+  # Keep web search button visible (provider is configured separately if you use it)
   webSearch: true
 
-# -------- File / Uploads (disable multimodal) --------
-# Completely disable uploads for the endpoints you expose so chat is text-only
-fileConfig:
-  endpoints:
-    openAI:
-      disabled: true
-    default:
-      disabled: true
-    # If you use other endpoints (e.g., openrouter, groq), add them and set disabled: true
-    # openrouter:
-    #   disabled: true
-    # groq:
-    #   disabled: true
+# ---- File Uploads (multimodal ON) ----
+# Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
+# If you need constraints (types/size), add them here per docs; otherwise omit fileConfig entirely.
+# fileConfig:
+#   endpoints:
+#     OptimismAI:
+#       # examples:
+#       # accept: ["image/*", "application/pdf"]
+#       # maxFiles: 5
+#       # maxSizeMB: 15
 
-# -------- Models / Lock to a single experience --------
-# Enforce a single spec so the model dropdown/parameters/presets are hidden
+# ---- Lock the experience to a single, preselected model ----
 modelSpecs:
   enforce: true
   list:
@@ -59,13 +70,6 @@ modelSpecs:
       label: "OptimismAI"
       default: true
       preset:
-        endpoint: "openAI"        # change if your endpoint key differs
-        model: "gpt-4o-mini"      # pick your text-first model
+        endpoint: "OptimismAI"   # must match endpoints.custom[0].name
+        model: "optimismai"      # must be in endpoints.custom[0].models.default
         greeting: "You're using OptimismAI."
-
-# -------- Web Search (admin-defined; users can’t edit providers) --------
-# Configure ONE provider here. If you don’t have SearXNG, swap for Tavily/Google tool etc.
-webSearch:
-  provider: "searxng"
-  instanceUrl: "https://searxng.example.com"
-  # For providers needing auth/keys, add fields as required by the docs.
