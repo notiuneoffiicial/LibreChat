@@ -1,0 +1,52 @@
+# config/optimismai-librechat.yaml
+
+interface:
+  customWelcome: "Welcome to OptimismAI ✨"
+  # Legal links (your Framer pages)
+  privacyPolicy:
+    externalUrl: "https://optimismai.com/privacy"
+    openNewTab: true
+  termsOfService:
+    externalUrl: "https://optimismai.com/terms"
+    openNewTab: true
+
+  # Show the right panel, but trim what’s inside
+  sidePanel: true
+  bookmarks: true
+  prompts: false        # hide Prompts
+  agents: false         # hides Agent Builder & marketplace UI
+  runCode: false        # hides “Run Code” button (Code Interpreter UI)
+  webSearch: true       # keep the button (provider fixed below)
+  modelSelect: false    # hide model dropdown
+  parameters: false     # hide parameters drawer
+  presets: false        # hide presets
+
+# 100% text-only: disable uploads on endpoints
+fileConfig:
+  endpoints:
+    openAI:
+      disabled: true
+    default:
+      disabled: true
+# If you use a different endpoint key (e.g. openrouter, groq), add it here and set disabled:true
+# see File Config docs
+# https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/file_config
+
+# Lock to a single “spec” to remove model chooser etc.
+modelSpecs:
+  enforce: true
+  list:
+    - name: "optimismai-default"
+      label: "OptimismAI"
+      default: true
+      preset:
+        endpoint: "openAI"       # or "openrouter", "groq", etc. (whatever you use)
+        model: "gpt-4o-mini"     # choose a text-first model
+        greeting: "You're using OptimismAI."
+
+# Admin-defined Web Search; users can’t edit providers
+# Fill based on the provider you choose (e.g., SearXNG/Tavily)
+webSearch:
+  provider: "searxng"
+  instanceUrl: "https://searxng.example.com"
+  # auth headers or keys as needed for your provider
