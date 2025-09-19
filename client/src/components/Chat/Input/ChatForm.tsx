@@ -224,7 +224,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
               newConversation={generateConversation}
               textAreaRef={textAreaRef}
               commandChar="+"
-              placeholder="com_ui_add_model_preset"
+              placeholder="Ask OptimismAI"
               includeAssistants={false}
             />
           )}
