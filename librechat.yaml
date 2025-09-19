@@ -23,8 +23,8 @@ interface:
   bookmarks: true
   # "Memories" lives in features/panels controlled elsewhere; keeping panel enabled
   prompts: false
-  agents: false            # hides Agent Builder & Marketplace UI
-
+  agents: false
+  # hides Agent Builder & Marketplace UI
   # Remove advanced knobs the user doesn’t need
   modelSelect: false
   parameters: false
