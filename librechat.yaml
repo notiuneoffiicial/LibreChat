@@ -1,8 +1,16 @@
-# config/optimismai-librechat.yaml
+# OptimismAI - LibreChat configuration
+# Ref: https://www.librechat.ai/docs/configuration/librechat_yaml
 
+# Required by LibreChat (match your current version or keep this)
+version: 1.2.1
+
+# Safe default; set to false if you want to ensure no cached config is used
+cache: false
+
+# -------- Interface / UI --------
 interface:
+  # Branding copy
   customWelcome: "Welcome to OptimismAI ✨"
-  # Legal links (your Framer pages)
   privacyPolicy:
     externalUrl: "https://optimismai.app/privacy"
     openNewTab: true
@@ -10,29 +18,40 @@ interface:
     externalUrl: "https://optimismai.app/terms"
     openNewTab: true
 
-  # Show the right panel, but trim what’s inside
+  # Show right panel but trim items
   sidePanel: true
   bookmarks: true
-  prompts: false        # hide Prompts
-  agents: false         # hides Agent Builder & marketplace UI
-  runCode: false        # hides “Run Code” button (Code Interpreter UI)
-  webSearch: true       # keep the button (provider fixed below)
-  modelSelect: false    # hide model dropdown
-  parameters: false     # hide parameters drawer
-  presets: false        # hide presets
+  # "Memories" lives in features/panels controlled elsewhere; keeping panel enabled
+  prompts: false
+  agents: false            # hides Agent Builder & Marketplace UI
 
-# 100% text-only: disable uploads on endpoints
+  # Remove advanced knobs the user doesn’t need
+  modelSelect: false
+  parameters: false
+  presets: false
+
+  # Disable Code Interpreter UI button (Run Code) and Artifacts (via agents=false)
+  runCode: false
+
+  # Keep web search button visible; provider is defined below (admin-only)
+  webSearch: true
+
+# -------- File / Uploads (disable multimodal) --------
+# Completely disable uploads for the endpoints you expose so chat is text-only
 fileConfig:
   endpoints:
     openAI:
       disabled: true
     default:
       disabled: true
-# If you use a different endpoint key (e.g. openrouter, groq), add it here and set disabled:true
-# see File Config docs
-# https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/file_config
+    # If you use other endpoints (e.g., openrouter, groq), add them and set disabled: true
+    # openrouter:
+    #   disabled: true
+    # groq:
+    #   disabled: true
 
-# Lock to a single “spec” to remove model chooser etc.
+# -------- Models / Lock to a single experience --------
+# Enforce a single spec so the model dropdown/parameters/presets are hidden
 modelSpecs:
   enforce: true
   list:
@@ -40,13 +59,13 @@ modelSpecs:
       label: "OptimismAI"
       default: true
       preset:
-        endpoint: "openAI"       # or "openrouter", "groq", etc. (whatever you use)
-        model: "gpt-4o-mini"     # choose a text-first model
+        endpoint: "openAI"        # change if your endpoint key differs
+        model: "gpt-4o-mini"      # pick your text-first model
         greeting: "You're using OptimismAI."
 
-# Admin-defined Web Search; users can’t edit providers
-# Fill based on the provider you choose (e.g., SearXNG/Tavily)
+# -------- Web Search (admin-defined; users can’t edit providers) --------
+# Configure ONE provider here. If you don’t have SearXNG, swap for Tavily/Google tool etc.
 webSearch:
   provider: "searxng"
   instanceUrl: "https://searxng.example.com"
-  # auth headers or keys as needed for your provider
+  # For providers needing auth/keys, add fields as required by the docs.
