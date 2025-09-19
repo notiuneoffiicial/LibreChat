@@ -16,6 +16,8 @@ endpoints:
       # If your build requires explicit header, uncomment extraHeaders below:
       # extraHeaders:
       #   Authorization: "Bearer ${OPTIMISMAI_ALLM_KEY}"
+      # ✅ this drives the “messageicon” across the UI
+      iconURL: "/assets/logo.svg"
       models:
         # We expose a single logical "model" id to LibreChat; the shim isn't needed
         # because AnythingLLM speaks OpenAI format here.
@@ -23,7 +25,9 @@ endpoints:
       modelDisplayLabel: "OptimismAI"
       titleConvo: true
       titleModel: "optimismai"
-
+# (Optional) per-model icon(s) if you ever add more models
+      modelIcons:
+      optimismai: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
   customWelcome: "Welcome to OptimismAI ✨"
