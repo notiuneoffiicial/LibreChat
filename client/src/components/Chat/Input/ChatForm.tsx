@@ -191,6 +191,20 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
   }, [backupBadges, setBadges, setIsEditingBadges]);
 
   const isMoreThanThreeRows = visualRowCount > 3;
+  useEffect(() => {
+  const el = textAreaRef.current;
+  if (!el) return;
+  const ph = 'Ask OptimismAI';
+
+  // Force our text no matter what tries to reset it
+  if (el.getAttribute('placeholder') !== ph) {
+    el.setAttribute('placeholder', ph);
+  }
+  el.setAttribute('aria-label', ph);
+
+  // Some builds render a custom overlay reading data-placeholder
+  el.setAttribute('data-placeholder', ph);
+}, [endpoint, isCollapsed, visualRowCount]);
 
   const baseClasses = useMemo(
     () =>
