@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import RTA from 'react-textarea-autosize';
+import { TextareaAutosize as BaseTA } from '@librechat/client';
 
 type Props = React.ComponentProps<typeof RTA>;
 
