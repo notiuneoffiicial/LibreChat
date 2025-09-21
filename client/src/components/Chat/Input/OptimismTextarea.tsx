@@ -6,11 +6,13 @@ type Props = React.ComponentProps<typeof RTA>;
 
 const OptimismTextarea = forwardRef<HTMLTextAreaElement, Props>(
   ({ placeholder: _ignored, ...rest }, ref) => (
+    <BaseTa
     <RTA
       ref={ref}
       {...rest}
       placeholder="Ask OptimismAI"
       aria-label="Ask OptimismAI"
+    />
     />
   ),
 );
