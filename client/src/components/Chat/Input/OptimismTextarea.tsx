@@ -1,16 +1,19 @@
-import React from 'react';
+// client/src/components/Chat/Input/OptimismTextarea.tsx
+import React, { forwardRef } from 'react';
 import { TextareaAutosize as BaseTA } from '@librechat/client';
 
-// Force OUR placeholder/aria-label no matter what upstream tries
-export default function OptimismTextarea(
-  props: React.ComponentProps<typeof BaseTA>
-) {
-  const { placeholder: _ignored, ...rest } = props; // ignore any upstream placeholder
-  return (
+type Props = React.ComponentProps<typeof BaseTA>;
+
+const OptimismTextarea = forwardRef<HTMLTextAreaElement, Props>(
+  ({ placeholder: _ignored, ...rest }, ref) => (
     <BaseTA
-      {...rest}
-      placeholder="Ask OptimismAI"
+      ref={ref}                    // ✅ critical: used to clear/focus after send
+      {...rest}                    // ✅ keep all handlers/props intact
+      placeholder="Ask OptimismAI" // your brand copy
       aria-label="Ask OptimismAI"
     />
-  );
-}
+  ),
+);
+
+OptimismTextarea.displayName = 'OptimismTextarea';
+export default OptimismTextarea;
