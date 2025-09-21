@@ -1,15 +1,14 @@
-// client/src/components/Chat/Input/OptimismTextarea.tsx
 import React, { forwardRef } from 'react';
-import { TextareaAutosize as BaseTA } from '@librechat/client';
+import RTA from 'react-textarea-autosize';
 
-type Props = React.ComponentProps<typeof BaseTA>;
+type Props = React.ComponentProps<typeof RTA>;
 
 const OptimismTextarea = forwardRef<HTMLTextAreaElement, Props>(
   ({ placeholder: _ignored, ...rest }, ref) => (
-    <BaseTA
-      ref={ref}                    // ✅ critical: used to clear/focus after send
-      {...rest}                    // ✅ keep all handlers/props intact
-      placeholder="Ask OptimismAI" // your brand copy
+    <RTA
+      ref={ref}
+      {...rest}
+      placeholder="Ask OptimismAI"
       aria-label="Ask OptimismAI"
     />
   ),
