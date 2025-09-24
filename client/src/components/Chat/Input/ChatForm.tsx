@@ -1,6 +1,6 @@
 import { memo, useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import { useWatch } from 'react-hook-form';
-import OptimismTextarea from './OptimismTextarea';
+import { TextareaAutosize } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import { Constants, isAssistantsEndpoint, isAgentsEndpoint } from 'librechat-data-provider';
 import {
@@ -191,20 +191,6 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
   }, [backupBadges, setBadges, setIsEditingBadges]);
 
   const isMoreThanThreeRows = visualRowCount > 3;
-  useEffect(() => {
-  const el = textAreaRef.current;
-  if (!el) return;
-  const ph = 'Ask OptimismAI';
-
-  // Force our text no matter what tries to reset it
-  if (el.getAttribute('placeholder') !== ph) {
-    el.setAttribute('placeholder', ph);
-  }
-  el.setAttribute('aria-label', ph);
-
-  // Some builds render a custom overlay reading data-placeholder
-  el.setAttribute('data-placeholder', ph);
-}, [endpoint, isCollapsed, visualRowCount]);
 
   const baseClasses = useMemo(
     () =>
@@ -238,7 +224,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
               newConversation={generateConversation}
               textAreaRef={textAreaRef}
               commandChar="+"
-              placeholder="Ask OptimismAI"
+              placeholder="com_ui_add_model_preset"
               includeAssistants={false}
             />
           )}
@@ -270,8 +256,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
             <FileFormChat conversation={conversation} />
             {endpoint && (
               <div className={cn('flex', isRTL ? 'flex-row-reverse' : 'flex-row')}>
-                <OptimismTextarea
-                  placeholder="Ask OptimismAI"
+                <TextareaAutosize
                   {...registerProps}
                   ref={(e) => {
                     ref(e);
