@@ -166,7 +166,7 @@ export default function Mention({
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           ref={inputRef}
-          placeholder="Ask OptimismAI"
+          placeholder={localize(placeholder)}
           className="mb-1 w-full border-0 bg-white p-2 text-sm focus:outline-none dark:bg-gray-700 dark:text-gray-200"
           autoComplete="off"
           value={searchValue}
