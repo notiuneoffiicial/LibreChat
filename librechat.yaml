@@ -4,18 +4,15 @@
 version: 1.2.1
 cache: false
 
-# ---- Register AnythingLLM (OpenAI-compatible) as a custom endpoint ----
-# Your instance: https://anythingllm-production-5629.up.railway.app/
-# OpenAI-compatible base: /v1/openai
+# ---- Register LiteLLM (OpenAI-compatible) as a custom endpoint ----
+# Your instance: https://litellm-production-157f.up.railway.app/
+# OpenAI-compatible base: /v1
 endpoints:
   custom:
-    - name: "OptimismAI"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
-      baseURL: "https://anythingllm-production-5629.up.railway.app/api/v1/openai"
-      # Use an env var for the key; set it in Railway (see instructions below)
-      apiKey: "${OPTIMISMAI_ALLM_KEY}"
-      # If your build requires explicit header, uncomment extraHeaders below:
-      # extraHeaders:
-      #   Authorization: "Bearer ${OPTIMISMAI_ALLM_KEY}"
+    - name: "litellm"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
+      baseURL: "https://litellm-production-157f.up.railway.app/v1"
+      headers:
+        Authorization: "Bearer sk-1gZNsxNTOEmCt25H1Yq0TA"
       # ✅ this drives the “messageicon” across the UI
       iconURL: "/assets/logo.svg"
       models:
@@ -30,7 +27,7 @@ endpoints:
       optimismai: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
-  customWelcome: "Welcome to OptimismAI ✨"
+  customWelcome: "What's On Your Mind {{user_id}}?"
   privacyPolicy:
     externalUrl: "https://optimismai.app/privacy"
     openNewTab: true
@@ -72,10 +69,12 @@ interface:
 modelSpecs:
   enforce: true
   list:
-    - name: "optimismai-default"
+    - name: "optimismai"
       label: "OptimismAI"
       default: true
       preset:
-        endpoint: "OptimismAI"   # must match endpoints.custom[0].name
-        model: "optimismai"      # must be in endpoints.custom[0].models.default
-        greeting: "The Optimist's Lens"
+        endpoint: "litellm"   # must match endpoints.custom[0].name
+         model: "gpt-5-mini"   # or another model if that’s your choice
+        promptPrefix: "${OPTIMISMAI_PROMPT}"
+        temperature: 0.75
+        max_tokens: 4096
