@@ -9,31 +9,33 @@ cache: false
 # OpenAI-compatible base: /v1
 endpoints:
   custom:
-    - name: "litellm"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
+    - name: "OptimismAI"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
       baseURL: "https://litellm-production-157f.up.railway.app/v1"
       headers:
-        Authorization: "Bearer sk-1gZNsxNTOEmCt25H1Yq0TA"
+        Authorization: "Bearer ${LITELLM_API_KEY}"
       # ✅ this drives the “messageicon” across the UI
-      iconURL: "/assets/logo.svg"
+      iconURL: "assets/logo.svg"
       models:
         # We expose a single logical "model" id to LibreChat; the shim isn't needed
         # because AnythingLLM speaks OpenAI format here.
         default: ["optimismai"]
       modelDisplayLabel: "OptimismAI"
       titleConvo: true
-      titleModel: "optimismai"
+      titleModel: "OptimismAI"
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
       optimismai: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
-  customWelcome: "What's On Your Mind {{user_id}}?"
+  customWelcome: "What's On Your Mind, {{name}}?"
   privacyPolicy:
     externalUrl: "https://optimismai.app/privacy"
     openNewTab: true
   termsOfService:
     externalUrl: "https://optimismai.app/terms"
     openNewTab: true
+  inputBox:
+    placeholder: "Message OptimismAI..."
 
   # Keep right panel but trim items
   sidePanel: true
@@ -69,7 +71,7 @@ interface:
 modelSpecs:
   enforce: true
   list:
-    - name: "optimismai"
+    - name: "OptimismAI"
       label: "OptimismAI"
       default: true
       preset:
