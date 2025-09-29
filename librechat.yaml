@@ -9,25 +9,23 @@ cache: false
 # OpenAI-compatible base: /v1
 endpoints:
   custom:
-    - name: "OptimismAI"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
-      baseURL: "https://litellm-production-157f.up.railway.app/v1"
-      headers:
-        Authorization: "Bearer ${LITELLM_API_KEY}"
+    - name: "LiteLLM"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
+      baseURL: "${LITELLM_BASE_URL}"
+      apikey: "${LITELLM_API_KEY}"
       # ✅ this drives the “messageicon” across the UI
-      iconURL: "assets/logo.svg"
+      iconURL: "/assets/logo.svg"
       models:
-        # We expose a single logical "model" id to LibreChat; the shim isn't needed
-        # because AnythingLLM speaks OpenAI format here.
-        default: ["optimismai"]
+        default: ["gpt-5-mini", "text-embedding-3-large"]
+        fetch: true
       modelDisplayLabel: "OptimismAI"
       titleConvo: true
-      titleModel: "OptimismAI"
+      titleModel: "gpt-5-mini"
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
       optimismai: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
-  customWelcome: "What's On Your Mind, {{name}}?"
+  customWelcome: "What's On Your Mind, {{user.name}}?"
   privacyPolicy:
     externalUrl: "https://optimismai.app/privacy"
     openNewTab: true
@@ -71,11 +69,11 @@ interface:
 modelSpecs:
   enforce: true
   list:
-    - name: "OptimismAI"
+    - name: "optimismai"
       label: "OptimismAI"
       default: true
       preset:
-        endpoint: "litellm"   # must match endpoints.custom[0].name
+        endpoint: "LiteLLM"   # must match endpoints.custom[0].name
         model: "gpt-5-mini"   # or another model if that’s your choice
         promptPrefix: |
           Optimism AI - The Optimist’s Lens
