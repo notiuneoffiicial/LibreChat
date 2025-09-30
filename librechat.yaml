@@ -37,12 +37,12 @@ memory:
     - "user_name"
     - "context"
     
-agent:
-  endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
-  model: "gpt-5-mini"        # or your chosen chat model
-  instructions: |
-    Store concise, durable facts and explicit preferences only.
-    Ignore ephemeral chit-chat. Update/merge existing memories when needed.
+ agent:
+   endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
+   model: "gpt-5-mini"        # or your chosen chat model
+   instructions: |
+     Store concise, durable facts and explicit preferences only.
+     Ignore ephemeral chit-chat. Update/merge existing memories when needed.
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
