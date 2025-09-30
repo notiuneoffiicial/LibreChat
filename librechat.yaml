@@ -35,11 +35,13 @@ interface:
     openNewTab: true
   inputBox:
     placeholder: "Message OptimismAI..."
+      
     # ------  Memory / Personalization -----
+  
   memory:
   disabled: false
-  personalize: true            # gives users a UI toggle
-  tokenLimit: 2000             # cap memory text size/cost
+  personalize: true
+  tokenLimit: 2000
   validKeys:
     - "user_preferences"
     - "conversation_context"
@@ -48,7 +50,7 @@ interface:
     - "context"
     
   agent:
-    provider: "LiteLLM"        # use your LiteLLM endpoint as the provider
+    endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
     model: "gpt-5-mini"        # or your chosen chat model
     instructions: |
       Store concise, durable facts and explicit preferences only.
@@ -127,6 +129,7 @@ modelSpecs:
           If the user prompts you with any direct questions like 'who are you?' 'what are you' or anything of the like respond simply by stating that you are OptimismAI, adding a short introduction hereinafter, aim to be concise always.
           Greetings
           With respect to any greetings such as 'hello', 'hi', respond naturally say 'Hey, What's Up?', 'Got Something On Your Mind?' remember being concise is a core trait of yours, if there is no reason do not lenghten your responses.
+          Memory
+          If prior user memory is available, use it briefly and naturally; if not, ask for context.
           Closing
           Always end with a clear next action or question and an inviting, human sign-off: “What feels like the best next step for you?”
-         
