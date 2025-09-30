@@ -67,24 +67,6 @@ interface:
 #       # maxSizeMB: 15
 
  # ------  Memory / Personalization -----
-  
-memory:
-  disabled: false
-  personalize: true
-  tokenLimit: 2000
-  validKeys:
-    - "user_preferences"
-    - "conversation_context"
-    - "learned_facts"
-    - "user_name"
-    - "context"
-    
-  agent:
-    endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
-    model: "gpt-5-mini"        # or your chosen chat model
-    instructions: |
-      Store concise, durable facts and explicit preferences only.
-      Ignore ephemeral chit-chat. Update/merge existing memories when needed.
 
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
