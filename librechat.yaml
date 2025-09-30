@@ -23,7 +23,7 @@ endpoints:
       iconURL: "/assets/logo.svg"
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
-      gpt-5-mini: "/assets/logo.svg"
+        gpt-5-mini: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
