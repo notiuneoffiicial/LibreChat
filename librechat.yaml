@@ -24,25 +24,6 @@ endpoints:
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
       gpt-5-mini: "/assets/logo.svg"
-    # ------  Memory / Personalization -----
-  
-memory:
-  disabled: false
-  personalize: true
-  tokenLimit: 2000
-  validKeys:
-    - "user_preferences"
-    - "conversation_context"
-    - "learned_facts"
-    - "user_name"
-    - "context"
-    
- agent:
-   endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
-   model: "gpt-5-mini"        # or your chosen chat model
-   instructions: |
-     Store concise, durable facts and explicit preferences only.
-     Ignore ephemeral chit-chat. Update/merge existing memories when needed.
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
@@ -60,7 +41,7 @@ interface:
   bookmarks: true
   prompts: false
   agents: false
-
+  artifacts: false
   # hides Agent Builder/Marketplace & artifacts
 
   # Remove advanced knobs
@@ -70,7 +51,6 @@ interface:
 
   # Disable Code Interpreter button
   runCode: false
-  artifacts: false
 
   # Keep web search button visible (provider is configured separately if you use it)
   webSearch: true
@@ -85,6 +65,26 @@ interface:
 #       # accept: ["image/*", "application/pdf"]
 #       # maxFiles: 5
 #       # maxSizeMB: 15
+
+ # ------  Memory / Personalization -----
+  
+memory:
+  disabled: false
+  personalize: true
+  tokenLimit: 2000
+  validKeys:
+    - "user_preferences"
+    - "conversation_context"
+    - "learned_facts"
+    - "user_name"
+    - "context"
+    
+  agent:
+    endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
+    model: "gpt-5-mini"        # or your chosen chat model
+    instructions: |
+      Store concise, durable facts and explicit preferences only.
+      Ignore ephemeral chit-chat. Update/merge existing memories when needed.
 
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
