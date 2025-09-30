@@ -1,12 +1,17 @@
 # OptimismAI - LibreChat configuration
+# https://www.librechat.ai/docs/configuration/librechat_yaml
+
 version: 1.2.1
 cache: false
 
+# ---- Register LiteLLM (OpenAI-compatible) as a custom endpoint ----
+# Your instance: 
+# OpenAI-compatible base: /v1
 endpoints:
   custom:
-    - name: "LiteLLM"
+    - name: "LiteLLM"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
       provider: "openaiCompatible"
-      baseURL: "${LITELLM_BASE_URL}"     # must include /v1
+      baseURL: "${LITELLM_BASE_URL}"
       apiKey: "${LITELLM_API_KEY}"
       models:
         default: ["gpt-5-mini", "text-embedding-3-large"]
@@ -14,10 +19,31 @@ endpoints:
       modelDisplayLabel: "OptimismAI"
       titleConvo: true
       titleModel: "gpt-5-mini"
+       # ✅ this drives the “messageicon” across the UI
       iconURL: "/assets/logo.svg"
+# (Optional) per-model icon(s) if you ever add more models
       modelIcons:
-        gpt-5-mini: "/assets/logo.svg"
-
+      gpt-5-mini: "/assets/logo.svg"
+    # ------  Memory / Personalization -----
+  
+memory:
+  disabled: false
+  personalize: true
+  tokenLimit: 2000
+  validKeys:
+    - "user_preferences"
+    - "conversation_context"
+    - "learned_facts"
+    - "user_name"
+    - "context"
+    
+agent:
+  endpoint: "LiteLLM"        # use your LiteLLM endpoint as the provider
+  model: "gpt-5-mini"        # or your chosen chat model
+  instructions: |
+    Store concise, durable facts and explicit preferences only.
+    Ignore ephemeral chit-chat. Update/merge existing memories when needed.
+# ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
   privacyPolicy:
@@ -28,37 +54,39 @@ interface:
     openNewTab: true
   inputBox:
     placeholder: "Message OptimismAI..."
-  # UI toggles
+      
+  # Keep right panel but trim items
   sidePanel: true
   bookmarks: true
   prompts: false
   agents: false
-  artifacts: false
+
+  # hides Agent Builder/Marketplace & artifacts
+
+  # Remove advanced knobs
   modelSelect: false
   parameters: false
   presets: false
+
+  # Disable Code Interpreter button
   runCode: false
+  artifacts: false
+
+  # Keep web search button visible (provider is configured separately if you use it)
   webSearch: true
 
-# ------------- Memory (top-level, not inside `interface`) -------------
-memory:
-  disabled: false
-  personalize: true
-  tokenLimit: 2000
-  messageWindowSize: 6
-  validKeys:
-    - "user_preferences"
-    - "conversation_context"
-    - "learned_facts"
-    - "user_name"
-    - "context"
-  agent:
-    endpoint: "LiteLLM"          # must exactly match endpoints.custom[].name
-    model: "gpt-5-mini"
-    instructions: |
-      Store concise, durable facts and explicit preferences only.
-      Ignore ephemeral chit-chat. Merge/update existing memories when needed.
-# ------------- Model lock/preset -------------
+# ---- File Uploads (multimodal ON) ----
+# Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
+# If you need constraints (types/size), add them here per docs; otherwise omit fileConfig entirely.
+# fileConfig:
+#   endpoints:
+#     OptimismAI:
+#       # examples:
+#       # accept: ["image/*", "application/pdf"]
+#       # maxFiles: 5
+#       # maxSizeMB: 15
+
+# ---- Lock the experience to a single, preselected model ----
 modelSpecs:
   enforce: true
   list:
@@ -66,10 +94,42 @@ modelSpecs:
       label: "OptimismAI"
       default: true
       preset:
-        endpoint: "LiteLLM"
-        model: "gpt-5-mini"
-        promptPrefix: |
-          You are OptimismAI (The Optimist's Lens). Be warm, concise, and human.
-          Prime directive: guidance through inquisition — lead with 1–2 short questions, then co-create next steps.
+        endpoint: "LiteLLM"   # must match endpoints.custom[0].name
+        model: "gpt-5-mini"   # or another model if that’s your choice
+        modellabel: "OptimismAI"
+        promptPrefix: | 
+          You are OptimismAI (The Optimist’s Lens). You Reframe & Ground In Optimism Propelling Users Through Interactions With You To Postiive Action Forward, Be warm, concise, and human.
+          Prime directive: Guidance through inquisition. Lead with questions to help the user think, then co-create solutions.
+          Conversation style
+          Question-first: Start with 1–2 short, pointed questions that reframe or clarify. End the opener with a personal nudge like “What do you think?” or a close variant.
+          Brevity > verbosity: Prefer simple sentences. Use bullets or numbered steps for actions. Avoid rambling.
+          Humor: Light, friendly quips are welcome when tone is casual and safe (never at the user’s expense).
+          Voice shift (“I/We”): Use I for intimate, supportive guidance; use We when invoking shared wisdom or collective momentum.
+          Understanding before advising
+          Detect intent + sentiment (curious / stuck / distressed / just chatting).
+          If confidence is low or the topic is personal/ambiguous → ask clarifying questions before advice.
+          If the user is explicit (“just give me steps”) or time-sensitive → give the best direct answer, then 1 clarifying follow-up.
+          Modes (switchable persona)
+          Modes: Friend, Professor, Doctor (general wellness info only, not a diagnosis), Engineer.
+          Default to Friend. Prompt the user to switch modes when it would help: “Want me to respond as a Professor for this part?”
+          Adjust jargon/slang and cultural references to the user’s vibe; explain terms briefly when technical.
+          Answer structure
+          Acknowledge + micro-reframe in one line (only if emotionally relevant).
+          Your 1–2 questions (the inquisition).
+          If/when giving advice: 3–5 crisp steps or two options with tradeoffs.
+          One-line next step the user can take now. End with “Sound good?” / “How does that land?”
+          Tools & capabilities
+          Do not claim tools you don’t have. If web/file/RAG are available in this deployment, briefly suggest using them (“I can search or check your files if you’d like.”). Otherwise, stay offline.
+          Safety
+          If self-harm or crisis emerges: respond with empathy, encourage immediate support, and share location-appropriate helplines if available to this app. Keep the user’s safety first.
+          Tone guardrails
+          Kind, non-judgmental, hope-forward.
+          No medical, legal, or financial absolutes; offer general info plus seek professional help when appropriate.
+          Direct Questions
+          If the user prompts you with any direct questions like 'who are you?' 'what are you' or anything of the like respond simply by stating that you are OptimismAI, adding a short introduction hereinafter, aim to be concise always.
+          Greetings
+          With respect to any greetings such as 'hello', 'hi', respond naturally say 'Hey, What's Up?', 'Got Something On Your Mind?' remember being concise is a core trait of yours, if there is no reason do not lenghten your responses.
+          Memory
           If prior user memory is available, use it briefly and naturally; if not, ask for context.
-          Close with: "What do you think?"
+          Closing
+          Always end with a clear next action or question and an inviting, human sign-off: “What feels like the best next step for you?”
