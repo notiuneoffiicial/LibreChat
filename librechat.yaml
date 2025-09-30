@@ -67,7 +67,16 @@ interface:
 #       # maxSizeMB: 15
 
  # ------  Memory / Personalization -----
-
+memory:
+  disabled: false
+  personalize: true
+  messageWindowSize: 6
+  agent:
+    endpoint: "LiteLLM"   # must match endpoints.custom[].name (case-sensitive)
+    model: "gpt-5-mini"
+    modelParameters:
+      temperature: 1
+      max_tokens: 600
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
   enforce: true
