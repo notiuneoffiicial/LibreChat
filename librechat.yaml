@@ -5,7 +5,7 @@ version: 1.2.1
 cache: false
 
 # ---- Register LiteLLM (OpenAI-compatible) as a custom endpoint ----
-# Your instance: https://litellm-production-157f.up.railway.app/
+# Your instance: 
 # OpenAI-compatible base: /v1
 endpoints:
   custom:
