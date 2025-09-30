@@ -10,9 +10,9 @@ cache: false
 endpoints:
   custom:
     - name: "LiteLLM"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
-      provider: "openaicompatible"
+      provider: "openaiCompatible"
       baseURL: "${LITELLM_BASE_URL}"
-      apikey: "${LITELLM_API_KEY}"
+      apiKey: "${LITELLM_API_KEY}"
       models:
         default: ["gpt-5-mini", "text-embedding-3-large"]
         fetch: true
@@ -23,7 +23,7 @@ endpoints:
       iconURL: "/assets/logo.svg"
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
-      LiteLLM: "/assets/logo.svg"
+      gpt-5-mini: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
@@ -70,7 +70,7 @@ interface:
 modelSpecs:
   enforce: true
   list:
-    - name: "LiteLLM"
+    - name: "gpt-5-mini"
       label: "OptimismAI"
       default: true
       preset:
