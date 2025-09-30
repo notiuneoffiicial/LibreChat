@@ -12,17 +12,17 @@ endpoints:
     - name: "LiteLLM"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
       baseURL: "${LITELLM_BASE_URL}"
       apikey: "${LITELLM_API_KEY}"
-      # ✅ this drives the “messageicon” across the UI
-      iconURL: "/assets/logo.svg"
       models:
         default: ["gpt-5-mini", "text-embedding-3-large"]
         fetch: true
       modelDisplayLabel: "OptimismAI"
       titleConvo: true
       titleModel: "gpt-5-mini"
+       # ✅ this drives the “messageicon” across the UI
+      iconURL: "/assets/logo.svg"
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
-      optimismai: "/assets/logo.svg"
+      LiteLLM: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
@@ -69,7 +69,7 @@ interface:
 modelSpecs:
   enforce: true
   list:
-    - name: "optimismai"
+    - name: "LiteLLM"
       label: "OptimismAI"
       default: true
       preset:
