@@ -70,13 +70,23 @@ interface:
 memory:
   disabled: false
   personalize: true
-  messageWindowSize: 6
+  tokenLimit: 2000
+  validKeys:
+    - "user_preferences"
+    - "conversation_context"
+    - "learned_facts"
+    - "user_name"
+    - "context"
+  messageWindowSize: 5
   agent:
-    endpoint: "LiteLLM"   # must match endpoints.custom[].name (case-sensitive)
-    model: "gpt-5-mini"
-    modelParameters:
-      temperature: 1
-      max_tokens: 600
+    provider: "openAI"         # must be an AI Provider, not a custom endpoint name
+    model: "gpt-4o-mini"       # pick any OpenAI chat model you have access to
+    instructions: |
+      Store concise, durable facts and explicit preferences only.
+      Ignore ephemeral chit-chat. Update/merge existing memories when needed.
+    model_parameters:
+      temperature: 0.1
+      max_tokens: 2048
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
   enforce: true
