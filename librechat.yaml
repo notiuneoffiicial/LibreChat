@@ -72,10 +72,10 @@ memory:
   personalize: true
   tokenLimit: 2000
   validKeys:
-    - "user_preferences"
-    - "conversation_context"
-    - "learned_facts"
-    - "user_name"
+    - "preferences"
+    - "context"
+    - "facts"
+    - "name"
   messageWindowSize: 10
   agent:
     provider: "openaiCompatible"         # must be an AI Provider, not a custom endpoint name
@@ -83,7 +83,9 @@ memory:
     instructions: |
       Store concise, durable facts and explicit preferences only.
       Ignore ephemeral chit-chat. Update/merge existing memories when needed.
-      Store Information with regards to events, details of personal experiences shared & anything of the like
+      Store Information with regards to events, details of personal experiences shared & anything of the like.
+      Be Loose In Your Interpretation of what should be stored with reference to what key.
+      Without Fail Store That Which The User Explicitly Asks.
     model_parameters:
       temperature: 1
       max_tokens: 2048
