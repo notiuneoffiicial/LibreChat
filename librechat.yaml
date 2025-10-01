@@ -74,6 +74,7 @@ interface:
  # ------ Web Search Provider Setup -----
 webSearch:
   enabled: true
+  useUserProvidedKeys: false
   searchProvider: "searxng"      # or "serper"
   searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
   searxngApiKey: "${SEARXNG_API_KEY}"   # optional; leave empty if not used
@@ -97,18 +98,27 @@ memory:
     - "context"
     - "facts"
     - "name"
-  messageWindowSize: 10
+    - "family"
+    - "projects"
+    - "people"
+    - "brands"
+    - "goals"
+    - "tasks"
+    - "workflows"
+    - "other"
+  messageWindowSize: 30
   agent:
     provider: "openAI"         # must be an AI Provider, not a custom endpoint name
     model: "gpt-4o-mini"       # pick any OpenAI chat model you have access to
     instructions: |
-      Store concise, durable facts and explicit preferences only.
-      Ignore ephemeral chit-chat. Update/merge existing memories when needed.
-      Store Information with regards to events, details of personal experiences shared & anything of the like.
-      Be Loose In Your Interpretation of what should be stored with reference to what key.
-      Without Fail Store That Which The User Explicitly Asks.
+      Save concise facts the user is likely to reuse (projects, preferences, tools,
+      accounts, recurring goals, brand names, tech stack, locations, roles, timeframes).
+      Prefer durable info but allow session-relevant facts that are likely to recur.
+      Save when confidence ≥ medium OR when phrased as a plan (“I will…”, “we’ll…”).
+      Always save when the user says “remember / save / note / store”.
+      Merge/refresh existing memories rather than duplicating.
     model_parameters:
-      temperature: 0.1
+      temperature: 0.7
       max_tokens: 2048
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
