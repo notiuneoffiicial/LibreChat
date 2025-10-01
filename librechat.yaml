@@ -35,7 +35,7 @@ endpoints:
         # We expose a single logical "model" id to LibreChat; the shim isn't needed
         # because AnythingLLM speaks OpenAI format here.
         default: ["optimismai"]
-      modelDisplayLabel: "OptimismAI"
+      modelDisplayLabel: "OptimismAI - v2"
       titleConvo: true
       titleModel: "optimismai"
       iconURL: "/assets/logo.svg"
