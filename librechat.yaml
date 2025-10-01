@@ -58,7 +58,20 @@ interface:
   runCode: false
 
   # Keep web search button visible (provider is configured separately if you use it)
-  webSearch: true
+  webSearch:
+  enabled: true
+  searchProvider: "searxng"      # or "serper"
+  searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
+  searxngApiKey: "${SEARXNG_API_KEY}"   # optional; leave empty if not used
+
+  scraperType: "firecrawl"
+  firecrawlApiKey: "${FIRECRAWL_API_KEY}"
+  firecrawlApiUrl: "${FIRECRAWL_API_URL}"  # optional; default Firecrawl URL if unset
+
+  reranker:
+    provider: "jina"   # or "cohere" or "none" if supported by your version
+    jinaApiKey: "${JINA_API_KEY}"
+    # (newer builds may also support) jinaApiUrl: "${JINA_API_URL}"
 
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
