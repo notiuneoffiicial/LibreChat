@@ -58,7 +58,21 @@ interface:
   runCode: false
 
   # Keep web search button visible (provider is configured separately if you use it)
-  webSearch:
+  webSearch: true
+
+# ---- File Uploads (multimodal ON) ----
+# Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
+# If you need constraints (types/size), add them here per docs; otherwise omit fileConfig entirely.
+# fileConfig:
+#   endpoints:
+#     OptimismAI:
+#       # examples:
+#       # accept: ["image/*", "application/pdf"]
+#       # maxFiles: 5
+#       # maxSizeMB: 15
+
+ # ------ Web Search Provider Setup -----
+webSearch:
   enabled: true
   searchProvider: "searxng"      # or "serper"
   searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
@@ -72,17 +86,6 @@ interface:
     provider: "jina"   # or "cohere" or "none" if supported by your version
     jinaApiKey: "${JINA_API_KEY}"
     # (newer builds may also support) jinaApiUrl: "${JINA_API_URL}"
-
-# ---- File Uploads (multimodal ON) ----
-# Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
-# If you need constraints (types/size), add them here per docs; otherwise omit fileConfig entirely.
-# fileConfig:
-#   endpoints:
-#     OptimismAI:
-#       # examples:
-#       # accept: ["image/*", "application/pdf"]
-#       # maxFiles: 5
-#       # maxSizeMB: 15
 
  # ------  Memory / Personalization -----
 memory:
