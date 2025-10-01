@@ -79,7 +79,6 @@ memory:
   messageWindowSize: 10
   agent:
     provider: "openaiCompatible"         # must be an AI Provider, not a custom endpoint name
-    endpoint: "LiteLLM"
     model: "gpt-5-mini"       # pick any OpenAI chat model you have access to
     instructions: |
       Store concise, durable facts and explicit preferences only.
