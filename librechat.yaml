@@ -59,7 +59,6 @@ interface:
 
   # Keep web search button visible (provider is configured separately if you use it)
   webSearch: false
-  mcpServers: false
 
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
@@ -72,13 +71,7 @@ interface:
 #       # maxFiles: 5
 #       # maxSizeMB: 15
 
-# ------- MCP Servers --------
-mcpServers:
-  searxng-simple:
-    type: streamable-http
-    url: "https://searxng-simple-mcp-production.up.railway.app/"
-    serverInstructions: true
-    timeout: 30000
+# ------- MCP Servers -------
 
  # ------ Agent Search Provider Setup -----
  # ------  Memory / Personalization -----
