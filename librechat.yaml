@@ -76,11 +76,11 @@ memory:
     - "conversation_context"
     - "learned_facts"
     - "user_name"
-    - "context"
-  messageWindowSize: 100
+  messageWindowSize: 10
   agent:
-    provider: "openAI"         # must be an AI Provider, not a custom endpoint name
-    model: "gpt-4o-mini"       # pick any OpenAI chat model you have access to
+    provider: "openaiCompatible"         # must be an AI Provider, not a custom endpoint name
+    endpoint: "LiteLLM"
+    model: "gpt-5-mini"       # pick any OpenAI chat model you have access to
     instructions: |
       Store concise, durable facts and explicit preferences only.
       Ignore ephemeral chit-chat. Update/merge existing memories when needed.
