@@ -19,11 +19,30 @@ endpoints:
       modelDisplayLabel: "OptimismAI"
       titleConvo: true
       titleModel: "gpt-5-mini"
-       # ✅ this drives the “messageicon” across the UI
+    # ---- Register AnythingLLM (OpenAI-compatible) as a custom endpoint ----
+    # Your instance: https://anythingllm-production-5629.up.railway.app/
+    # OpenAI-compatible base: /v1/openai
+    - name: "OptimismAI"   # this is the endpoint key you'll use in modelSpecs.preset.endpoint
+      baseURL: "https://anythingllm-production-5629.up.railway.app/api/v1/openai"
+      # Use an env var for the key; set it in Railway (see instructions below)
+      apiKey: "${OPTIMISMAI_ALLM_KEY}"
+      # If your build requires explicit header, uncomment extraHeaders below:
+      # extraHeaders:
+      #   Authorization: "Bearer ${OPTIMISMAI_ALLM_KEY}"
+      # ✅ this drives the “messageicon” across the UI
+      iconURL: "/assets/logo.svg"
+      models:
+        # We expose a single logical "model" id to LibreChat; the shim isn't needed
+        # because AnythingLLM speaks OpenAI format here.
+        default: ["optimismai"]
+      modelDisplayLabel: "OptimismAI"
+      titleConvo: true
+      titleModel: "optimismai"
       iconURL: "/assets/logo.svg"
 # (Optional) per-model icon(s) if you ever add more models
       modelIcons:
         gpt-5-mini: "/assets/logo.svg"
+        optimism-ai: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
@@ -91,7 +110,7 @@ memory:
       max_tokens: 2048
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
-  enforce: true
+  enforce: false
   list:
     - name: "gpt-5-mini"
       label: "OptimismAI"
@@ -136,3 +155,10 @@ modelSpecs:
           If prior user memory is available, use it briefly and naturally; if not, ask for context.
           Closing
           Always end with a clear next action or question and an inviting, human sign-off: “What feels like the best next step for you?”
+    - name: "optimismai-default"
+      label: "OptimismAI"
+      default: true
+      preset:
+        endpoint: "OptimismAI"   # must match endpoints.custom[0].name
+        model: "optimismai"      # must be in endpoints.custom[0].models.default
+        greeting: "The Optimist's Lens"
