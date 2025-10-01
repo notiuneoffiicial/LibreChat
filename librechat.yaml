@@ -156,7 +156,7 @@ modelSpecs:
           Closing
           Always end with a clear next action or question and an inviting, human sign-off: “What feels like the best next step for you?”
     - name: "optimismai-default"
-      label: "OptimismAI"
+      label: "OptimismAI - v2"
       default: true
       preset:
         endpoint: "OptimismAI"   # must match endpoints.custom[0].name
