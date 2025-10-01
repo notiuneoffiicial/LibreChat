@@ -1,7 +1,7 @@
 # OptimismAI - LibreChat configuration
 # https://www.librechat.ai/docs/configuration/librechat_yaml
 
-version: 1.2.1
+version: 1.2.9
 cache: false
 
 # ---- Register LiteLLM (OpenAI-compatible) as a custom endpoint ----
@@ -74,7 +74,7 @@ interface:
  # ------ Web Search Provider Setup -----
 webSearch:
   enabled: true
-  useUserProvidedKeys: false
+  useUserAuth: false
   # Search Provider Configuration
   serperApiKey: "${SERPER_API_KEY}"
   searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
