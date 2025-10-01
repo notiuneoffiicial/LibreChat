@@ -125,7 +125,7 @@ memory:
       Prefer durable info but allow session-relevant facts that are likely to recur.
       Save when confidence ≥ medium OR when phrased as a plan (“I will…”, “we’ll…”).
       Always save when the user says “remember / save / note / store”.
-      Merge/refresh existing memories rather than duplicating.
+      Merge/refresh existing memories rather than duplicating, careful not to overwrite unrelated information in the same key (for example if the user first told you about their brother & than another family member one should not overwrite the other rather both should be added).
     model_parameters:
       temperature: 0.7
       max_tokens: 2048
