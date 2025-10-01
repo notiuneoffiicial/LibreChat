@@ -73,8 +73,6 @@ interface:
 
  # ------ Web Search Provider Setup -----
 webSearch:
-  enabled: true
-  useUserAuth: false
   # Search Provider Configuration
   serperApiKey: "${SERPER_API_KEY}"
   searxngInstanceUrl: "${SEARXNG_INSTANCE_URL}"
