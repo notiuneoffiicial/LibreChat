@@ -58,7 +58,7 @@ interface:
   runCode: false
 
   # Keep web search button visible (provider is configured separately if you use it)
-  webSearch: true
+  webSearch: false
 
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
@@ -71,7 +71,26 @@ interface:
 #       # maxFiles: 5
 #       # maxSizeMB: 15
 
- # ------ Web Search Provider Setup -----
+# ------- MCP Servers --------
+mcpServers:
+  searxng-simple:
+    type: streamable-http
+    url: "https://searxng-simple-mcp-production.up.railway.app/"
+    serverInstructions: true
+    timeout: 30000
+
+ # ------ Agent Search Provider Setup -----
+ 
+agents:
+- name: "OptimismAI Search"
+  provider: "OptimismAI"   # must match your endpoint name above
+  model: "optimismai"      # must be in endpoint.models.default
+  mcpServers:
+     - "searxng-simple"
+  instructions: |
+    You are OptimismAI with access to a web search tool.
+    When asked about current events, facts, or anything you don’t know,
+    call the `search` tool and use the results in your response.
 
  # ------  Memory / Personalization -----
 memory:
@@ -158,4 +177,5 @@ modelSpecs:
       preset:
         endpoint: "OptimismAI"   # must match endpoints.custom[0].name
         model: "optimismai"      # must be in endpoints.custom[0].models.default
+        agent: "OptimismAI Search"
         greeting: "The Optimist's Lens"
