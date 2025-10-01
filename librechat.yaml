@@ -80,18 +80,6 @@ mcpServers:
     timeout: 30000
 
  # ------ Agent Search Provider Setup -----
- 
-agents:
-- name: "OptimismAI Search"
-  provider: "OptimismAI"   # must match your endpoint name above
-  model: "optimismai"      # must be in endpoint.models.default
-  mcpServers:
-     - "searxng-simple"
-  instructions: |
-    You are OptimismAI with access to a web search tool.
-    When asked about current events, facts, or anything you don’t know,
-    call the `search` tool and use the results in your response.
-
  # ------  Memory / Personalization -----
 memory:
   disabled: false
