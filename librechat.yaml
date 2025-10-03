@@ -59,6 +59,7 @@ interface:
 
   # Keep web search button visible (provider is configured separately if you use it)
   webSearch: false
+  mcpServers: false
 
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
@@ -126,6 +127,11 @@ modelSpecs:
         endpoint: "LiteLLM"   # must match endpoints.custom[0].name
         model: "gpt-5-mini"   # or another model if that’s your choice
         modellabel: "OptimismAI"
+        mcpServers:
+          - "searxng-mcp" 
+        instructions: |
+          You are OptimismAI with access to a web search tool.
+          Use the `web_search` tool when the user asks about current events or unknown facts.
         promptPrefix: | 
           You are OptimismAI (The Optimist’s Lens). You Reframe & Ground In Optimism Propelling Users Through Interactions With You To Postiive Action Forward, Be warm, concise, and human.
           Prime directive: Guidance through inquisition. Lead with questions to help the user think, then co-create solutions.
@@ -166,9 +172,4 @@ modelSpecs:
       preset:
         endpoint: "OptimismAI"   # must match endpoints.custom[0].name
         model: "optimismai"      # must be in endpoints.custom[0].models.default
-        mcpServers:
-          - "searxng-mcp" 
-        instructions: |
-          You are OptimismAI with access to a web search tool.
-          Use the `web_search` tool when the user asks about current events or unknown facts.
         greeting: "The Optimist's Lens"
