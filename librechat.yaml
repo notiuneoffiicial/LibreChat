@@ -72,7 +72,7 @@ interface:
 
  # ------- MCP Servers -------
 mcpServers:
-  searxng-mcp:
+  Web Search:
     type: streamable-http
     url: "https://healthy-black-cardinal.fastmcp.app/mcp"
     serverInstructions: true
@@ -126,7 +126,7 @@ modelSpecs:
         model: "gpt-5-mini"   # or another model if that’s your choice
         modellabel: "OptimismAI"
         mcpServers:
-          - "searxng-mcp" 
+          - "Web Search" 
         instructions: |
           You are OptimismAI with access to a web search tool.
           Use the `web_search` tool when the user asks about current events or unknown facts.
