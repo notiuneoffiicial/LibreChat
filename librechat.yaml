@@ -79,15 +79,6 @@ mcpServers:
     serverInstructions: true
     timeout: 30000
  # ------ Agent Search Provider Setup -----
-agent:
-  - name: "OptimismAI Search"
-    provider: "OptimismAI"
-    model: "optimismai"
-    mcpServers:
-      - "searxng-mcp"
-    instructions: |
-      You are OptimismAI with access to a web search tool.
-      Use `web_search` when the user asks about current events or information you don’t know. 
 # ------  Memory / Personalization -----
 memory:
   disabled: false
@@ -175,5 +166,9 @@ modelSpecs:
       preset:
         endpoint: "OptimismAI"   # must match endpoints.custom[0].name
         model: "optimismai"      # must be in endpoints.custom[0].models.default
-        agent: "OptimismAI Search"
+        mcpServers:
+          - "searxng-mcp" 
+        instructions: |
+          You are OptimismAI with access to a web search tool.
+          Use the `web_search` tool when the user asks about current events or unknown facts.
         greeting: "The Optimist's Lens"
