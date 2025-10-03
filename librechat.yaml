@@ -58,6 +58,8 @@ interface:
 
   # Keep web search button visible (provider is configured separately if you use it)
   webSearch: false
+  mcpServers:
+    placeholder: "Tools"
 
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
