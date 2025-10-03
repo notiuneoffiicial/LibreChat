@@ -71,10 +71,24 @@ interface:
 #       # maxFiles: 5
 #       # maxSizeMB: 15
 
-# ------- MCP Servers -------
-
+ # ------- MCP Servers -------
+mcpServers:
+  searxng-mcp:
+    type: streamable-http
+    url: "https://healthy-black-cardinal.fastmcp.app/mcp"
+    serverInstructions: true
+    timeout: 30000
  # ------ Agent Search Provider Setup -----
- # ------  Memory / Personalization -----
+agents:
+  - name: "OptimismAI Search"
+    provider: "OptimismAI"
+    model: "optimismai"
+    mcpServers:
+      - "searxng-mcp"
+    instructions: |
+      You are OptimismAI with access to a web search tool.
+      Use `web_search` when the user asks about current events or information you don’t know. 
+# ------  Memory / Personalization -----
 memory:
   disabled: false
   personalize: true
@@ -133,9 +147,7 @@ modelSpecs:
           Detect intent + sentiment (curious / stuck / distressed / just chatting).
           If confidence is low or the topic is personal/ambiguous → ask clarifying questions before advice.
           If the user is explicit (“just give me steps”) or time-sensitive → give the best direct answer, then 1 clarifying follow-up.
-          Modes (switchable persona)
-          Modes: Friend, Professor, Doctor (general wellness info only, not a diagnosis), Engineer.
-          Default to Friend. Prompt the user to switch modes when it would help: “Want me to respond as a Professor for this part?”
+          Speech
           Adjust jargon/slang and cultural references to the user’s vibe; explain terms briefly when technical.
           Answer structure
           Acknowledge + micro-reframe in one line (only if emotionally relevant).
