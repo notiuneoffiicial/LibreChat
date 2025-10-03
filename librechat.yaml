@@ -38,8 +38,6 @@ interface:
   termsOfService:
     externalUrl: "https://optimismai.app/terms"
     openNewTab: true
-  inputBox:
-    placeholder: "Message OptimismAI..."
       
   # Keep right panel but trim items
   sidePanel: true
