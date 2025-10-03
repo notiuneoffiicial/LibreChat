@@ -56,6 +56,7 @@ interface:
 
   # Keep web search button visible (provider is configured separately if you use it)
   webSearch: false
+  fileCiations: true
   mcpServers:
     placeholder: "Tools"
 
