@@ -45,7 +45,7 @@ interface:
   sidePanel: true
   bookmarks: true
   prompts: false
-  agents: true
+  agents: false
   # hides Agent Builder/Marketplace & artifacts
 
   # Remove advanced knobs
