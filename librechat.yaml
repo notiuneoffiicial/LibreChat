@@ -79,7 +79,7 @@ mcpServers:
     serverInstructions: true
     timeout: 30000
  # ------ Agent Search Provider Setup -----
-agents:
+agent:
   - name: "OptimismAI Search"
     provider: "OptimismAI"
     model: "optimismai"
