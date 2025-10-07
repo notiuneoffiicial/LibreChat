@@ -1,23 +1,13 @@
 import debounce from 'lodash/debounce';
 import { useEffect, useRef, useCallback } from 'react';
 import { useRecoilValue, useRecoilState } from 'recoil';
-import type { TEndpointOption } from 'librechat-data-provider';
+import { isAssistantsEndpoint } from 'librechat-data-provider';
 import type { KeyboardEvent } from 'react';
-import {
-  forceResize,
-  insertTextAtCursor,
-  getEntityName,
-  getEntity,
-  checkIfScrollable,
-} from '~/utils';
-import { useAssistantsMapContext } from '~/Providers/AssistantsMapContext';
-import { useAgentsMapContext } from '~/Providers/AgentsMapContext';
-import useGetSender from '~/hooks/Conversations/useGetSender';
+import { forceResize, insertTextAtCursor, checkIfScrollable } from '~/utils';
 import useFileHandling from '~/hooks/Files/useFileHandling';
 import { useInteractionHealthCheck } from '~/data-provider';
 import { useChatContext } from '~/Providers/ChatContext';
 import { globalAudioId } from '~/common';
-import { useLocalize } from '~/hooks';
 import store from '~/store';
 
 type KeyEvent = KeyboardEvent<HTMLTextAreaElement>;
@@ -26,19 +16,14 @@ export default function useTextarea({
   textAreaRef,
   submitButtonRef,
   setIsScrollable,
-  disabled = false,
 }: {
   textAreaRef: React.RefObject<HTMLTextAreaElement>;
   submitButtonRef: React.RefObject<HTMLButtonElement>;
   setIsScrollable: React.Dispatch<React.SetStateAction<boolean>>;
   disabled?: boolean;
 }) {
-  const localize = useLocalize();
-  const getSender = useGetSender();
   const isComposing = useRef(false);
-  const agentsMap = useAgentsMapContext();
   const { handleFiles } = useFileHandling();
-  const assistantMap = useAssistantsMapContext();
   const checkHealth = useInteractionHealthCheck();
   const enterToSend = useRecoilValue(store.enterToSend);
 
@@ -46,15 +31,8 @@ export default function useTextarea({
     useChatContext();
   const [activePrompt, setActivePrompt] = useRecoilState(store.activePromptByIndex(index));
 
-  const { endpoint = '' } = conversation || {};
-  const { entity, isAgent, isAssistant } = getEntity({
-    endpoint,
-    agentsMap,
-    assistantMap,
-    agent_id: conversation?.agent_id,
-    assistant_id: conversation?.assistant_id,
-  });
-  const entityName = entity?.name ?? '';
+  const endpoint = conversation?.endpointType ?? conversation?.endpoint ?? '';
+  const isAssistant = isAssistantsEndpoint(endpoint);
 
   const isNotAppendable =
     (((latestMessage?.unfinished ?? false) && !isSubmitting) || (latestMessage?.error ?? false)) &&
@@ -76,45 +54,13 @@ export default function useTextarea({
       return;
     }
 
-    const getPlaceholderText = () => {
-      if (disabled) {
-        return localize('com_endpoint_config_placeholder');
-      }
-      const currentEndpoint = conversation?.endpoint ?? '';
-      const currentAgentId = conversation?.agent_id ?? '';
-      const currentAssistantId = conversation?.assistant_id ?? '';
-      if (isAgent && (!currentAgentId || !agentsMap?.[currentAgentId])) {
-        return localize('com_endpoint_agent_placeholder');
-      } else if (
-        isAssistant &&
-        (!currentAssistantId || !assistantMap?.[currentEndpoint]?.[currentAssistantId])
-      ) {
-        return localize('com_endpoint_assistant_placeholder');
-      }
-
-      if (isNotAppendable) {
-        return localize('com_endpoint_message_not_appendable');
-      }
-
-      const sender =
-        isAssistant || isAgent
-          ? getEntityName({ name: entityName, isAgent, localize })
-          : getSender(conversation as TEndpointOption);
-
-      return `${localize('com_endpoint_message_new', {
-        0: sender ? sender : localize('com_endpoint_ai'),
-      })}`;
-    };
-
-    const placeholder = getPlaceholderText();
+    const placeholder = 'Ask OptimismAI';
 
     if (textAreaRef.current?.getAttribute('placeholder') === placeholder) {
       return;
     }
 
     const setPlaceholder = () => {
-      const placeholder = getPlaceholderText();
-
       if (textAreaRef.current?.getAttribute('placeholder') !== placeholder) {
         textAreaRef.current?.setAttribute('placeholder', placeholder);
         forceResize(textAreaRef.current);
@@ -125,20 +71,7 @@ export default function useTextarea({
     debouncedSetPlaceholder();
 
     return () => debouncedSetPlaceholder.cancel();
-  }, [
-    isAgent,
-    localize,
-    disabled,
-    getSender,
-    agentsMap,
-    entityName,
-    textAreaRef,
-    isAssistant,
-    assistantMap,
-    conversation,
-    latestMessage,
-    isNotAppendable,
-  ]);
+  }, [textAreaRef]);
 
   const handleKeyDown = useCallback(
     (e: KeyEvent) => {
