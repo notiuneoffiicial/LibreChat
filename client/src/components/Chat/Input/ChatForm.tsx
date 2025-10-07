@@ -272,6 +272,8 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
                   tabIndex={0}
                   data-testid="text-input"
                   rows={1}
+                  placeholder="Ask OptimismAI"
+                  aria-label="Ask OptimismAI"
                   onFocus={() => {
                     handleFocusOrClick();
                     setIsTextAreaFocused(true);
