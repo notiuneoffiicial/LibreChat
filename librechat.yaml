@@ -15,7 +15,7 @@ endpoints:
       apiKey: "${OPENROUTER_KEY}" # NOT OPENROUTER_API_KEY
       baseURL: "https://openrouter.ai/api/v1"
       models:
-        default: ["@preset/optimism-ai"]
+        default: ["deepseek/deepseek-v3.2-exp@preset/optimism-ai"]
         fetch: true
       titleConvo: true
       titleModel: "OptimismAI"
@@ -114,7 +114,7 @@ memory:
 modelSpecs:
   enforce: false
   list:
-    - name: "@preset/optimism-ai"
+    - name: "deepseek/deepseek-v3.2-exp@preset/optimism-ai"
       label: "OptimismAI"
       default: true
       preset:
