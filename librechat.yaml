@@ -9,7 +9,7 @@ cache: false
 # OpenAI-compatible base: /v1
 endpoints:
   custom:
-      - name: "OpenRouter"
+    - name: "OpenRouter"
       # For `apiKey` and `baseURL`, you can use environment variables that you define.
       # recommended environment variables:
       apiKey: "${OPENROUTER_KEY}" # NOT OPENROUTER_API_KEY
