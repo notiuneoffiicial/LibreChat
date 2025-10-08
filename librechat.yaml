@@ -18,7 +18,7 @@ endpoints:
         default: ["deepseek/deepseek-v3.2-exp@preset/optimism-ai"]
         fetch: true
       titleConvo: true
-      titleModel: "OptimismAI"
+      titleModel: "deepseek-v3.2-exp"
       # Recommended: Drop the stop parameter from the request as Openrouter models use a variety of stop tokens.
       dropParams: ["stop"]
       modelDisplayLabel: "OptimismAI"
