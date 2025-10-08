@@ -15,10 +15,10 @@ endpoints:
       apiKey: "${OPENROUTER_KEY}" # NOT OPENROUTER_API_KEY
       baseURL: "https://openrouter.ai/api/v1"
       models:
-        default: "deepseek/deepseek-v3.2-exp"
+        default: ["deepseek/deepseek-v3.2-exp"]
         fetch: true
       titleConvo: true
-      titleModel: "deepseek-v3.2-exp"
+      titleModel: "deepseek/deepseek-v3.2-exp"
       # Recommended: Drop the stop parameter from the request as Openrouter models use a variety of stop tokens.
       dropParams: ["stop"]
       modelDisplayLabel: "OptimismAI"
