@@ -38,7 +38,7 @@ export interface MemoryConfig {
 }
 
 export const memoryInstructions =
-  'The system automatically stores important user information and can update or delete memories based on user requests, enabling dynamic memory management.';
+  'The system automatically stores important user information and can update or delete memories based on user requests. When you omit a memory key, the system will generate a unique identifier for you unless administrators require specific keys.';
 
 const DEFAULT_NOTABLE_THRESHOLD = 0.6;
 
@@ -325,6 +325,8 @@ Follow these rules carefully:
 4. NEVER use memory tools when the user asks you to use other tools or invoke tools in general.
 5. Memory tools are ONLY for memory actions, not for general tool usage.
 6. When in doubt—and the user hasn't asked to remember or forget anything and the classifier score is below the notable threshold—END THE TURN IMMEDIATELY.
+7. When you omit the \`key\`, a unique timestamp-based key will be generated automatically so you can focus on the memory content.
+8. If administrators provide approved keys, you MUST choose from that list instead of leaving the key blank.
 
 ${validKeys && validKeys.length > 0 ? `VALID KEYS: ${validKeys.join(', ')}` : ''}
 
@@ -356,13 +358,20 @@ export const createMemoryTool = ({
   return tool(
     async ({ key, value }) => {
       try {
-        if (validKeys && validKeys.length > 0 && !validKeys.includes(key)) {
-          logger.warn(
-            `Memory Agent failed to set memory: Invalid key "${key}". Must be one of: ${validKeys.join(
-              ', ',
-            )}`,
-          );
-          return [`Invalid key "${key}". Must be one of: ${validKeys.join(', ')}`, undefined];
+        const trimmedKey = typeof key === 'string' ? key.trim() : undefined;
+
+        if (validKeys && validKeys.length > 0) {
+          if (!trimmedKey) {
+            const message = `Invalid key "". Must be one of: ${validKeys.join(', ')}`;
+            logger.warn(`Memory Agent failed to set memory: ${message}`);
+            return [message, undefined];
+          }
+          if (!validKeys.includes(trimmedKey)) {
+            logger.warn(
+              `Memory Agent failed to set memory: Invalid key "${trimmedKey}". Must be one of: ${validKeys.join(', ')}`
+            );
+            return [`Invalid key "${trimmedKey}". Must be one of: ${validKeys.join(', ')}`, undefined];
+          }
         }
 
         const tokenCount = Tokenizer.getTokenCount(value, 'o200k_base');
@@ -406,25 +415,29 @@ export const createMemoryTool = ({
           }
         }
 
-        const artifact: Record<Tools.memory, MemoryArtifact> = {
-          [Tools.memory]: {
-            key,
-            value,
-            tokenCount,
-            type: 'update',
-          },
-        };
-
-        const result = await setMemory({ userId, key, value, tokenCount });
+        const result = await setMemory({ userId, key: trimmedKey, value, tokenCount });
         if (result.ok) {
-          logger.debug(`Memory set for key "${key}" (${tokenCount} tokens) for user "${userId}"`);
-          return [`Memory set for key "${key}" (${tokenCount} tokens)`, artifact];
+          const storedKey = result.key ?? trimmedKey ?? 'memory';
+          const artifact: Record<Tools.memory, MemoryArtifact> = {
+            [Tools.memory]: {
+              key: storedKey,
+              value,
+              tokenCount,
+              type: 'update',
+            },
+          };
+
+          logger.debug(`Memory set for key "${storedKey}" (${tokenCount} tokens) for user "${userId}"`);
+          return [`Memory set for key "${storedKey}" (${tokenCount} tokens)`, artifact];
         }
-        logger.warn(`Failed to set memory for key "${key}" for user "${userId}"`);
-        return [`Failed to set memory for key "${key}"`, undefined];
+
+        const failureKey = trimmedKey ?? 'memory';
+        logger.warn(`Failed to set memory for key "${failureKey}" for user "${userId}"`);
+        return [`Failed to set memory for key "${failureKey}"`, undefined];
       } catch (error) {
+        const failureKey = typeof key === 'string' && key.trim() ? key.trim() : 'memory';
         logger.error('Memory Agent failed to set memory', error);
-        return [`Error setting memory for key "${key}"`, undefined];
+        return [`Error setting memory for key "${failureKey}"`, undefined];
       }
     },
     {
@@ -434,11 +447,13 @@ export const createMemoryTool = ({
       schema: z.object({
         key: z
           .string()
+          .min(1, { message: 'Key must not be empty when provided.' })
           .describe(
             validKeys && validKeys.length > 0
               ? `The key of the memory value. Must be one of: ${validKeys.join(', ')}`
-              : 'The key identifier for this memory',
-          ),
+              : 'Optional. Leave blank to auto-generate a unique key or provide an existing key to update it.',
+          )
+          .optional(),
         value: z
           .string()
           .describe(

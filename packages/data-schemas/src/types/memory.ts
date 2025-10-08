@@ -22,7 +22,7 @@ export interface IMemoryEntryLean {
 // Method parameter interfaces
 export interface SetMemoryParams {
   userId: string | Types.ObjectId;
-  key: string;
+  key?: string;
   value: string;
   tokenCount?: number;
 }
@@ -39,6 +39,9 @@ export interface GetFormattedMemoriesParams {
 // Result interfaces
 export interface MemoryResult {
   ok: boolean;
+  key?: string;
+  created?: boolean;
+  updated?: boolean;
 }
 
 export interface FormattedMemoriesResult {
