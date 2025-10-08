@@ -12,8 +12,8 @@ const MemoryEntrySchema: Schema<IMemoryEntry> = new Schema({
     type: String,
     required: true,
     validate: {
-      validator: (v: string) => /^[a-z_]+$/.test(v),
-      message: 'Key must only contain lowercase letters and underscores',
+      validator: (v: string) => /^[a-z0-9_-]+$/.test(v),
+      message: 'Key must only contain lowercase letters, numbers, underscores, or hyphens',
     },
   },
   value: {
@@ -29,5 +29,7 @@ const MemoryEntrySchema: Schema<IMemoryEntry> = new Schema({
     default: Date.now,
   },
 });
+
+MemoryEntrySchema.index({ userId: 1, key: 1 }, { unique: true });
 
 export default MemoryEntrySchema;

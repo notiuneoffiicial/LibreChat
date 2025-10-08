@@ -152,6 +152,35 @@ describe('createMemoryTool', () => {
         tokenCount: 12,
       });
     });
+
+    it('should generate and return a key when one is not provided', async () => {
+      mockSetMemory.mockResolvedValue({ ok: true, key: 'memory-abc123', created: true });
+
+      const tool = createMemoryTool({
+        userId: 'test-user',
+        setMemory: mockSetMemory,
+      });
+
+      const result = await tool.func({ value: 'remember me' });
+
+      expect(mockSetMemory).toHaveBeenCalledWith({
+        userId: 'test-user',
+        key: undefined,
+        value: 'remember me',
+        tokenCount: 11,
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBe('Memory set for key "memory-abc123" (11 tokens)');
+
+      const artifacts = result[1] as Record<Tools.memory, MemoryArtifact>;
+      expect(artifacts[Tools.memory]).toEqual({
+        key: 'memory-abc123',
+        value: 'remember me',
+        tokenCount: 11,
+        type: 'update',
+      });
+    });
   });
 
   // Basic functionality tests
@@ -166,6 +195,21 @@ describe('createMemoryTool', () => {
       const result = await tool.func({ key: 'invalid', value: 'some value' });
       expect(result).toHaveLength(2);
       expect(result[0]).toBe('Invalid key "invalid". Must be one of: allowed, keys');
+      expect(result[1]).toBeUndefined();
+      expect(mockSetMemory).not.toHaveBeenCalled();
+    });
+
+    it('should require a key when validKeys are enforced', async () => {
+      const tool = createMemoryTool({
+        userId: 'test-user',
+        setMemory: mockSetMemory,
+        validKeys: ['profile'],
+      });
+
+      const result = await tool.func({ value: 'profile info' });
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBe('Invalid key "". Must be one of: profile');
       expect(result[1]).toBeUndefined();
       expect(mockSetMemory).not.toHaveBeenCalled();
     });
