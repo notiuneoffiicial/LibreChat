@@ -22,6 +22,7 @@ endpoints:
       # Recommended: Drop the stop parameter from the request as Openrouter models use a variety of stop tokens.
       dropParams: ["stop"]
       modelDisplayLabel: "OptimismAI"
+      iconURL: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
