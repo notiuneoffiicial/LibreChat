@@ -23,6 +23,15 @@ endpoints:
       dropParams: ["stop"]
       modelDisplayLabel: "OptimismAI"
       iconURL: "/assets/logo.svg"
+    - name: "Deepseek"
+      apiKey: "${DEEPSEEK_API_KEY}"
+      baseURL: "https://api.deepseek.com/v1"
+      models:
+        default: ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"]
+        fetch: false
+      titleConvo: true
+      titleModel: "deepseek-chat"
+      modelDisplayLabel: "Deepseek"
 # ---- Interface / UI ----
 interface:
   customWelcome: "What's On Your Mind, {{user.name}}?"
@@ -114,12 +123,24 @@ memory:
 modelSpecs:
   enforce: false
   list:
-    - name: "deepseek/deepseek-v3.2-exp"
+    - name: "OpenRouter"
       label: "OptimismAI"
       default: true
       preset:
         endpoint: "OpenRouter"   # must match endpoints.custom[0].name
-        model: "@preset/optimism-ai"   # or another model if that’s your choice
+        model: "deepseek/deepseek-v3.2-exp@preset/optimism-ai"   # or another model if that’s your choice
+        modelLabel: "OptimismAI"
+        mcpServers:
+          - "Web Search" 
+        instructions: |
+          You are OptimismAI with access to a web search tool.
+          Use the `web_search` tool when the user asks about current events or unknown facts.
+    - name: "Deepseek"
+      label: "OptimismAI - Thinking"
+      default: true
+      preset:
+        endpoint: "Deepseek"   # must match endpoints.custom[0].name
+        model: "deepseek-reasoner"   # or another model if that’s your choice
         modelLabel: "OptimismAI"
         mcpServers:
           - "Web Search" 
