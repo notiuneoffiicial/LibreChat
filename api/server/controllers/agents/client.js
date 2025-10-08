@@ -144,6 +144,8 @@ class AgentClient extends BaseClient {
     this.indexTokenCountMap = {};
     /** @type {(messages: BaseMessage[]) => Promise<void>} */
     this.processMemory;
+    /** @type {((messages: BaseMessage[]) => import('@librechat/api').MemoryClassificationResult) | null} */
+    this.memoryClassifier = null;
   }
 
   /**
@@ -516,12 +518,13 @@ class AgentClient extends BaseClient {
       instructions: agent.instructions,
       llmConfig,
       tokenLimit: memoryConfig.tokenLimit,
+      notableThreshold: memoryConfig.notableThreshold,
     };
 
     const userId = this.options.req.user.id + '';
     const messageId = this.responseMessageId + '';
     const conversationId = this.conversationId + '';
-    const [withoutKeys, processMemory] = await createMemoryProcessor({
+    const [withoutKeys, processMemory, classifyWindow] = await createMemoryProcessor({
       userId,
       config,
       messageId,
@@ -535,6 +538,7 @@ class AgentClient extends BaseClient {
     });
 
     this.processMemory = processMemory;
+    this.memoryClassifier = classifyWindow;
     return withoutKeys;
   }
 
@@ -600,6 +604,26 @@ class AgentClient extends BaseClient {
       }
 
       const filteredMessages = messagesToProcess.map((msg) => this.filterImageUrls(msg));
+      if (typeof this.memoryClassifier === 'function') {
+        const classification = this.memoryClassifier(filteredMessages);
+        if (!classification?.shouldProcess) {
+          logger.debug(
+            `[AgentClient] Skipping memory processing (${classification?.reason ?? 'noise'})`,
+          );
+          return;
+        }
+
+        if (classification.reason === 'classifier') {
+          logger.debug(
+            `[AgentClient] Memory classifier approved window with score ${classification.score.toFixed(
+              2,
+            )}`,
+          );
+        } else if (classification.reason === 'explicit_request') {
+          logger.debug('[AgentClient] Memory processing triggered by explicit user request');
+        }
+      }
+
       const bufferString = getBufferString(filteredMessages);
       const bufferMessage = new HumanMessage(`# Current Chat:\n\n${bufferString}`);
       return await this.processMemory([bufferMessage]);

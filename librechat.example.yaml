@@ -376,6 +376,8 @@ endpoints:
 #   validKeys: ["preferences", "work_info", "personal_info", "skills", "interests", "context"]
 #   # (optional) Maximum token limit for memory storage (not yet implemented for token counting)
 #   tokenLimit: 10000
+#   # (optional) Minimum classifier score (0-1) required to auto-save notable turns
+#   notableThreshold: 0.65
 #   # (optional) Enable personalization features (defaults to true if memory is configured)
 #   # When false, users will not see the Personalization tab in settings
 #   personalize: true

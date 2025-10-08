@@ -781,6 +781,11 @@ export const memorySchema = z.object({
   disabled: z.boolean().optional(),
   validKeys: z.array(z.string()).optional(),
   tokenLimit: z.number().optional(),
+  notableThreshold: z
+    .number()
+    .min(0, { message: 'notableThreshold must be >= 0' })
+    .max(1, { message: 'notableThreshold must be <= 1' })
+    .optional(),
   charLimit: z.number().optional().default(10000),
   personalize: z.boolean().default(true),
   messageWindowSize: z.number().optional().default(5),
