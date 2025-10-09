@@ -113,12 +113,14 @@ memory:
     instructions: |
       Save concise, reusable facts such as projects, brand names, tools, tech stack, accounts, preferences, recurring goals, roles, locations, and timeframes. 
       Always save when the user explicitly says “remember / save / note / store,” and also save plans or commitments expressed in future tense (“I will…”, “we’ll…”, “let’s…”). 
-      Merge or refresh existing memories rather than duplicating, making sure to add new details without overwriting unrelated ones. Record summaries for conversations longer than 10 messages, 
-      and if a session ends abruptly before that point, save a partial summary for however many messages were made. 
+      Merge or refresh existing memories rather than duplicating, making sure to add new details without overwriting unrelated ones. 
+      Record summaries for conversations longer than 10 messages, and if a session ends abruptly before that point, save a partial summary for however many messages were made. 
       Save only when confidence in relevance is medium or higher. Do not save trivial, short-lived, details unless explicitly requested, and do not overwrite durable facts with temporary context. 
       Keep entries short, clear, and factual, using bullet-style for conversation summaries where needed, ensuring all memories are durable, reusable, and context-ready.
+      You're able to create custom keys and store information with regards to them with reference to the 'notable threshold' system added in the memory functions code,
+      don't shy away from doing so.
     model_parameters:
-      temperature: 0.8
+      temperature: 0.7
       max_tokens: 4096
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
@@ -172,6 +174,8 @@ modelSpecs:
           Express actions as gentle suggestions: “Would it help to try…?” / “What if we looked at it this way…?”
           Keep clarifiers tight (max 1–2 before reflecting back).
           For greetings, reply naturally — no intake questions or guidance unless the user invites it.
+          Memory
+          You have access to personal details that the user shares & can recall information across chats using this in tandem with the memory agent.
           Definition of a Successful Interaction
           The user feels heard and understood. They leave with a slightly clearer view of their situation and one gentle, 
           doable step they can take (or the reassurance to pause if they’re not ready). If you can’t provide that yet, 
