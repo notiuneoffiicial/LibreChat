@@ -9,6 +9,12 @@ const formatDate = (date: Date): string => {
   return date.toISOString().split('T')[0];
 };
 
+const generateMemoryKey = (): string => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 8);
+  return `memory-${timestamp}-${random}`;
+};
+
 // Factory function that takes mongoose instance and returns the methods
 export function createMemoryMethods(mongoose: typeof import('mongoose')) {
   /**
@@ -22,25 +28,30 @@ export function createMemoryMethods(mongoose: typeof import('mongoose')) {
     tokenCount = 0,
   }: t.SetMemoryParams): Promise<t.MemoryResult> {
     try {
-      if (key?.toLowerCase() === 'nothing') {
+      if (!key || key.trim() === '') {
+        throw new Error('Memory key is required');
+      }
+
+      if (key.toLowerCase() === 'nothing') {
         return { ok: false };
       }
 
       const MemoryEntry = mongoose.models.MemoryEntry;
-      const existingMemory = await MemoryEntry.findOne({ userId, key });
+      const normalizedKey = key.trim();
+      const existingMemory = await MemoryEntry.findOne({ userId, key: normalizedKey });
       if (existingMemory) {
         throw new Error('Memory with this key already exists');
       }
 
       await MemoryEntry.create({
         userId,
-        key,
+        key: normalizedKey,
         value,
         tokenCount,
         updated_at: new Date(),
       });
 
-      return { ok: true };
+      return { ok: true, key: normalizedKey, created: true };
     } catch (error) {
       throw new Error(
         `Failed to create memory: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -63,9 +74,12 @@ export function createMemoryMethods(mongoose: typeof import('mongoose')) {
       }
 
       const MemoryEntry = mongoose.models.MemoryEntry;
-      await MemoryEntry.findOneAndUpdate(
-        { userId, key },
+      const resolvedKey = key?.trim() || generateMemoryKey();
+
+      const updateResult = (await MemoryEntry.findOneAndUpdate(
+        { userId, key: resolvedKey },
         {
+          key: resolvedKey,
           value,
           tokenCount,
           updated_at: new Date(),
@@ -73,10 +87,23 @@ export function createMemoryMethods(mongoose: typeof import('mongoose')) {
         {
           upsert: true,
           new: true,
+          setDefaultsOnInsert: true,
+          rawResult: true,
         },
-      );
+      )) as unknown as {
+        value: t.IMemoryEntry | null;
+        lastErrorObject?: { updatedExisting?: boolean };
+      };
 
-      return { ok: true };
+      const updatedExisting = updateResult?.lastErrorObject?.updatedExisting === true;
+      const storedEntry = updateResult?.value;
+      const storedKey = storedEntry?.key || resolvedKey;
+
+      if (!storedEntry) {
+        throw new Error('Failed to persist memory update');
+      }
+
+      return { ok: true, key: storedKey, created: !updatedExisting, updated: updatedExisting };
     } catch (error) {
       throw new Error(
         `Failed to set memory: ${error instanceof Error ? error.message : 'Unknown error'}`,

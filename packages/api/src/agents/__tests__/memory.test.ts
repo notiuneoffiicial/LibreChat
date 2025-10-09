@@ -2,24 +2,39 @@ import { Response } from 'express';
 import { Providers } from '@librechat/agents';
 import { Tools } from 'librechat-data-provider';
 import type { MemoryArtifact } from 'librechat-data-provider';
-import { createMemoryTool, processMemory } from '../memory';
+import type { BaseMessage } from '@langchain/core/messages';
+import { createMemoryTool, processMemory, classifyMemoryWindow } from '../memory';
 
 // Mock the logger
-jest.mock('winston', () => ({
-  createLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  })),
-  format: {
-    combine: jest.fn(),
-    colorize: jest.fn(),
-    simple: jest.fn(),
-  },
-  transports: {
-    Console: jest.fn(),
-  },
-}));
+jest.mock('winston', () => {
+  const createFormatWrap = () => {
+    const wrap: any = () => ({ transform: jest.fn((info) => info) });
+    wrap.transform = jest.fn((info) => info);
+    return wrap;
+  };
+  const formatMock: any = jest.fn(() => createFormatWrap());
+  formatMock.combine = jest.fn(() => createFormatWrap());
+  formatMock.colorize = jest.fn(() => createFormatWrap());
+  formatMock.simple = jest.fn(() => createFormatWrap());
+  formatMock.printf = jest.fn(() => createFormatWrap());
+  formatMock.errors = jest.fn(() => createFormatWrap());
+  formatMock.splat = jest.fn(() => createFormatWrap());
+  formatMock.timestamp = jest.fn(() => createFormatWrap());
+  formatMock.json = jest.fn(() => createFormatWrap());
+
+  return {
+    createLogger: jest.fn(() => ({
+      debug: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    })),
+    format: formatMock,
+    addColors: jest.fn(),
+    transports: {
+      Console: jest.fn(),
+    },
+  };
+});
 
 // Mock the Tokenizer
 jest.mock('~/utils', () => ({
@@ -137,6 +152,35 @@ describe('createMemoryTool', () => {
         tokenCount: 12,
       });
     });
+
+    it('should generate and return a key when one is not provided', async () => {
+      mockSetMemory.mockResolvedValue({ ok: true, key: 'memory-abc123', created: true });
+
+      const tool = createMemoryTool({
+        userId: 'test-user',
+        setMemory: mockSetMemory,
+      });
+
+      const result = await tool.func({ value: 'remember me' });
+
+      expect(mockSetMemory).toHaveBeenCalledWith({
+        userId: 'test-user',
+        key: undefined,
+        value: 'remember me',
+        tokenCount: 11,
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBe('Memory set for key "memory-abc123" (11 tokens)');
+
+      const artifacts = result[1] as Record<Tools.memory, MemoryArtifact>;
+      expect(artifacts[Tools.memory]).toEqual({
+        key: 'memory-abc123',
+        value: 'remember me',
+        tokenCount: 11,
+        type: 'update',
+      });
+    });
   });
 
   // Basic functionality tests
@@ -151,6 +195,21 @@ describe('createMemoryTool', () => {
       const result = await tool.func({ key: 'invalid', value: 'some value' });
       expect(result).toHaveLength(2);
       expect(result[0]).toBe('Invalid key "invalid". Must be one of: allowed, keys');
+      expect(result[1]).toBeUndefined();
+      expect(mockSetMemory).not.toHaveBeenCalled();
+    });
+
+    it('should require a key when validKeys are enforced', async () => {
+      const tool = createMemoryTool({
+        userId: 'test-user',
+        setMemory: mockSetMemory,
+        validKeys: ['profile'],
+      });
+
+      const result = await tool.func({ value: 'profile info' });
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBe('Invalid key "". Must be one of: profile');
       expect(result[1]).toBeUndefined();
       expect(mockSetMemory).not.toHaveBeenCalled();
     });
@@ -465,5 +524,50 @@ describe('processMemory - GPT-5+ handling', () => {
         }),
       }),
     );
+  });
+});
+
+describe('classifyMemoryWindow', () => {
+  const createUserMessages = (content: string): BaseMessage[] =>
+    [{ role: 'user', content } as unknown as BaseMessage];
+
+  it('treats explicit memory requests as actionable regardless of threshold', () => {
+    const result = classifyMemoryWindow({
+      messages: createUserMessages('Please remember that my favorite color is blue.'),
+      threshold: 0.95,
+      tokenLimit: 200,
+      totalTokens: 10,
+    });
+
+    expect(result.shouldProcess).toBe(true);
+    expect(result.reason).toBe('explicit_request');
+    expect(result.explicitRequest).toBe(true);
+    expect(result.explicitOptOut).toBe(false);
+  });
+
+  it('allows autonomous saves when the classifier score exceeds the threshold', () => {
+    const result = classifyMemoryWindow({
+      messages: createUserMessages('By the way, my birthday is on June 1st.'),
+      threshold: 0.6,
+      tokenLimit: 500,
+      totalTokens: 120,
+    });
+
+    expect(result.shouldProcess).toBe(true);
+    expect(result.reason).toBe('classifier');
+    expect(result.score).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('ignores casual conversation with no notable signal', () => {
+    const result = classifyMemoryWindow({
+      messages: createUserMessages('How is your day going so far?'),
+      threshold: 0.4,
+      tokenLimit: 500,
+      totalTokens: 120,
+    });
+
+    expect(result.shouldProcess).toBe(false);
+    expect(result.reason).toBe('noise');
+    expect(result.score).toBeLessThan(0.4);
   });
 });
