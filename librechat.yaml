@@ -23,6 +23,9 @@ endpoints:
       dropParams: ["stop"]
       modelDisplayLabel: "OptimismAI"
       iconURL: "/assets/logo.svg"
+    - name: "Deepseek"
+      apiKey: "${DEEPSEEK_API_KEY}"
+      baseURL: "https://api.deepseek.com/v1"
       models:
         default: ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"]
         fetch: false
@@ -125,6 +128,8 @@ modelSpecs:
       label: "OptimismAI - Thinking"
       default: true
       preset:
+        endpoint: "Deepseek"   # must match endpoints.custom[0].name
+        model: "deepseek-reasoner"   # or another model if that’s your choice
         modelLabel: "OptimismAI"
         mcpServers:
           - "Web Search" 
