@@ -32,6 +32,7 @@ const {
   CUT_OFF_PROMPT,
   titleInstruction,
   createContextHandlers,
+  promptComposer,
 } = require('./prompts');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const { addSpaceIfNeeded, sleep } = require('~/server/utils');
@@ -386,10 +387,13 @@ class OpenAIClient extends BaseClient {
     let tokenCountMap;
     let promptTokens;
 
-    promptPrefix = (promptPrefix || this.options.promptPrefix || '').trim();
+    const basePersona = (promptPrefix || this.options.promptPrefix || '').trim();
+    let personaPrompt = basePersona;
     if (typeof this.options.artifactsPrompt === 'string' && this.options.artifactsPrompt) {
-      promptPrefix = `${promptPrefix ?? ''}\n${this.options.artifactsPrompt}`.trim();
+      personaPrompt = `${personaPrompt ?? ''}\n${this.options.artifactsPrompt}`.trim();
     }
+
+    const contextSections = [];
 
     if (this.options.attachments) {
       const attachments = await this.options.attachments;
@@ -456,16 +460,21 @@ class OpenAIClient extends BaseClient {
 
     if (this.contextHandlers) {
       this.augmentedPrompt = await this.contextHandlers.createContext();
-      promptPrefix = this.augmentedPrompt + promptPrefix;
+      if (this.augmentedPrompt) {
+        contextSections.push({ id: 'files', content: this.augmentedPrompt });
+      }
     }
 
-    const noSystemModelRegex = /\b(o1-preview|o1-mini)\b/i.test(this.modelOptions.model);
+    const { systemContent, userPrepend } = promptComposer({
+      persona: personaPrompt,
+      contextSections,
+      model: this.modelOptions.model,
+    });
 
-    if (promptPrefix && !noSystemModelRegex) {
-      promptPrefix = `Instructions:\n${promptPrefix.trim()}`;
+    if (systemContent) {
       instructions = {
         role: 'system',
-        content: promptPrefix,
+        content: systemContent,
       };
 
       if (this.contextStrategy) {
@@ -489,7 +498,7 @@ class OpenAIClient extends BaseClient {
     };
 
     /** EXPERIMENTAL */
-    if (promptPrefix && noSystemModelRegex) {
+    if (userPrepend) {
       const lastUserMessageIndex = payload.findLastIndex((message) => message.role === 'user');
       if (lastUserMessageIndex !== -1) {
         if (Array.isArray(payload[lastUserMessageIndex].content)) {
@@ -499,16 +508,16 @@ class OpenAIClient extends BaseClient {
           if (firstTextPartIndex !== -1) {
             const firstTextPart = payload[lastUserMessageIndex].content[firstTextPartIndex];
             payload[lastUserMessageIndex].content[firstTextPartIndex].text =
-              `${promptPrefix}\n${firstTextPart.text}`;
+              `${userPrepend}\n${firstTextPart.text}`;
           } else {
             payload[lastUserMessageIndex].content.unshift({
               type: ContentTypes.TEXT,
-              text: promptPrefix,
+              text: userPrepend,
             });
           }
         } else {
           payload[lastUserMessageIndex].content =
-            `${promptPrefix}\n${payload[lastUserMessageIndex].content}`;
+            `${userPrepend}\n${payload[lastUserMessageIndex].content}`;
         }
       }
     }
