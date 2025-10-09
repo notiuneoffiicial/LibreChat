@@ -26,6 +26,7 @@ endpoints:
       iconURL: "/assets/logo.svg"
       titleConvo: true
       titleModel: "current_model"
+      modelDisplayLabel: "OptimismAI - v2"
       models:
         default: ["optimismai"]
         fetch: true
@@ -125,7 +126,7 @@ modelSpecs:
       preset:
         endpoint: "LiteLLM"   # must match endpoints.custom[0].name
         model: "gpt-5-mini"   # or another model if that’s your choice
-        modellabel: "OptimismAI"
+        modelLabel: "OptimismAI"
         mcpServers:
           - "Web Search" 
         instructions: |
@@ -172,3 +173,4 @@ modelSpecs:
         endpoint: "OptimismAI"   # must match endpoints.custom[0].name
         model: "optimismai"      # must be in endpoints.custom[0].models.default
         greeting: "The Optimist's Lens"
+        modelLabel: "OptimismAI - v2"
