@@ -114,7 +114,7 @@
 
 | Date (YYYY‑MM‑DD) | Decision | Rationale | Links |
 |---|---|---|---|
-|  |  |  |  |
+| 2025-10-10 | Logged baseline repo orientation in `AGENTS.md` | Capture current structure before kicking off epics | this change |
 
 ---
 
