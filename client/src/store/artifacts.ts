@@ -34,7 +34,7 @@ export const currentArtifactId = atom<string | null>({
 
 export const artifactsVisibility = atom<boolean>({
   key: 'artifactsVisibility',
-  default: true,
+  default: false,
   effects: [
     ({ onSet, node }) => {
       onSet(async (newValue) => {

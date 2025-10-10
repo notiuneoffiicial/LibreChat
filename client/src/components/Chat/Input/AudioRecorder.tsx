@@ -25,6 +25,47 @@ export default function AudioRecorder({
   const { speechToTextEndpoint } = useGetAudioSettings();
 
   const existingTextRef = useRef<string>('');
+  const aggregatedTranscriptRef = useRef<string>('');
+
+  const buildAggregatedTranscript = useCallback((incoming: string, isExternal: boolean) => {
+    const trimmedIncoming = incoming.trim();
+
+    if (!trimmedIncoming) {
+      return aggregatedTranscriptRef.current;
+    }
+
+    if (isExternal) {
+      const base = aggregatedTranscriptRef.current;
+      aggregatedTranscriptRef.current = base
+        ? `${base} ${trimmedIncoming}`.replace(/\s+/g, ' ').trim()
+        : trimmedIncoming;
+      return aggregatedTranscriptRef.current;
+    }
+
+    const current = aggregatedTranscriptRef.current.trim();
+    if (!current) {
+      aggregatedTranscriptRef.current = trimmedIncoming;
+      return aggregatedTranscriptRef.current;
+    }
+
+    if (trimmedIncoming.length >= current.length && trimmedIncoming.startsWith(current)) {
+      aggregatedTranscriptRef.current = trimmedIncoming;
+      return aggregatedTranscriptRef.current;
+    }
+
+    if (current.endsWith(trimmedIncoming)) {
+      return aggregatedTranscriptRef.current;
+    }
+
+    if (trimmedIncoming.endsWith(current)) {
+      aggregatedTranscriptRef.current = trimmedIncoming;
+      return aggregatedTranscriptRef.current;
+    }
+
+    aggregatedTranscriptRef.current = `${current} ${trimmedIncoming}`.replace(/\s+/g, ' ').trim();
+
+    return aggregatedTranscriptRef.current;
+  }, []);
 
   const onTranscriptionComplete = useCallback(
     (text: string) => {
@@ -42,33 +83,41 @@ export default function AudioRecorder({
           globalAudio.muted = false;
         }
         /** For external STT, append existing text to the transcription */
-        const finalText =
-          isExternalSTT(speechToTextEndpoint) && existingTextRef.current
-            ? `${existingTextRef.current} ${text}`
-            : text;
+        const aggregated = buildAggregatedTranscript(text, isExternalSTT(speechToTextEndpoint));
+        const prefix = existingTextRef.current ? `${existingTextRef.current} ` : '';
+        const finalText = `${prefix}${aggregated ?? ''}`.replace(/\s+/g, ' ').trim();
         ask({ text: finalText });
         reset({ text: '' });
         existingTextRef.current = '';
+        aggregatedTranscriptRef.current = '';
       }
     },
-    [ask, reset, showToast, localize, isSubmitting, speechToTextEndpoint],
+    [
+      ask,
+      reset,
+      showToast,
+      localize,
+      isSubmitting,
+      speechToTextEndpoint,
+      buildAggregatedTranscript,
+    ],
   );
 
   const setText = useCallback(
     (text: string) => {
-      let newText = text;
-      if (isExternalSTT(speechToTextEndpoint)) {
-        /** For external STT, the text comes as a complete transcription, so append to existing */
-        newText = existingTextRef.current ? `${existingTextRef.current} ${text}` : text;
-      } else {
-        /** For browser STT, the transcript is cumulative, so we only need to prepend the existing text once */
-        newText = existingTextRef.current ? `${existingTextRef.current} ${text}` : text;
+      if (!text?.trim()) {
+        return;
       }
-      setValue('text', newText, {
+
+      const aggregated = buildAggregatedTranscript(text, isExternalSTT(speechToTextEndpoint));
+      const prefix = existingTextRef.current ? `${existingTextRef.current} ` : '';
+      const combinedText = `${prefix}${aggregated ?? ''}`.replace(/\s+/g, ' ').trim();
+
+      setValue('text', combinedText, {
         shouldValidate: true,
       });
     },
-    [setValue, speechToTextEndpoint],
+    [setValue, speechToTextEndpoint, buildAggregatedTranscript],
   );
 
   const { isListening, isLoading, startRecording, stopRecording } = useSpeechToText(
@@ -82,6 +131,7 @@ export default function AudioRecorder({
 
   const handleStartRecording = async () => {
     existingTextRef.current = getValues('text') || '';
+    aggregatedTranscriptRef.current = '';
     startRecording();
   };
 
