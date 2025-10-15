@@ -3,7 +3,6 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import supersub from 'remark-supersub';
 import rehypeKatex from 'rehype-katex';
-import { useRecoilValue } from 'recoil';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkDirective from 'remark-directive';
@@ -15,7 +14,6 @@ import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import { langSubset, preprocessLaTeX } from '~/utils';
 import { unicodeCitation } from '~/components/Web';
 import { code, a, p } from './MarkdownComponents';
-import store from '~/store';
 
 type TContentProps = {
   content: string;
@@ -23,15 +21,14 @@ type TContentProps = {
 };
 
 const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
-  const LaTeXParsing = useRecoilValue<boolean>(store.LaTeXParsing);
   const isInitializing = content === '';
 
   const currentContent = useMemo(() => {
     if (isInitializing) {
       return '';
     }
-    return LaTeXParsing ? preprocessLaTeX(content) : content;
-  }, [content, LaTeXParsing, isInitializing]);
+    return preprocessLaTeX(content);
+  }, [content, isInitializing]);
 
   const rehypePlugins = useMemo(
     () => [

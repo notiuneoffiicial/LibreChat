@@ -7,13 +7,6 @@ import store from '~/store';
 
 const commandSwitchConfigs = [
   {
-    stateAtom: store.atCommand,
-    localizationKey: 'com_nav_at_command_description' as const,
-    switchId: 'atCommand',
-    key: 'atCommand',
-    permissionType: undefined,
-  },
-  {
     stateAtom: store.plusCommand,
     localizationKey: 'com_nav_plus_command_description' as const,
     switchId: 'plusCommand',
