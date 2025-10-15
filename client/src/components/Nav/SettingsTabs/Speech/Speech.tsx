@@ -189,11 +189,9 @@ function Speech() {
       <Tabs.Content value={'simple'} tabIndex={-1}>
         <div className="flex flex-col gap-3 text-sm text-text-primary">
           <SpeechToTextSwitch />
-          <EngineSTTDropdown external={sttExternal} />
           <LanguageSTTDropdown />
           <div className="h-px bg-border-medium" role="none" />
           <TextToSpeechSwitch />
-          <EngineTTSDropdown external={ttsExternal} />
           <VoiceDropdown />
         </div>
       </Tabs.Content>

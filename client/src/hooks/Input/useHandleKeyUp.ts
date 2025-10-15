@@ -39,7 +39,7 @@ const useHandleKeyUp = ({
   index,
   textAreaRef,
   setShowPlusPopover,
-  setShowMentionPopover,
+  setShowMentionPopover: _setShowMentionPopover,
 }: {
   index: number;
   textAreaRef: React.RefObject<HTMLTextAreaElement>;
@@ -58,15 +58,8 @@ const useHandleKeyUp = ({
   const setShowPromptsPopover = useSetRecoilState(store.showPromptsPopoverFamily(index));
 
   // Get the current state of command toggles
-  const atCommandEnabled = useRecoilValue(store.atCommand);
   const plusCommandEnabled = useRecoilValue(store.plusCommand);
   const slashCommandEnabled = useRecoilValue(store.slashCommand);
-
-  const handleAtCommand = useCallback(() => {
-    if (atCommandEnabled && shouldTriggerCommand(textAreaRef, '@')) {
-      setShowMentionPopover(true);
-    }
-  }, [textAreaRef, setShowMentionPopover, atCommandEnabled]);
 
   const handlePlusCommand = useCallback(() => {
     if (!hasMultiConvoAccess || !plusCommandEnabled) {
@@ -88,11 +81,10 @@ const useHandleKeyUp = ({
 
   const commandHandlers = useMemo(
     () => ({
-      '@': handleAtCommand,
       '+': handlePlusCommand,
       '/': handlePromptsCommand,
     }),
-    [handleAtCommand, handlePlusCommand, handlePromptsCommand],
+    [handlePlusCommand, handlePromptsCommand],
   );
 
   const handleUpArrow = useCallback(
