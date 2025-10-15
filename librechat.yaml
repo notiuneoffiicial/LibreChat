@@ -64,6 +64,19 @@ interface:
   mcpServers:
     placeholder: "More Tools"
 
+# ---- Speech Configuration (Cloud Voice) ----
+speech:
+  tts:
+    openai:
+      apiKey: "${OPENAI_API_KEY}"
+      model: "gpt-4o-mini-tts"
+      voices:
+        - alloy
+  stt:
+    openai:
+      apiKey: "${OPENAI_API_KEY}"
+      model: "whisper-1"
+
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
 # If you need constraints (types/size), add them here per docs; otherwise omit fileConfig entirely.
