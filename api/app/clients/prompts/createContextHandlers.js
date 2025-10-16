@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { logger } = require('@librechat/data-schemas');
 const { isEnabled, generateShortLivedToken } = require('@librechat/api');
+const { queryKnowledgeBases, formatKnowledgePrompt } = require('./knowledgeBase');
 
 const footer = `Use the context as your learned knowledge to better answer the user.
 
@@ -20,6 +21,11 @@ function createContextHandlers(req, userMessageContent) {
   const processedIds = new Set();
   const jwtToken = generateShortLivedToken(req.user.id);
   const useFullContext = isEnabled(process.env.RAG_USE_FULL_CONTEXT);
+  const knowledgePromise = queryKnowledgeBases({
+    query: userMessageContent,
+    jwtToken,
+    userId: req.user?.id,
+  });
 
   const query = async (file) => {
     if (useFullContext) {
@@ -61,90 +67,107 @@ function createContextHandlers(req, userMessageContent) {
 
   const createContext = async () => {
     try {
-      if (!queryPromises.length || !processedFiles.length) {
+      const [resolvedQueries, knowledgeResults] = await Promise.all([
+        Promise.all(queryPromises),
+        knowledgePromise,
+      ]);
+
+      const knowledgePrompt = formatKnowledgePrompt(knowledgeResults);
+      const hasKnowledge = Boolean(knowledgePrompt?.trim());
+      const hasFileQueries = resolvedQueries.length > 0 && processedFiles.length > 0;
+
+      if (!hasFileQueries && !hasKnowledge) {
         return '';
       }
 
-      const oneFile = processedFiles.length === 1;
-      const header = `The user has attached ${oneFile ? 'a' : processedFiles.length} file${
-        !oneFile ? 's' : ''
-      } to the conversation:`;
+      let attachmentsPrompt = '';
 
-      const files = `${
-        oneFile
-          ? ''
-          : `
+      if (hasFileQueries) {
+        const oneFile = processedFiles.length === 1;
+        const header = `The user has attached ${oneFile ? 'a' : processedFiles.length} file${
+          !oneFile ? 's' : ''
+        } to the conversation:`;
+
+        const files = `${
+          oneFile
+            ? ''
+            : `
       <files>`
-      }${processedFiles
-        .map(
-          (file) => `
+        }${processedFiles
+          .map(
+            (file) => `
               <file>
                 <filename>${file.filename}</filename>
                 <type>${file.type}</type>
               </file>`,
-        )
-        .join('')}${
-        oneFile
-          ? ''
-          : `
+          )
+          .join('')}${
+          oneFile
+            ? ''
+            : `
         </files>`
-      }`;
+        }`;
 
-      const resolvedQueries = await Promise.all(queryPromises);
+        const context =
+          resolvedQueries.length === 0
+            ? '\n\tThe semantic search did not return any results.'
+            : resolvedQueries
+                .map((queryResult, index) => {
+                  const file = processedFiles[index];
+                  let contextItems = queryResult.data;
 
-      const context =
-        resolvedQueries.length === 0
-          ? '\n\tThe semantic search did not return any results.'
-          : resolvedQueries
-              .map((queryResult, index) => {
-                const file = processedFiles[index];
-                let contextItems = queryResult.data;
-
-                const generateContext = (currentContext) =>
-                  `
+                  const generateContext = (currentContext) =>
+                    `
           <file>
             <filename>${file.filename}</filename>
             <context>${currentContext}
             </context>
           </file>`;
 
-                if (useFullContext) {
-                  return generateContext(`\n${contextItems}`);
-                }
+                  if (useFullContext) {
+                    return generateContext(`\n${contextItems}`);
+                  }
 
-                contextItems = queryResult.data
-                  .map((item) => {
-                    const pageContent = item[0].page_content;
-                    return `
+                  contextItems = queryResult.data
+                    .map((item) => {
+                      const pageContent = item[0].page_content;
+                      return `
             <contextItem>
               <![CDATA[${pageContent?.trim()}]]>
             </contextItem>`;
-                  })
-                  .join('');
+                    })
+                    .join('');
 
-                return generateContext(contextItems);
-              })
-              .join('');
+                  return generateContext(contextItems);
+                })
+                .join('');
 
-      if (useFullContext) {
-        const prompt = `${header}
-          ${context}
-          ${footer}`;
-
-        return prompt;
-      }
-
-      const prompt = `${header}
+        if (useFullContext) {
+          attachmentsPrompt = `${header}
+          ${context}`;
+        } else {
+          attachmentsPrompt = `${header}
         ${files}
 
         A semantic search was executed with the user's message as the query, retrieving the following context inside <context></context> XML tags.
 
         <context>${context}
-        </context>
+        </context>`;
+        }
+      }
 
-        ${footer}`;
+      const promptSections = [];
+      if (attachmentsPrompt) {
+        promptSections.push(attachmentsPrompt.trim());
+      }
 
-      return prompt;
+      if (hasKnowledge) {
+        promptSections.push(knowledgePrompt.trim());
+      }
+
+      promptSections.push(footer.trim());
+
+      return promptSections.join('\n\n');
     } catch (error) {
       logger.error('Error creating context:', error);
       throw error;

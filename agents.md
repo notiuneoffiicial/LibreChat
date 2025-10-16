@@ -41,11 +41,39 @@
 
 **Write here (Codex):**
 - Root entrypoints I found:
+  - `api/server/index.js` → Express bootstrap, DB connect, route wiring.
+  - `client/src/main.jsx` → React/Vite mount point for the web UI.
+  - `packages/api/src/index.ts` → Exposes shared server utilities (checks, services) for workspace.
+  - `packages/client/src/index.ts` → Reusable client package entry (exports shared UI pieces).
 - Custom API routes (path → brief purpose):
+  - `api/server/routes/convos.js` → Conversation CRUD, sharing, pagination.
+  - `api/server/routes/messages.js` → Message lifecycle (create, feedback, attachments).
+  - `api/server/routes/assistants/index.js` & `assistants/v2.js` → Assistant runtime & OpenAI Assistants bridge.
+  - `api/server/routes/files/index.js` → Upload/storage dispatch across local, Firebase, vector DB.
+  - `api/server/routes/agents/index.js` → Agent listing, execution, metadata.
+  - `api/server/routes/presets.js` → Model preset management for users/teams.
+  - `api/server/routes/search.js` → Meilisearch-backed query endpoints.
+  - `api/server/routes/keys.js` → API key management and token usage stats.
+  - `api/server/routes/models.js` → Surface configured model lists per provider.
+  - `api/server/routes/oauth.js` → OAuth login flows & callbacks.
 - Mongo collections (names):
+  - Core: `convos`, `messages`, `agents`, `assistants`, `actions`, `toolcalls`, `files`, `prompts`, `promptgroups`,
+    `presets`, `projects`, `transactions`, `balances`.
+  - Access control: `users`, `sessions`, `aclentries`, `groups`, `accessroles`, `roles`.
+  - Aux: `banners`, `categories`, `keys`, `memories`, `sharedlinks`, `tokenconfigs`.
 - pgvector tables (names):
+  - Managed by external RAG API; API contract references `/embed` & `/documents` endpoints with logical stores `kb_global`
+    and `kb_user` (confirm via RAG service when available).
 - Where model calls are made:
+  - `api/server/services/ModelService.js` for provider model catalog fetch & caching.
+  - `api/server/services/AssistantService.js` & `AssistantService` controllers for chat completions.
+  - `api/server/routes/messages.js` delegates to `@librechat/agents` (LangChain pipeline) via `packages/api` flow.
+  - `packages/api/src/endpoints/chat` & `packages/api/src/flow` orchestrate multi-model routing (OpenAI, Anthropic, Ollama).
 - Build/dev scripts in `package.json`:
+  - Dev servers: `npm run backend:dev`, `npm run frontend:dev`.
+  - Builds: `npm run build:api`, `npm run build:client`, `npm run build:packages`.
+  - Tests: `npm run test:api`, `npm run test:client`, `npm run e2e` variants.
+  - Tooling: `npm run lint`, `npm run lint:fix`, `npm run format`.
 
 ---
 
@@ -84,6 +112,10 @@
 - **Env:** document any new variables in `.env.example` and README; never log secrets.
 
 **Write here (Codex):** actual collection names, pgvector table names, and where embeddings are created.
+- Collections: see Section 1 list; schemas defined under `packages/data-schemas/src/models/*`.
+- pgvector: RAG API abstracts storage; expected logical scopes `kb_global`, `kb_user`; concrete table discovery pending
+  (requires inspecting external `librechat-rag-api`).
+- Embeddings created via `api/server/services/Files/VectorDB/crud.js` (uploads) and `packages/api/src/memory` pipelines.
 
 ---
 
@@ -94,6 +126,11 @@
 - Use config labels for model names; do not couple business logic to provider IDs.
 
 **Write here (Codex):** route files touched/added and their request/response contracts.
+- Baseline reference before changes:
+  - `routes/convos.js` → REST (GET/POST/PATCH/DELETE) returning conversation documents with pagination metadata.
+  - `routes/messages.js` → POST for completions/streaming; expects message payload, responds with SSE or JSON status.
+  - `routes/files/index.js` → multipart upload, responds with stored file metadata & embedding flags.
+  - Update this log when modifying/adding routes.
 
 ---
 
@@ -115,6 +152,12 @@ npm run build
 - Maintain **golden conversation** tests if present (ensure no regressions).
 
 **Write here (Codex):** actual commands and test locations.
+- Lint: `npm run lint` (root) → ESLint across workspaces.
+- Type check: `cd client && npm run typecheck`; shared packages rely on `npm run build:packages` (tsc via rollup/tsup).
+- Unit/integration tests: `npm run test:api`, `npm run test:client`, Playwright suites under `e2e/` (`npm run e2e`).
+- Build: `npm run build:packages` for shared libs, `npm run build:client`, `npm run build:api` for deployment.
+- Test locations: API Jest specs in `api/server/**/__tests__` & `api/models/*.spec.js`; client tests in `client/src/**/__tests__`;
+  Playwright configs in `e2e/`.
 
 ---
 
@@ -138,10 +181,17 @@ npm run build
 
 ## 10) Open Slots for Codex Understanding (fill after scan)
 - Codebase map (finalized tree with notes):
+  - Root workspace with npm workspaces (`api`, `client`, `packages/*`). Express backend under `api/server`, React frontend under
+    `client/src`, shared TypeScript libs in `packages/`.
 - Where model invocation occurs:
+  - Service layer (`api/server/services/AssistantService.js`, `ModelService.js`) delegates to `@librechat/agents` & provider
+    SDKs.
 - Where RAG is invoked:
+  - File embedding/upload path via `api/server/services/Files/VectorDB`, requests proxied to external `RAG_API_URL` service.
 - Where summaries/memory are handled:
+  - Memory stores and summarization utilities inside `packages/api/src/memory` and `api/server/routes/memories.js`.
 - Known gaps relative to `PLANS.md` epics:
+  - Epics E1–E6 currently placeholders; need status, goals, and paths filled before implementation work begins.
 
 ---
 
