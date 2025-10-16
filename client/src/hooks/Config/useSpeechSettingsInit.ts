@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSetRecoilState } from 'recoil';
+import { SetterOrUpdater, useSetRecoilState } from 'recoil';
 import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-query';
 import { logger } from '~/utils';
 import store from '~/store';
@@ -28,6 +28,44 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
     automaticPlayback: useSetRecoilState(store.automaticPlayback),
     playbackRate: useSetRecoilState(store.playbackRate),
   }).current;
+
+  useEffect(() => {
+    const migrationFlagKey = 'speechEngineExternalMigration';
+
+    if (localStorage.getItem(migrationFlagKey) === 'true') {
+      return;
+    }
+
+    const migrateEngineSetting = (
+      key: 'engineSTT' | 'engineTTS',
+      setter: SetterOrUpdater<string>,
+    ) => {
+      const storedValue = localStorage.getItem(key);
+
+      if (storedValue === null) {
+        return;
+      }
+
+      try {
+        const parsedValue = JSON.parse(storedValue);
+
+        if (parsedValue !== 'external') {
+          logger.log(`Migrating ${key} speech engine to 'external'`);
+          setter('external');
+        }
+      } catch (error) {
+        logger.warn(
+          `Failed to parse stored ${key} value. Resetting to 'external'.`,
+          error,
+        );
+        setter('external');
+      }
+    };
+
+    migrateEngineSetting('engineSTT', setters.engineSTT);
+    migrateEngineSetting('engineTTS', setters.engineTTS);
+    localStorage.setItem(migrationFlagKey, 'true');
+  }, [setters]);
 
   useEffect(() => {
     if (!isAuthenticated || !data || data.message === 'not_found') return;
