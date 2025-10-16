@@ -36,6 +36,7 @@
     "env.d.ts",
     "../config/translations/**/*.ts",
     "../packages/client/src/hooks/useDelayedRender.tsx",
-    "../packages/client/src/components/InfoHoverCard.tsx"
+    "../packages/client/src/components/InfoHoverCard.tsx",
+    "../voice/**/*"
   ]
 }

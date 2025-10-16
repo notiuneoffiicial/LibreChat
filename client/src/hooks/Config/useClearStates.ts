@@ -42,6 +42,7 @@ export default function useClearStates() {
           reset(store.messagesSiblingIdxFamily(key.toString()));
         }
 
+        reset(store.voiceModeActive);
         clearLocalStorage(skipFirst);
       },
     [],
