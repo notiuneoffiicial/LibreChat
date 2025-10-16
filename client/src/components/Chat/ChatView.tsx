@@ -18,6 +18,7 @@ import Header from './Header';
 import Footer from './Footer';
 import { cn } from '~/utils';
 import store from '~/store';
+import VoiceModeOverlay from './VoiceMode/VoiceModeOverlay';
 
 function LoadingSpinner() {
   return (
@@ -104,6 +105,7 @@ function ChatView({ index = 0 }: { index?: number }) {
                 {isLandingPage && <Footer />}
               </>
             </div>
+            <VoiceModeOverlay index={index} />
           </Presentation>
         </AddedChatContext.Provider>
       </ChatContext.Provider>
