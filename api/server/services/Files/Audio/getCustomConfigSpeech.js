@@ -38,6 +38,10 @@ async function getCustomConfigSpeech(req, res) {
 
     const speechTab = appConfig.speech.speechTab;
 
+    if (speechTab.conversationMode !== undefined) {
+      settings.conversationMode = speechTab.conversationMode;
+    }
+
     if (speechTab.advancedMode !== undefined) {
       settings.advancedMode = speechTab.advancedMode;
     }

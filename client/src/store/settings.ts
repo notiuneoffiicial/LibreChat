@@ -50,7 +50,6 @@ const localStorageAtoms = {
   slashCommand: atomWithLocalStorage('slashCommand', true),
 
   // Speech settings
-  conversationMode: atomWithLocalStorage('conversationMode', false),
   advancedMode: atomWithLocalStorage('advancedMode', false),
 
   speechToText: atomWithLocalStorage('speechToText', true),

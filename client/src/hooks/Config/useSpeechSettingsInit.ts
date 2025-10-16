@@ -12,7 +12,6 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
   const { data } = useGetCustomConfigSpeechQuery({ enabled: isAuthenticated });
 
   const setters = useRef({
-    conversationMode: useSetRecoilState(store.conversationMode),
     advancedMode: useSetRecoilState(store.advancedMode),
     speechToText: useSetRecoilState(store.speechToText),
     textToSpeech: useSetRecoilState(store.textToSpeech),
