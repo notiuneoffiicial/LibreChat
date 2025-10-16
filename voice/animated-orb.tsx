@@ -36,6 +36,11 @@ export default function Orb({
     }
     return Math.min(Math.max(activityLevel, 0), 1);
   }, [activityLevel]);
+  const activityRef = useRef<number | undefined>(normalizedActivity);
+
+  useEffect(() => {
+    activityRef.current = normalizedActivity;
+  }, [normalizedActivity]);
 
   const vertexShader = `
     precision highp float;
@@ -328,12 +333,37 @@ export default function Orb({
       targetHover = 0;
     };
 
-    const enablePointer = typeof normalizedActivity !== 'number';
+    let pointerEnabled = false;
 
-    if (enablePointer) {
+    const addPointerListeners = () => {
+      if (pointerEnabled) {
+        return;
+      }
       container.addEventListener('mousemove', handleMouseMove);
       container.addEventListener('mouseleave', handleMouseLeave);
-    }
+      pointerEnabled = true;
+    };
+
+    const removePointerListeners = () => {
+      if (!pointerEnabled) {
+        return;
+      }
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+      pointerEnabled = false;
+      targetHover = 0;
+    };
+
+    const ensurePointerState = () => {
+      const shouldEnablePointer = typeof activityRef.current !== 'number';
+      if (shouldEnablePointer) {
+        addPointerListeners();
+      } else {
+        removePointerListeners();
+      }
+    };
+
+    ensurePointerState();
 
     const resize = () => {
       if (!container) {
@@ -359,7 +389,7 @@ export default function Orb({
     resize();
 
     let rafId = 0;
-    let lastTime = 0;
+    let lastTime = performance.now();
 
     const animate = (time: number) => {
       rafId = requestAnimationFrame(animate);
@@ -372,14 +402,22 @@ export default function Orb({
       gl.uniform1f(hoverIntensityLocation, hoverIntensity);
       gl.uniform1f(glowLocation, glow);
 
-      const target = typeof normalizedActivity === 'number' ? normalizedActivity : targetHover;
-      currentHover += (target - currentHover) * 0.1;
+      ensurePointerState();
+
+      const externalActivity = activityRef.current;
+      const hasExternalActivity = typeof externalActivity === 'number';
+      const target = hasExternalActivity ? (externalActivity as number) : targetHover;
+      const smoothing = hasExternalActivity
+        ? Math.min(Math.max(dt * 12, 0.22), 0.55)
+        : Math.min(Math.max(dt * 6, 0.12), 0.3);
+
+      currentHover += (target - currentHover) * smoothing;
+      currentHover = Math.min(Math.max(currentHover, 0), 1);
       gl.uniform1f(hoverLocation, currentHover);
 
       if (rotateOnHover) {
-        const rotationFactor = typeof normalizedActivity === 'number'
-          ? Math.max(normalizedActivity, 0.1)
-          : Math.max(targetHover, 0.1);
+        const rotationSource = hasExternalActivity ? (externalActivity as number) : targetHover;
+        const rotationFactor = Math.max(rotationSource, 0.1);
         currentRot += dt * rotationSpeed * rotationFactor;
       }
 
@@ -394,10 +432,7 @@ export default function Orb({
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', resize);
-      if (enablePointer) {
-        container.removeEventListener('mousemove', handleMouseMove);
-        container.removeEventListener('mouseleave', handleMouseLeave);
-      }
+      removePointerListeners();
       if (container.contains(canvas)) {
         container.removeChild(canvas);
       }
@@ -412,7 +447,6 @@ export default function Orb({
     rotateOnHover,
     glow,
     isStatic,
-    normalizedActivity,
   ]);
 
   if (isStatic) {
