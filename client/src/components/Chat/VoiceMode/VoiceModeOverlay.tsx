@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, MicOff, Volume2, X } from 'lucide-react';
 import { Spinner, useToastContext } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
-import AnimatedOrb from '../../../../voice/animated-orb';
+import AnimatedOrb from '../../../../../voice/animated-orb';
 import { useChatContext } from '~/Providers';
 import { useGetAudioSettings, useLocalize, useSpeechToText } from '~/hooks';
 import VoiceDropdown from '~/components/Nav/SettingsTabs/Speech/TTS/VoiceDropdown';
