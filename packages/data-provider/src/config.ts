@@ -1522,10 +1522,6 @@ export enum SettingsTabValues {
    */
   ACCOUNT = 'account',
   /**
-   * Chat input commands
-   */
-  COMMANDS = 'commands',
-  /**
    * Tab for Personalization Settings
    */
   PERSONALIZATION = 'personalization',

@@ -21,7 +21,6 @@ import {
   EngineSTTDropdown,
   DecibelSelector,
 } from './STT';
-import ConversationModeSwitch from './ConversationModeSwitch';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -37,7 +36,6 @@ function Speech() {
   const [ttsExternal, setTtsExternal] = useState(false);
   const [advancedMode, setAdvancedMode] = useRecoilState(store.advancedMode);
   const [autoTranscribeAudio, setAutoTranscribeAudio] = useRecoilState(store.autoTranscribeAudio);
-  const [conversationMode, setConversationMode] = useRecoilState(store.conversationMode);
   const [speechToText, setSpeechToText] = useRecoilState(store.speechToText);
   const [textToSpeech, setTextToSpeech] = useRecoilState(store.textToSpeech);
   const [cacheTTS, setCacheTTS] = useRecoilState(store.cacheTTS);
@@ -59,7 +57,6 @@ function Speech() {
       const settings = {
         sttExternal: { value: sttExternal, setFunc: setSttExternal },
         ttsExternal: { value: ttsExternal, setFunc: setTtsExternal },
-        conversationMode: { value: conversationMode, setFunc: setConversationMode },
         advancedMode: { value: advancedMode, setFunc: setAdvancedMode },
         speechToText: { value: speechToText, setFunc: setSpeechToText },
         textToSpeech: { value: textToSpeech, setFunc: setTextToSpeech },
@@ -85,7 +82,6 @@ function Speech() {
     [
       sttExternal,
       ttsExternal,
-      conversationMode,
       advancedMode,
       speechToText,
       textToSpeech,
@@ -103,7 +99,6 @@ function Speech() {
       playbackRate,
       setSttExternal,
       setTtsExternal,
-      setConversationMode,
       setAdvancedMode,
       setSpeechToText,
       setTextToSpeech,
@@ -198,8 +193,6 @@ function Speech() {
 
       <Tabs.Content value={'advanced'} tabIndex={-1}>
         <div className="flex flex-col gap-3 text-sm text-text-primary">
-          <ConversationModeSwitch />
-          <div className="mt-2 h-px bg-border-medium" role="none" />
           <SpeechToTextSwitch />
 
           <EngineSTTDropdown external={sttExternal} />

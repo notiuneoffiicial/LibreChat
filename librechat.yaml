@@ -76,6 +76,8 @@ speech:
     openai:
       apiKey: "${OPENAI_API_KEY}"
       model: "whisper-1"
+  speechTab:
+    conversationMode: false
 
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
