@@ -22,6 +22,7 @@ const useSpeechToTextExternal = (
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [isRequestBeingMade, setIsRequestBeingMade] = useState(false);
   const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
+  const audioMimeTypeRef = useRef<string>(audioMimeType);
 
   const [minDecibels] = useRecoilState(store.decibelValue);
   const [autoSendText] = useRecoilState(store.autoSendText);
@@ -114,9 +115,11 @@ const useSpeechToTextExternal = (
   };
 
   const handleStop = () => {
+    const mimeType = audioMimeTypeRef.current;
+
     if (audioChunks.length > 0) {
-      const audioBlob = new Blob(audioChunks, { type: audioMimeType });
-      const fileExtension = getFileExtension(audioMimeType);
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+      const fileExtension = getFileExtension(mimeType);
 
       setAudioChunks([]);
 
@@ -180,10 +183,11 @@ const useSpeechToTextExternal = (
       try {
         setAudioChunks([]);
         const bestMimeType = getBestSupportedMimeType();
+        audioMimeTypeRef.current = bestMimeType;
         setAudioMimeType(bestMimeType);
 
         mediaRecorderRef.current = new MediaRecorder(audioStream.current, {
-          mimeType: audioMimeType,
+          mimeType: bestMimeType,
         });
         mediaRecorderRef.current.addEventListener('dataavailable', (event: BlobEvent) => {
           audioChunks.push(event.data);
