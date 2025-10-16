@@ -192,6 +192,15 @@ modelSpecs:
           Memory
           You have access to personal details that the user shares & can recall information across chats using this in tandem with the memory agent.
           Definition of a Successful Interaction
-          The user feels heard and understood. They leave with a slightly clearer view of their situation and one gentle, 
-          doable step they can take (or the reassurance to pause if they’re not ready). If you can’t provide that yet, 
+          The user feels heard and understood. They leave with a slightly clearer view of their situation and one gentle,
+          doable step they can take (or the reassurance to pause if they’re not ready). If you can’t provide that yet,
           stay with them in their difficulty and continue understanding — without forcing guidance.
+    - name: "Deepseek Chat"
+      label: "OptimismAI - Voice Chat"
+      default: false
+      preset:
+        endpoint: "Deepseek"
+        model: "deepseek-chat"
+        modelLabel: "OptimismAI Voice"
+        mcpServers:
+          - "Web Search"

@@ -1,11 +1,13 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EModelEndpoint } from 'librechat-data-provider';
 import { Mic, MicOff, Volume2, X } from 'lucide-react';
 import { Spinner, useToastContext } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import AnimatedOrb from '../../../../../voice/animated-orb';
 import { useChatContext } from '~/Providers';
 import { useGetAudioSettings, useLocalize, useSpeechToText } from '~/hooks';
+import usePauseGlobalAudio from '~/hooks/Audio/usePauseGlobalAudio';
 import VoiceDropdown from '~/components/Nav/SettingsTabs/Speech/TTS/VoiceDropdown';
 import store from '~/store';
 
@@ -21,7 +23,7 @@ const ACTIVITY_SPEAKING = 0.95;
 export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const localize = useLocalize();
   const { showToast } = useToastContext();
-  const { ask, isSubmitting } = useChatContext();
+  const { ask, isSubmitting, conversation, setConversation } = useChatContext();
 
   const [isOpen, setIsOpen] = useRecoilState(store.voiceModeActive);
   const [speechEnabled, setSpeechEnabled] = useRecoilState(store.speechToText);
@@ -31,6 +33,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const globalAudioFetching = useRecoilValue(store.globalAudioFetchingFamily(index));
 
   const { speechToTextEndpoint, textToSpeechEndpoint } = useGetAudioSettings();
+  const { pauseGlobalAudio } = usePauseGlobalAudio(index);
 
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
@@ -43,6 +46,18 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const previousSpeechEnabled = useRef(speechEnabled);
   const previousTtsEnabled = useRef(ttsEnabled);
   const previousAutomaticPlayback = useRef(automaticPlayback);
+  const storedEndpoint = useRef<{ value: string | null; stored: boolean }>({
+    value: null,
+    stored: false,
+  });
+  const storedModel = useRef<{ value: string | null; stored: boolean }>({
+    value: null,
+    stored: false,
+  });
+  const storedEndpointType = useRef<{ value: string | null; stored: boolean }>({
+    value: null,
+    stored: false,
+  });
 
   const cleanupSpeakingTimeout = useCallback(() => {
     if (speakingTimeout.current) {
@@ -70,7 +85,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       speakingTimeout.current = setTimeout(() => {
         setIsUserSpeaking(false);
         setActivityLevel(ACTIVITY_LISTENING);
-      }, 750);
+      }, 320);
     },
     [cleanupSpeakingTimeout],
   );
@@ -105,6 +120,98 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   );
 
   useEffect(() => cleanupSpeakingTimeout, [cleanupSpeakingTimeout]);
+
+  const restoreVoiceSelection = useCallback(() => {
+    if (!storedEndpoint.current.stored && !storedModel.current.stored) {
+      return;
+    }
+
+    setConversation((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      const nextConversation = { ...prev };
+
+      if (storedEndpoint.current.stored) {
+        if (storedEndpoint.current.value === null) {
+          nextConversation.endpoint = undefined;
+        } else {
+          nextConversation.endpoint = storedEndpoint.current.value;
+        }
+      }
+
+      if (storedEndpointType.current.stored) {
+        if (storedEndpointType.current.value === null) {
+          nextConversation.endpointType = undefined;
+        } else {
+          nextConversation.endpointType = storedEndpointType.current.value as EModelEndpoint;
+        }
+      }
+
+      if (storedModel.current.stored) {
+        if (storedModel.current.value === null) {
+          nextConversation.model = undefined;
+        } else {
+          nextConversation.model = storedModel.current.value;
+        }
+      }
+
+      return nextConversation;
+    });
+
+    storedEndpoint.current = { value: null, stored: false };
+    storedEndpointType.current = { value: null, stored: false };
+    storedModel.current = { value: null, stored: false };
+  }, [setConversation]);
+
+  useEffect(() => {
+    if (!isOpen || !conversation) {
+      return;
+    }
+
+    if (!storedEndpoint.current.stored) {
+      storedEndpoint.current = {
+        value: conversation.endpoint ?? null,
+        stored: true,
+      };
+    }
+
+    if (!storedEndpointType.current.stored) {
+      storedEndpointType.current = {
+        value: conversation.endpointType ?? null,
+        stored: true,
+      };
+    }
+
+    if (!storedModel.current.stored) {
+      storedModel.current = {
+        value: conversation.model ?? null,
+        stored: true,
+      };
+    }
+
+    setConversation((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      if (
+        prev.endpoint === 'Deepseek' &&
+        prev.model === 'deepseek-chat' &&
+        prev.endpointType === EModelEndpoint.custom
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        endpoint: 'Deepseek',
+        endpointType: EModelEndpoint.custom,
+        model: 'deepseek-chat',
+      };
+    });
+  }, [conversation, isOpen, setConversation]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -154,11 +261,21 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       setInterimTranscript('');
       resetActivity();
       setShowVoiceMenu(false);
+      restoreVoiceSelection();
+      pauseGlobalAudio();
       if (isListening) {
         stopRecording();
       }
     }
-  }, [cleanupSpeakingTimeout, isListening, isOpen, resetActivity, stopRecording]);
+  }, [
+    cleanupSpeakingTimeout,
+    isListening,
+    isOpen,
+    pauseGlobalAudio,
+    resetActivity,
+    restoreVoiceSelection,
+    stopRecording,
+  ]);
 
   useEffect(() => {
     if (isUserSpeaking) {
@@ -180,8 +297,14 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     setLastTranscript('');
     resetActivity();
     setShowVoiceMenu(false);
+    pauseGlobalAudio();
     setIsOpen(false);
-  }, [cleanupSpeakingTimeout, resetActivity, setIsOpen]);
+  }, [
+    cleanupSpeakingTimeout,
+    pauseGlobalAudio,
+    resetActivity,
+    setIsOpen,
+  ]);
 
   const toggleListening = useCallback(() => {
     cleanupSpeakingTimeout();
@@ -220,6 +343,10 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const statusText = localize(statusKey);
   const usingExternalVoices = textToSpeechEndpoint === 'external';
 
+  const microphoneButtonClass = isListening
+    ? 'bg-[#ff3b30]/90 hover:bg-[#ff3b30] text-white shadow-[0_0_35px_rgba(255,59,48,0.45)] ring-2 ring-red-300/70 scale-105'
+    : 'bg-white/10 hover:bg-white/20 text-white/90 shadow-lg ring-2 ring-transparent';
+
   if (!isOpen || typeof document === 'undefined') {
     return null;
   }
@@ -235,9 +362,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
           <Volume2 className="h-4 w-4" />
           <span>{localize('com_ui_voice_overlay_choose_voice')}</span>
         </button>
-        <div className="pointer-events-none select-none text-xs uppercase tracking-[0.35em] text-white/60">
-          {localize('com_ui_voice_overlay_title')}
-        </div>
         <button
           type="button"
           onClick={closeOverlay}
@@ -290,7 +414,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
         <button
           type="button"
           onClick={toggleListening}
-          className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur transition hover:bg-white/20 sm:h-24 sm:w-24"
+          className={`flex h-20 w-20 items-center justify-center rounded-full backdrop-blur transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40 sm:h-24 sm:w-24 ${microphoneButtonClass}`}
           aria-pressed={isListening}
         >
           {isLoading ? (

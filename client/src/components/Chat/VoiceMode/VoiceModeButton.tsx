@@ -12,6 +12,10 @@ export default function VoiceModeButton({ disabled = false }: VoiceModeButtonPro
   const localize = useLocalize();
   const [isOpen, setIsOpen] = useRecoilState(store.voiceModeActive);
 
+  const rawBaseUrl = import.meta.env.BASE_URL ?? '/';
+  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`;
+  const iconSrc = `${baseUrl}voice/icon.svg`;
+
   const handleClick = useCallback(() => {
     if (disabled) {
       return;
@@ -33,7 +37,7 @@ export default function VoiceModeButton({ disabled = false }: VoiceModeButtonPro
           aria-pressed={isOpen}
           className="flex size-9 items-center justify-center rounded-full p-1 transition-colors hover:bg-surface-hover disabled:cursor-not-allowed"
         >
-          <img src="/voice/icon.svg" alt="" className="h-5 w-5" />
+          <img src={iconSrc} alt="" className="h-5 w-5" />
         </button>
       }
     />
