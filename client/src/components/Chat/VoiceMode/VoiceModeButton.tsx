@@ -3,6 +3,7 @@ import { TooltipAnchor } from '@librechat/client';
 import { useRecoilState } from 'recoil';
 import { useLocalize } from '~/hooks';
 import store from '~/store';
+import voiceIcon from '~/assets/voice/icon.svg';
 
 interface VoiceModeButtonProps {
   disabled?: boolean;
@@ -11,10 +12,6 @@ interface VoiceModeButtonProps {
 export default function VoiceModeButton({ disabled = false }: VoiceModeButtonProps) {
   const localize = useLocalize();
   const [isOpen, setIsOpen] = useRecoilState(store.voiceModeActive);
-
-  const rawBaseUrl = import.meta.env.BASE_URL ?? '/';
-  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`;
-  const iconSrc = `${baseUrl}voice/icon.svg`;
 
   const handleClick = useCallback(() => {
     if (disabled) {
@@ -37,7 +34,7 @@ export default function VoiceModeButton({ disabled = false }: VoiceModeButtonPro
           aria-pressed={isOpen}
           className="flex size-9 items-center justify-center rounded-full p-1 transition-colors hover:bg-surface-hover disabled:cursor-not-allowed"
         >
-          <img src={iconSrc} alt="" className="h-5 w-5" />
+          <img src={voiceIcon} alt="" className="h-5 w-5" />
         </button>
       }
     />
