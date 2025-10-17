@@ -5,9 +5,12 @@ import { useSpeechToTextMutation } from '~/data-provider';
 import useGetAudioSettings from './useGetAudioSettings';
 import store from '~/store';
 
+import type { SpeechToTextOptions } from './types';
+
 const useSpeechToTextExternal = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
+  options?: SpeechToTextOptions,
 ) => {
   const { showToast } = useToastContext();
   const { speechToTextEndpoint } = useGetAudioSettings();
@@ -22,6 +25,8 @@ const useSpeechToTextExternal = (
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [isRequestBeingMade, setIsRequestBeingMade] = useState(false);
   const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
+  const audioMimeTypeRef = useRef<string>(audioMimeType);
+  const { autoSendOnSuccess = false } = options ?? {};
 
   const [minDecibels] = useRecoilState(store.decibelValue);
   const [autoSendText] = useRecoilState(store.autoSendText);
@@ -31,14 +36,30 @@ const useSpeechToTextExternal = (
 
   const { mutate: processAudio, isLoading: isProcessing } = useSpeechToTextMutation({
     onSuccess: (data) => {
-      const extractedText = data.text;
+      const extractedText = data.text ?? '';
       setText(extractedText);
       setIsRequestBeingMade(false);
 
-      if (autoSendText > -1 && speechToText && extractedText.length > 0) {
+      const trimmedText = extractedText.trim();
+      if (!trimmedText) {
+        return;
+      }
+
+      const shouldAutoSend = autoSendOnSuccess || (speechToText && autoSendText > -1);
+
+      if (!shouldAutoSend) {
+        return;
+      }
+
+      const delaySeconds = autoSendText > -1 ? autoSendText : 0;
+      const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
+
+      if (delay > 0) {
         setTimeout(() => {
           onTranscriptionComplete(extractedText);
-        }, autoSendText * 1000);
+        }, delay);
+      } else {
+        onTranscriptionComplete(extractedText);
       }
     },
     onError: () => {
@@ -114,9 +135,11 @@ const useSpeechToTextExternal = (
   };
 
   const handleStop = () => {
+    const mimeType = audioMimeTypeRef.current;
+
     if (audioChunks.length > 0) {
-      const audioBlob = new Blob(audioChunks, { type: audioMimeType });
-      const fileExtension = getFileExtension(audioMimeType);
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+      const fileExtension = getFileExtension(mimeType);
 
       setAudioChunks([]);
 
@@ -180,10 +203,11 @@ const useSpeechToTextExternal = (
       try {
         setAudioChunks([]);
         const bestMimeType = getBestSupportedMimeType();
+        audioMimeTypeRef.current = bestMimeType;
         setAudioMimeType(bestMimeType);
 
         mediaRecorderRef.current = new MediaRecorder(audioStream.current, {
-          mimeType: audioMimeType,
+          mimeType: bestMimeType,
         });
         mediaRecorderRef.current.addEventListener('dataavailable', (event: BlobEvent) => {
           audioChunks.push(event.data);

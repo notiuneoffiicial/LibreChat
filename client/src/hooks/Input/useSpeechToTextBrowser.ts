@@ -5,9 +5,12 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import useGetAudioSettings from './useGetAudioSettings';
 import store from '~/store';
 
+import type { SpeechToTextOptions } from './types';
+
 const useSpeechToTextBrowser = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
+  options?: SpeechToTextOptions,
 ) => {
   const { showToast } = useToastContext();
   const { speechToTextEndpoint } = useGetAudioSettings();
@@ -19,6 +22,7 @@ const useSpeechToTextBrowser = (
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
+  const { autoSendOnSuccess = false } = options ?? {};
 
   const {
     listening,
@@ -54,11 +58,29 @@ const useSpeechToTextBrowser = (
 
     setText(finalTranscript);
     lastTranscript.current = finalTranscript;
-    if (autoSendText > -1 && finalTranscript.length > 0) {
-      timeoutRef.current = setTimeout(() => {
-        onTranscriptionComplete(finalTranscript);
-        resetTranscript();
-      }, autoSendText * 1000);
+    const trimmedTranscript = finalTranscript.trim();
+    if (!trimmedTranscript) {
+      return;
+    }
+
+    const shouldAutoSend = autoSendOnSuccess || autoSendText > -1;
+
+    if (!shouldAutoSend) {
+      return;
+    }
+
+    const delaySeconds = autoSendText > -1 ? autoSendText : 0;
+    const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
+
+    const sendTranscript = () => {
+      onTranscriptionComplete(trimmedTranscript);
+      resetTranscript();
+    };
+
+    if (delay > 0) {
+      timeoutRef.current = setTimeout(sendTranscript, delay);
+    } else {
+      sendTranscript();
     }
 
     return () => {
@@ -66,7 +88,14 @@ const useSpeechToTextBrowser = (
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [setText, onTranscriptionComplete, resetTranscript, finalTranscript, autoSendText]);
+  }, [
+    setText,
+    onTranscriptionComplete,
+    resetTranscript,
+    finalTranscript,
+    autoSendText,
+    autoSendOnSuccess,
+  ]);
 
   const toggleListening = () => {
     if (!browserSupportsSpeechRecognition) {

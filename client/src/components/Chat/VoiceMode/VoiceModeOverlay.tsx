@@ -117,6 +117,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const { isListening, isLoading, startRecording, stopRecording } = useSpeechToText(
     handleInterim,
     handleComplete,
+    { autoSendOnSuccess: true },
   );
 
   useEffect(() => cleanupSpeakingTimeout, [cleanupSpeakingTimeout]);

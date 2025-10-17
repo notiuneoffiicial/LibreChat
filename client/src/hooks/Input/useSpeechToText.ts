@@ -2,9 +2,12 @@ import useSpeechToTextBrowser from './useSpeechToTextBrowser';
 import useSpeechToTextExternal from './useSpeechToTextExternal';
 import useGetAudioSettings from './useGetAudioSettings';
 
+import type { SpeechToTextOptions } from './types';
+
 const useSpeechToText = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
+  options?: SpeechToTextOptions,
 ): {
   isLoading?: boolean;
   isListening?: boolean;
@@ -19,14 +22,14 @@ const useSpeechToText = (
     isLoading: speechIsLoadingBrowser,
     startRecording: startSpeechRecordingBrowser,
     stopRecording: stopSpeechRecordingBrowser,
-  } = useSpeechToTextBrowser(setText, onTranscriptionComplete);
+  } = useSpeechToTextBrowser(setText, onTranscriptionComplete, options);
 
   const {
     isListening: speechIsListeningExternal,
     isLoading: speechIsLoadingExternal,
     externalStartRecording: startSpeechRecordingExternal,
     externalStopRecording: stopSpeechRecordingExternal,
-  } = useSpeechToTextExternal(setText, onTranscriptionComplete);
+  } = useSpeechToTextExternal(setText, onTranscriptionComplete, options);
 
   const isListening = externalSpeechToText ? speechIsListeningExternal : speechIsListeningBrowser;
   const isLoading = externalSpeechToText ? speechIsLoadingExternal : speechIsLoadingBrowser;
