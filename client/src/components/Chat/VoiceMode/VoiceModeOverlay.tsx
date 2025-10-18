@@ -591,13 +591,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     return () => {
       stopRespondingAnimation();
     };
-  }, [
-    micEnabled,
-    isUserSpeaking,
-    orbState,
-    stopRespondingAnimation,
-    updateActivityLevel,
-  ]);
+  }, [ micEnabled, isUserSpeaking, orbState, stopRespondingAnimation, updateActivityLevel ]);
 
   useEffect(() => {
     const responseActive = isSubmitting || globalAudioPlaying || globalAudioFetching;
