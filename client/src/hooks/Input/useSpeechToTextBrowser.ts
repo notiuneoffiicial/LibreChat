@@ -22,7 +22,7 @@ const useSpeechToTextBrowser = (
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
-  const { autoSendOnSuccess = false } = options ?? {};
+  const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
 
   const {
     listening,
@@ -149,6 +149,10 @@ const useSpeechToTextBrowser = (
   }, [isListening, startListening, stopListening]);
 
   useEffect(() => {
+    if (!enableHotkeys) {
+      return undefined;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.shiftKey && e.altKey && e.code === 'KeyL' && !isBrowserSTTEnabled) {
         toggleListening();
@@ -157,7 +161,7 @@ const useSpeechToTextBrowser = (
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isBrowserSTTEnabled, toggleListening]);
+  }, [enableHotkeys, isBrowserSTTEnabled, toggleListening]);
 
   return {
     isListening,

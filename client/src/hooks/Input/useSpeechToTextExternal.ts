@@ -26,7 +26,7 @@ const useSpeechToTextExternal = (
   const [isRequestBeingMade, setIsRequestBeingMade] = useState(false);
   const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
   const audioMimeTypeRef = useRef<string>(audioMimeType);
-  const { autoSendOnSuccess = false } = options ?? {};
+  const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
 
   const [minDecibels] = useRecoilState(store.decibelValue);
   const [autoSendText] = useRecoilState(store.autoSendText);
@@ -296,13 +296,17 @@ const useSpeechToTextExternal = (
   };
 
   useEffect(() => {
+    if (!enableHotkeys) {
+      return undefined;
+    }
+
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isListening]);
+  }, [enableHotkeys, isListening]);
 
   return {
     isListening,
