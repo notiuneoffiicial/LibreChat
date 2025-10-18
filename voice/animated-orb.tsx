@@ -418,12 +418,9 @@ export default function Orb({
       lastTime = time;
 
       gl.uniform1f(timeLocation, time * 0.001);
-      const currentHue = hueRef.current ?? 0;
-      const currentHoverIntensity = hoverIntensityRef.current ?? 0.2;
-      const currentGlow = glowRef.current ?? 1;
-      gl.uniform1f(hueLocation, currentHue);
-      gl.uniform1f(hoverIntensityLocation, currentHoverIntensity);
-      gl.uniform1f(glowLocation, currentGlow);
+      gl.uniform1f(hueLocation, hueRef.current);
+      gl.uniform1f(hoverIntensityLocation, hoverIntensityRef.current);
+      gl.uniform1f(glowLocation, glowRef.current);
 
       ensurePointerState();
 

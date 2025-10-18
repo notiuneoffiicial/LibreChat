@@ -137,22 +137,20 @@ const useSpeechToTextExternal = (
     }
   };
 
-  const cleanup = () => {
-    stopSilenceMonitoring();
-    stopMediaTracks();
-
+  const cleanupRecorder = () => {
     const recorder = mediaRecorderRef.current;
-    if (recorder) {
-      if (dataHandlerRef.current) {
-        recorder.removeEventListener('dataavailable', dataHandlerRef.current);
-        dataHandlerRef.current = null;
-      }
 
-      recorder.removeEventListener('stop', handleStop);
-      recorder.ondataavailable = null;
-      recorder.onstop = null;
-      mediaRecorderRef.current = null;
+    if (!recorder) {
+      return;
     }
+
+    if (dataHandlerRef.current) {
+      recorder.removeEventListener('dataavailable', dataHandlerRef.current);
+      dataHandlerRef.current = null;
+    }
+
+    recorder.removeEventListener('stop', handleStop);
+    mediaRecorderRef.current = null;
   };
 
   const getMicrophonePermission = async () => {
@@ -183,11 +181,14 @@ const useSpeechToTextExternal = (
         formData.append('language', languageSTT);
       }
       setIsRequestBeingMade(true);
-      cleanup();
+      cleanupRecorder();
       processAudio(formData);
     } else {
       showToast({ message: 'The audio was too short', status: 'warning' });
     }
+
+    stopSilenceMonitoring();
+    stopMediaTracks();
   };
 
   const monitorSilence = (stream: MediaStream, stopRecording: () => void) => {
@@ -271,7 +272,7 @@ const useSpeechToTextExternal = (
     if (recorder && recorder.state === 'recording') {
       recorder.stop();
     } else {
-      cleanup();
+      cleanupRecorder();
     }
 
     stopSilenceMonitoring();
@@ -325,6 +326,15 @@ const useSpeechToTextExternal = (
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableHotkeys, isListening]);
+
+  useEffect(() => {
+    return () => {
+      cleanupRecorder();
+      stopSilenceMonitoring();
+      stopMediaTracks();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     isListening,
