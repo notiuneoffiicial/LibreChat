@@ -6,7 +6,7 @@ import { Mic, MicOff, Volume2, X } from 'lucide-react';
 import { Slider, Spinner, useToastContext } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import AnimatedOrb from '../../../../../voice/animated-orb';
-import listeningOrb from '../../../../../voice/listening.png';
+import listeningOrb from '../../../assets/voice/listening.png';
 import { useChatContext } from '~/Providers';
 import { useGetAudioSettings, useLocalize, useSpeechToText } from '~/hooks';
 import usePauseGlobalAudio from '~/hooks/Audio/usePauseGlobalAudio';
