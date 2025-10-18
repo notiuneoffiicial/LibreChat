@@ -546,6 +546,122 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     startRecording,
   ]);
 
+  const hasActiveSpeech = useMemo(
+    () => Boolean(interimTranscript.trim() || transcriptRef.current),
+    [interimTranscript],
+  );
+
+  const statusKey = useMemo(() => {
+    if (!micEnabled) {
+      return 'com_ui_voice_overlay_status_muted' as const;
+    }
+
+    if (globalAudioPlaying) {
+      return 'com_ui_voice_overlay_status_speaking' as const;
+    }
+
+    if (isSubmitting || globalAudioFetching || isLoading) {
+      return 'com_ui_voice_overlay_status_processing' as const;
+    }
+
+    if (isUserSpeaking || (isListening && hasActiveSpeech)) {
+      return 'com_ui_voice_overlay_status_listening' as const;
+    }
+
+    if (isListening) {
+      return 'com_ui_voice_overlay_status_ready' as const;
+    }
+
+    return 'com_ui_voice_overlay_status_ready' as const;
+  }, [
+    globalAudioFetching,
+    globalAudioPlaying,
+    hasActiveSpeech,
+    isListening,
+    isLoading,
+    isSubmitting,
+    isUserSpeaking,
+    micEnabled,
+  ]);
+
+  const orbState = useMemo(() => {
+    if (!micEnabled) {
+      return 'muted';
+    }
+
+    if (globalAudioPlaying) {
+      return 'responding';
+    }
+
+    if (isSubmitting || globalAudioFetching || isLoading) {
+      return 'processing';
+    }
+
+    if (isUserSpeaking || (isListening && hasActiveSpeech)) {
+      return 'listening';
+    }
+
+    if (isListening) {
+      return 'ready';
+    }
+
+    return 'ready';
+  }, [
+    globalAudioFetching,
+    globalAudioPlaying,
+    hasActiveSpeech,
+    isListening,
+    isLoading,
+    isSubmitting,
+    isUserSpeaking,
+    micEnabled,
+  ]);
+
+  const orbVisualState = useMemo(() => {
+    if (!micEnabled) {
+      return {
+        glow: 0.85,
+        hoverIntensity: 0.25,
+        animation: { scale: 0.9, opacity: 0.75 },
+      };
+    }
+
+    switch (orbState) {
+      case 'responding':
+        return {
+          glow: 1.65,
+          hoverIntensity: 0.9,
+          animation: { scale: 1.08, opacity: 1 },
+        };
+      case 'processing':
+        return {
+          glow: 1.4,
+          hoverIntensity: 0.65,
+          animation: { scale: 0.98, opacity: 0.95 },
+        };
+      case 'listening':
+        return {
+          glow: 1.5,
+          hoverIntensity: 0.85,
+          animation: { scale: 1.05, opacity: 1 },
+        };
+      default:
+        return {
+          glow: 1.3,
+          hoverIntensity: 0.5,
+          animation: { scale: 1, opacity: 1 },
+        };
+    }
+  }, [micEnabled, orbState]);
+
+  const transcriptToDisplay = interimTranscript || lastTranscript;
+  const statusText = localize(statusKey);
+  const usingExternalVoices = textToSpeechEndpoint === 'external';
+
+  const microphoneButtonClass = micEnabled
+    ? 'bg-[#ff3b30]/90 hover:bg-[#ff3b30] text-white shadow-[0_0_35px_rgba(255,59,48,0.45)] ring-2 ring-red-300/70 scale-105'
+    : 'bg-white/10 hover:bg-white/20 text-white/90 shadow-lg ring-2 ring-transparent';
+
   useEffect(() => {
     if (!micEnabled) {
       updateActivityLevel(ACTIVITY_IDLE);
@@ -682,122 +798,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     },
     [setSilenceDelay],
   );
-
-  const hasActiveSpeech = useMemo(
-    () => Boolean(interimTranscript.trim() || transcriptRef.current),
-    [interimTranscript],
-  );
-
-  const statusKey = useMemo(() => {
-    if (!micEnabled) {
-      return 'com_ui_voice_overlay_status_muted' as const;
-    }
-
-    if (globalAudioPlaying) {
-      return 'com_ui_voice_overlay_status_speaking' as const;
-    }
-
-    if (isSubmitting || globalAudioFetching || isLoading) {
-      return 'com_ui_voice_overlay_status_processing' as const;
-    }
-
-    if (isUserSpeaking || (isListening && hasActiveSpeech)) {
-      return 'com_ui_voice_overlay_status_listening' as const;
-    }
-
-    if (isListening) {
-      return 'com_ui_voice_overlay_status_ready' as const;
-    }
-
-    return 'com_ui_voice_overlay_status_ready' as const;
-  }, [
-    globalAudioFetching,
-    globalAudioPlaying,
-    hasActiveSpeech,
-    isListening,
-    isLoading,
-    isSubmitting,
-    isUserSpeaking,
-    micEnabled,
-  ]);
-
-  const orbState = useMemo(() => {
-    if (!micEnabled) {
-      return 'muted';
-    }
-
-    if (globalAudioPlaying) {
-      return 'responding';
-    }
-
-    if (isSubmitting || globalAudioFetching || isLoading) {
-      return 'processing';
-    }
-
-    if (isUserSpeaking || (isListening && hasActiveSpeech)) {
-      return 'listening';
-    }
-
-    if (isListening) {
-      return 'ready';
-    }
-
-    return 'ready';
-  }, [
-    globalAudioFetching,
-    globalAudioPlaying,
-    hasActiveSpeech,
-    isListening,
-    isLoading,
-    isSubmitting,
-    isUserSpeaking,
-    micEnabled,
-  ]);
-
-  const orbVisualState = useMemo(() => {
-    if (!micEnabled) {
-      return {
-        glow: 0.85,
-        hoverIntensity: 0.25,
-        animation: { scale: 0.9, opacity: 0.75 },
-      };
-    }
-
-    switch (orbState) {
-      case 'responding':
-        return {
-          glow: 1.65,
-          hoverIntensity: 0.9,
-          animation: { scale: 1.08, opacity: 1 },
-        };
-      case 'processing':
-        return {
-          glow: 1.4,
-          hoverIntensity: 0.65,
-          animation: { scale: 0.98, opacity: 0.95 },
-        };
-      case 'listening':
-        return {
-          glow: 1.5,
-          hoverIntensity: 0.85,
-          animation: { scale: 1.05, opacity: 1 },
-        };
-      default:
-        return {
-          glow: 1.3,
-          hoverIntensity: 0.5,
-          animation: { scale: 1, opacity: 1 },
-        };
-    }
-  }, [micEnabled, orbState]);
-
-  const transcriptToDisplay = interimTranscript || lastTranscript;
-  const statusText = localize(statusKey);
-  const usingExternalVoices = textToSpeechEndpoint === 'external';
-
-  const microphoneButtonClass = micEnabled
-    ? 'bg-[#ff3b30]/90 hover:bg-[#ff3b30] text-white shadow-[0_0_35px_rgba(255,59,48,0.45)] ring-2 ring-red-300/70 scale-105'
-    : 'bg-white/10 hover:bg-white/20 text-white/90 shadow-lg ring-2 ring-transparent';
   const microphoneIcon = useMemo(() => {
     if (isLoading) {
       return <Spinner className="h-8 w-8 text-white" />;
