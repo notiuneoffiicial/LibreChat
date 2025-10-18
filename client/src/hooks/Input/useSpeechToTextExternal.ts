@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useRecoilState } from 'recoil';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useRecoilState, useRecoilValue } from 'recoil';
 import { useToastContext } from '@librechat/client';
 import { useSpeechToTextMutation } from '~/data-provider';
 import useGetAudioSettings from './useGetAudioSettings';
@@ -33,6 +33,11 @@ const useSpeechToTextExternal = (
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [speechToText] = useRecoilState<boolean>(store.speechToText);
   const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
+  const silenceDelaySeconds = useRecoilValue(store.voiceSilenceDelay);
+  const silenceThreshold = useMemo(
+    () => Math.max(1, silenceDelaySeconds) * 1000,
+    [silenceDelaySeconds],
+  );
 
   const { mutate: processAudio, isLoading: isProcessing } = useSpeechToTextMutation({
     onSuccess: (data) => {
@@ -176,7 +181,7 @@ const useSpeechToTextExternal = (
       }
 
       const timeSinceLastSound = Date.now() - lastSoundTime;
-      const isOverSilenceThreshold = timeSinceLastSound > 3000;
+      const isOverSilenceThreshold = timeSinceLastSound > silenceThreshold;
 
       if (isOverSilenceThreshold) {
         stopRecording();
