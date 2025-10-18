@@ -37,10 +37,30 @@ export default function Orb({
     return Math.min(Math.max(activityLevel, 0), 1);
   }, [activityLevel]);
   const activityRef = useRef<number | undefined>(normalizedActivity);
+  const hueRef = useRef(hue);
+  const hoverIntensityRef = useRef(hoverIntensity);
+  const glowRef = useRef(glow);
+  const rotateOnHoverRef = useRef(rotateOnHover);
 
   useEffect(() => {
     activityRef.current = normalizedActivity;
   }, [normalizedActivity]);
+
+  useEffect(() => {
+    hueRef.current = hue;
+  }, [hue]);
+
+  useEffect(() => {
+    hoverIntensityRef.current = hoverIntensity;
+  }, [hoverIntensity]);
+
+  useEffect(() => {
+    glowRef.current = glow;
+  }, [glow]);
+
+  useEffect(() => {
+    rotateOnHoverRef.current = rotateOnHover;
+  }, [rotateOnHover]);
 
   const vertexShader = `
     precision highp float;
@@ -398,9 +418,12 @@ export default function Orb({
       lastTime = time;
 
       gl.uniform1f(timeLocation, time * 0.001);
-      gl.uniform1f(hueLocation, hue);
-      gl.uniform1f(hoverIntensityLocation, hoverIntensity);
-      gl.uniform1f(glowLocation, glow);
+      const currentHue = hueRef.current ?? 0;
+      const currentHoverIntensity = hoverIntensityRef.current ?? 0.2;
+      const currentGlow = glowRef.current ?? 1;
+      gl.uniform1f(hueLocation, currentHue);
+      gl.uniform1f(hoverIntensityLocation, currentHoverIntensity);
+      gl.uniform1f(glowLocation, currentGlow);
 
       ensurePointerState();
 
@@ -415,7 +438,7 @@ export default function Orb({
       currentHover = Math.min(Math.max(currentHover, 0), 1);
       gl.uniform1f(hoverLocation, currentHover);
 
-      if (rotateOnHover) {
+      if (rotateOnHoverRef.current) {
         const rotationSource = hasExternalActivity ? (externalActivity as number) : targetHover;
         const rotationFactor = Math.max(rotationSource, 0.1);
         currentRot += dt * rotationSpeed * rotationFactor;
@@ -441,13 +464,7 @@ export default function Orb({
         ext.loseContext();
       }
     };
-  }, [
-    hue,
-    hoverIntensity,
-    rotateOnHover,
-    glow,
-    isStatic,
-  ]);
+  }, [isStatic]);
 
   if (isStatic) {
     const hueRad = (hue * Math.PI) / 180;

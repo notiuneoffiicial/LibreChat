@@ -19,6 +19,7 @@ const useSpeechToTextExternal = (
   const animationFrameIdRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const dataHandlerRef = useRef<((event: BlobEvent) => void) | null>(null);
 
   const [permission, setPermission] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -116,12 +117,40 @@ const useSpeechToTextExternal = (
     }
   };
 
+  const stopSilenceMonitoring = () => {
+    if (animationFrameIdRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameIdRef.current);
+      animationFrameIdRef.current = null;
+    }
+
+    const audioContext = audioContextRef.current;
+    if (audioContext) {
+      void audioContext.close().catch(() => undefined);
+      audioContextRef.current = null;
+    }
+  };
+
+  const stopMediaTracks = () => {
+    if (audioStream.current) {
+      audioStream.current.getTracks().forEach((track) => track.stop());
+      audioStream.current = null;
+    }
+  };
+
   const cleanup = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.removeEventListener('dataavailable', (event: BlobEvent) => {
-        audioChunks.push(event.data);
-      });
-      mediaRecorderRef.current.removeEventListener('stop', handleStop);
+    stopSilenceMonitoring();
+    stopMediaTracks();
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      if (dataHandlerRef.current) {
+        recorder.removeEventListener('dataavailable', dataHandlerRef.current);
+        dataHandlerRef.current = null;
+      }
+
+      recorder.removeEventListener('stop', handleStop);
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
       mediaRecorderRef.current = null;
     }
   };
@@ -163,6 +192,7 @@ const useSpeechToTextExternal = (
 
   const monitorSilence = (stream: MediaStream, stopRecording: () => void) => {
     const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
     const audioStreamSource = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     analyser.minDecibels = minDecibels;
@@ -211,14 +241,18 @@ const useSpeechToTextExternal = (
         audioMimeTypeRef.current = bestMimeType;
         setAudioMimeType(bestMimeType);
 
-        mediaRecorderRef.current = new MediaRecorder(audioStream.current, {
+        const recorder = new MediaRecorder(audioStream.current, {
           mimeType: bestMimeType,
         });
-        mediaRecorderRef.current.addEventListener('dataavailable', (event: BlobEvent) => {
+        const handleDataAvailable = (event: BlobEvent) => {
           audioChunks.push(event.data);
-        });
-        mediaRecorderRef.current.addEventListener('stop', handleStop);
-        mediaRecorderRef.current.start(100);
+        };
+
+        dataHandlerRef.current = handleDataAvailable;
+        recorder.addEventListener('dataavailable', handleDataAvailable);
+        recorder.addEventListener('stop', handleStop);
+        recorder.start(100);
+        mediaRecorderRef.current = recorder;
         if (!audioContextRef.current && autoTranscribeAudio && speechToText) {
           monitorSilence(audioStream.current, stopRecording);
         }
@@ -232,25 +266,17 @@ const useSpeechToTextExternal = (
   };
 
   const stopRecording = () => {
-    if (!mediaRecorderRef.current) {
-      return;
-    }
+    const recorder = mediaRecorderRef.current;
 
-    if (mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-
-      audioStream.current?.getTracks().forEach((track) => track.stop());
-      audioStream.current = null;
-
-      if (animationFrameIdRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameIdRef.current);
-        animationFrameIdRef.current = null;
-      }
-
-      setIsListening(false);
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
     } else {
-      showToast({ message: 'MediaRecorder is not recording', status: 'error' });
+      cleanup();
     }
+
+    stopSilenceMonitoring();
+    stopMediaTracks();
+    setIsListening(false);
   };
 
   const externalStartRecording = () => {
@@ -263,14 +289,6 @@ const useSpeechToTextExternal = (
   };
 
   const externalStopRecording = () => {
-    if (!isListening) {
-      showToast({
-        message: 'Not currently recording. Please start recording first.',
-        status: 'warning',
-      });
-      return;
-    }
-
     stopRecording();
   };
 
