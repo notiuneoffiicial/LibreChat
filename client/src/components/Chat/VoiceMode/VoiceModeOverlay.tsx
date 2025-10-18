@@ -6,7 +6,6 @@ import { Mic, MicOff, Volume2, X } from 'lucide-react';
 import { Slider, Spinner, useToastContext } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import AnimatedOrb from '../../../../../voice/animated-orb';
-import listeningOrb from '../../../assets/voice/listening.png';
 import { useChatContext } from '~/Providers';
 import { useGetAudioSettings, useLocalize, useSpeechToText } from '~/hooks';
 import usePauseGlobalAudio from '~/hooks/Audio/usePauseGlobalAudio';
@@ -18,9 +17,10 @@ interface VoiceModeOverlayProps {
 }
 
 const ACTIVITY_IDLE = 0.12;
-const ACTIVITY_LISTENING = 0.35;
+const ACTIVITY_LISTENING = 0.55;
 const ACTIVITY_RESPONDING = 0.7;
 const ACTIVITY_SPEAKING = 0.95;
+const ACTIVITY_PROCESSING = 0.45;
 const MAX_SILENCE_CHECKS = 2;
 const TRAILING_PUNCTUATION = /[.!?…。！？]["'”’)]?$/;
 
@@ -114,20 +114,6 @@ const textTransitionVariants = {
   },
 };
 
-const orbStateVariants = {
-  initial: { opacity: 0, scale: 0.95 },
-  animate: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.35, ease: 'easeOut' },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.95,
-    transition: { duration: 0.25, ease: 'easeIn' },
-  },
-};
-
 const menuVariants = {
   initial: { opacity: 0, y: -12, filter: 'blur(10px)' },
   animate: {
@@ -193,6 +179,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const speakingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null);
+  const respondingAnimationRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
   const silenceHoldRef = useRef(0);
   const previousOverflow = useRef('');
@@ -229,10 +216,23 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     }
   }, []);
 
-  const resetActivity = useCallback(() => {
-    setActivityLevel(ACTIVITY_IDLE);
-    setIsUserSpeaking(false);
+  const stopRespondingAnimation = useCallback(() => {
+    if (respondingAnimationRef.current !== null) {
+      cancelAnimationFrame(respondingAnimationRef.current);
+      respondingAnimationRef.current = null;
+    }
   }, []);
+
+  const updateActivityLevel = useCallback((value: number) => {
+    const clamped = Math.min(Math.max(value, 0), 1);
+    setActivityLevel((prev) => (Math.abs(prev - clamped) < 0.001 ? prev : clamped));
+  }, []);
+
+  const resetActivity = useCallback(() => {
+    stopRespondingAnimation();
+    updateActivityLevel(ACTIVITY_IDLE);
+    setIsUserSpeaking(false);
+  }, [stopRespondingAnimation, updateActivityLevel]);
 
   const submitTranscript = useCallback(
     (text: string) => {
@@ -305,11 +305,9 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       }
 
       setIsUserSpeaking(true);
-      setActivityLevel(ACTIVITY_SPEAKING);
       cleanupSpeakingTimeout();
       speakingTimeout.current = setTimeout(() => {
         setIsUserSpeaking(false);
-        setActivityLevel(micEnabled ? ACTIVITY_LISTENING : ACTIVITY_IDLE);
       }, 320);
 
       silenceHoldRef.current = 0;
@@ -502,9 +500,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       restoreVoiceSelection();
       pauseGlobalAudio();
       setMicEnabled(false);
-      if (isListening) {
-        stopRecording();
-      }
+      stopRecordingRef.current?.();
       return;
     }
 
@@ -512,12 +508,10 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   }, [
     cleanupSpeakingTimeout,
     clearSilenceTimeout,
-    isListening,
     isOpen,
     pauseGlobalAudio,
     resetActivity,
     restoreVoiceSelection,
-    stopRecording,
   ]);
 
   useEffect(() => {
@@ -527,9 +521,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
     if (!micEnabled) {
       clearSilenceTimeout();
-      if (isListening) {
-        stopRecording();
-      }
+      stopRecordingRef.current?.();
       return;
     }
 
@@ -552,27 +544,60 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     isSubmitting,
     micEnabled,
     startRecording,
-    stopRecording,
   ]);
 
   useEffect(() => {
-    if (isUserSpeaking) {
-      return;
-    }
-
     if (!micEnabled) {
-      setActivityLevel(ACTIVITY_IDLE);
-      return;
+      updateActivityLevel(ACTIVITY_IDLE);
+      return () => {
+        stopRespondingAnimation();
+      };
     }
 
-    if (globalAudioPlaying) {
-      setActivityLevel(ACTIVITY_RESPONDING);
-    } else if (isListening) {
-      setActivityLevel(ACTIVITY_LISTENING);
-    } else {
-      setActivityLevel(ACTIVITY_IDLE);
+    if (isUserSpeaking) {
+      updateActivityLevel(ACTIVITY_SPEAKING);
+      return () => {
+        stopRespondingAnimation();
+      };
     }
-  }, [globalAudioPlaying, isListening, isUserSpeaking, micEnabled]);
+
+    if (orbState === 'responding') {
+      const animate = (time: number) => {
+        const oscillation = (Math.sin(time * 0.004) + 1) / 2;
+        const minLevel = Math.max(ACTIVITY_LISTENING, ACTIVITY_RESPONDING - 0.25);
+        const maxLevel = ACTIVITY_SPEAKING;
+        const nextLevel = minLevel + (maxLevel - minLevel) * oscillation;
+        updateActivityLevel(nextLevel);
+        respondingAnimationRef.current = requestAnimationFrame(animate);
+      };
+
+      respondingAnimationRef.current = requestAnimationFrame(animate);
+
+      return () => {
+        stopRespondingAnimation();
+      };
+    }
+
+    stopRespondingAnimation();
+
+    if (orbState === 'processing') {
+      updateActivityLevel(ACTIVITY_PROCESSING);
+    } else if (orbState === 'listening') {
+      updateActivityLevel(ACTIVITY_LISTENING);
+    } else {
+      updateActivityLevel(ACTIVITY_IDLE);
+    }
+
+    return () => {
+      stopRespondingAnimation();
+    };
+  }, [
+    micEnabled,
+    isUserSpeaking,
+    orbState,
+    stopRespondingAnimation,
+    updateActivityLevel,
+  ]);
 
   useEffect(() => {
     const responseActive = isSubmitting || globalAudioPlaying || globalAudioFetching;
@@ -604,18 +629,14 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     setShowVoiceMenu(false);
     pauseGlobalAudio();
     setMicEnabled(false);
-    if (isListening) {
-      stopRecording();
-    }
+    stopRecordingRef.current?.();
     setIsOpen(false);
   }, [
     cleanupSpeakingTimeout,
     clearSilenceTimeout,
-    isListening,
     pauseGlobalAudio,
     resetActivity,
     setIsOpen,
-    stopRecording,
   ]);
 
   const toggleMicrophone = useCallback(() => {
@@ -625,11 +646,10 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     if (!nextEnabled) {
       cleanupSpeakingTimeout();
       clearSilenceTimeout();
-      if (isListening) {
-        stopRecording();
-      }
+      stopRecordingRef.current?.();
       setIsUserSpeaking(false);
-      setActivityLevel(ACTIVITY_IDLE);
+      stopRespondingAnimation();
+      updateActivityLevel(ACTIVITY_IDLE);
       return;
     }
 
@@ -656,7 +676,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     isSubmitting,
     micEnabled,
     startRecording,
-    stopRecording,
+    stopRespondingAnimation,
+    updateActivityLevel,
   ]);
 
   const handleSilenceDelayChange = useCallback(
@@ -738,6 +759,43 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     isUserSpeaking,
     micEnabled,
   ]);
+
+  const orbVisualState = useMemo(() => {
+    if (!micEnabled) {
+      return {
+        glow: 0.85,
+        hoverIntensity: 0.25,
+        animation: { scale: 0.9, opacity: 0.75 },
+      };
+    }
+
+    switch (orbState) {
+      case 'responding':
+        return {
+          glow: 1.65,
+          hoverIntensity: 0.9,
+          animation: { scale: 1.08, opacity: 1 },
+        };
+      case 'processing':
+        return {
+          glow: 1.4,
+          hoverIntensity: 0.65,
+          animation: { scale: 0.98, opacity: 0.95 },
+        };
+      case 'listening':
+        return {
+          glow: 1.5,
+          hoverIntensity: 0.85,
+          animation: { scale: 1.05, opacity: 1 },
+        };
+      default:
+        return {
+          glow: 1.3,
+          hoverIntensity: 0.5,
+          animation: { scale: 1, opacity: 1 },
+        };
+    }
+  }, [micEnabled, orbState]);
 
   const transcriptToDisplay = interimTranscript || lastTranscript;
   const statusText = localize(statusKey);
@@ -859,27 +917,19 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
                 animate="animate"
                 exit="exit"
               >
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={orbState}
-                    className="h-64 w-64 max-w-full sm:h-72 sm:w-72"
-                    variants={orbStateVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                  >
-                    {orbState === 'listening' ? (
-                      <img src={listeningOrb} alt="" className="h-full w-full object-contain" />
-                    ) : (
-                      <AnimatedOrb
-                        activityLevel={activityLevel}
-                        hoverIntensity={0.5}
-                        rotateOnHover
-                        glow={1.3}
-                      />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                <motion.div
+                  className="h-64 w-64 max-w-full sm:h-72 sm:w-72"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={orbVisualState.animation}
+                  transition={{ type: 'spring', stiffness: 170, damping: 20 }}
+                >
+                  <AnimatedOrb
+                    activityLevel={activityLevel}
+                    hoverIntensity={orbVisualState.hoverIntensity}
+                    rotateOnHover={false}
+                    glow={orbVisualState.glow}
+                  />
+                </motion.div>
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={statusKey}
