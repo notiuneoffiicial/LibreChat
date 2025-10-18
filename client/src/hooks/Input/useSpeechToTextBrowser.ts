@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useRecoilState } from 'recoil';
 import { useToastContext } from '@librechat/client';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
@@ -22,7 +22,7 @@ const useSpeechToTextBrowser = (
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
-  const { autoSendOnSuccess = false } = options ?? {};
+  const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
 
   const {
     listening,
@@ -97,7 +97,7 @@ const useSpeechToTextBrowser = (
     autoSendOnSuccess,
   ]);
 
-  const toggleListening = () => {
+  const startListening = useCallback(() => {
     if (!browserSupportsSpeechRecognition) {
       showToast({
         message: 'Browser does not support SpeechRecognition',
@@ -114,17 +114,45 @@ const useSpeechToTextBrowser = (
       return;
     }
 
-    if (isListening === true) {
-      SpeechRecognition.stopListening();
-    } else {
-      SpeechRecognition.startListening({
-        language: languageSTT,
-        continuous: autoTranscribeAudio,
-      });
+    if (isListening) {
+      return;
     }
-  };
+
+    SpeechRecognition.startListening({
+      language: languageSTT,
+      continuous: autoTranscribeAudio,
+    });
+  }, [
+    autoTranscribeAudio,
+    browserSupportsSpeechRecognition,
+    isListening,
+    isMicrophoneAvailable,
+    languageSTT,
+    showToast,
+  ]);
+
+  const stopListening = useCallback(() => {
+    if (!isListening) {
+      return;
+    }
+
+    SpeechRecognition.stopListening();
+  }, [isListening]);
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    startListening();
+  }, [isListening, startListening, stopListening]);
 
   useEffect(() => {
+    if (!enableHotkeys) {
+      return undefined;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.shiftKey && e.altKey && e.code === 'KeyL' && !isBrowserSTTEnabled) {
         toggleListening();
@@ -133,13 +161,13 @@ const useSpeechToTextBrowser = (
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [enableHotkeys, isBrowserSTTEnabled, toggleListening]);
 
   return {
     isListening,
     isLoading: false,
-    startRecording: toggleListening,
-    stopRecording: toggleListening,
+    startRecording: startListening,
+    stopRecording: stopListening,
   };
 };
 

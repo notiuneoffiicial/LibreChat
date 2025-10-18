@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useRecoilState } from 'recoil';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useRecoilState, useRecoilValue } from 'recoil';
 import { useToastContext } from '@librechat/client';
 import { useSpeechToTextMutation } from '~/data-provider';
 import useGetAudioSettings from './useGetAudioSettings';
@@ -26,13 +26,18 @@ const useSpeechToTextExternal = (
   const [isRequestBeingMade, setIsRequestBeingMade] = useState(false);
   const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
   const audioMimeTypeRef = useRef<string>(audioMimeType);
-  const { autoSendOnSuccess = false } = options ?? {};
+  const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
 
   const [minDecibels] = useRecoilState(store.decibelValue);
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [speechToText] = useRecoilState<boolean>(store.speechToText);
   const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
+  const silenceDelaySeconds = useRecoilValue(store.voiceSilenceDelay);
+  const silenceThreshold = useMemo(
+    () => Math.max(1, silenceDelaySeconds) * 1000,
+    [silenceDelaySeconds],
+  );
 
   const { mutate: processAudio, isLoading: isProcessing } = useSpeechToTextMutation({
     onSuccess: (data) => {
@@ -176,7 +181,7 @@ const useSpeechToTextExternal = (
       }
 
       const timeSinceLastSound = Date.now() - lastSoundTime;
-      const isOverSilenceThreshold = timeSinceLastSound > 3000;
+      const isOverSilenceThreshold = timeSinceLastSound > silenceThreshold;
 
       if (isOverSilenceThreshold) {
         stopRecording();
@@ -291,13 +296,17 @@ const useSpeechToTextExternal = (
   };
 
   useEffect(() => {
+    if (!enableHotkeys) {
+      return undefined;
+    }
+
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isListening]);
+  }, [enableHotkeys, isListening]);
 
   return {
     isListening,
