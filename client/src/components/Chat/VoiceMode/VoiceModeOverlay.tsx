@@ -192,6 +192,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
   const speakingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null);
+  const isListeningRef = useRef(false);
   const silenceHoldRef = useRef(0);
   const previousOverflow = useRef('');
   const previousSpeechEnabled = useRef(speechEnabled);
@@ -268,7 +270,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   );
 
   const checkSilence = useCallback(() => {
-    if (!micEnabled || !isListening) {
+    if (!micEnabled || !isListeningRef.current) {
       return;
     }
 
@@ -288,8 +290,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     silenceHoldRef.current = 0;
     clearSilenceTimeout();
     setIsUserSpeaking(false);
-    void stopRecording();
-  }, [clearSilenceTimeout, isListening, micEnabled, silenceDelayMs, stopRecording]);
+    stopRecordingRef.current?.();
+  }, [clearSilenceTimeout, micEnabled, silenceDelayMs]);
 
   const handleInterim = useCallback(
     (text: string) => {
@@ -340,6 +342,9 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     handleComplete,
     { autoSendOnSuccess: true, enableHotkeys: isOpen },
   );
+
+  isListeningRef.current = isListening;
+  stopRecordingRef.current = stopRecording;
 
   useEffect(() => {
     return () => {
