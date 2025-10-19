@@ -21,6 +21,7 @@ import FileSearch from './FileSearch';
 import Artifacts from './Artifacts';
 import MCPSelect from './MCPSelect';
 import WebSearch from './WebSearch';
+import ThinkingToggle from './ThinkingToggle';
 import store from '~/store';
 
 interface BadgeRowProps {
@@ -364,6 +365,7 @@ function BadgeRow({
         )}
         {showEphemeralBadges === true && (
           <>
+            <ThinkingToggle />
             <WebSearch />
             <CodeInterpreter />
             <FileSearch />
