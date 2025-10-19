@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import type * as t from 'librechat-data-provider';
 import type { ModelSelectorProps } from '~/common';
 import { ModelSelectorProvider, useModelSelectorContext } from './ModelSelectorContext';
 import { ModelSelectorChatProvider } from './ModelSelectorChatContext';
@@ -41,17 +42,83 @@ function ModelSelectorContent() {
       }),
     [mappedEndpoints, selectedValues, modelSpecs, endpointsConfig],
   );
-  const selectedDisplayValue = useMemo(
+
+  const hiddenModelSpecNames = useMemo(
     () =>
-      getDisplayValue({
-        localize,
-        agentsMap,
-        modelSpecs,
-        selectedValues,
-        mappedEndpoints,
-      }),
-    [localize, agentsMap, modelSpecs, selectedValues, mappedEndpoints],
+      new Set(
+        (modelSpecs ?? [])
+          .filter((spec) => spec.preset?.model === 'deepseek-chat')
+          .map((spec) => spec.name),
+      ),
+    [modelSpecs],
   );
+
+  const displayedModelSpecs = useMemo(() =>
+    (modelSpecs ?? []).filter((spec) => !hiddenModelSpecNames.has(spec.name)),
+    [modelSpecs, hiddenModelSpecNames],
+  );
+
+  const filteredSearchResults = useMemo(() => {
+    if (!searchResults) {
+      return null;
+    }
+
+    return searchResults.filter((result) => {
+      if ('preset' in result) {
+        const spec = result as t.TModelSpec;
+        return !hiddenModelSpecNames.has(spec.name);
+      }
+
+      return true;
+    });
+  }, [searchResults, hiddenModelSpecNames]);
+
+  const optimismSpecNames = useMemo(
+    () =>
+      (modelSpecs ?? [])
+        .filter((spec) => spec.preset?.endpoint === 'Deepseek')
+        .map((spec) => spec.name),
+    [modelSpecs],
+  );
+
+  const optimismModelIds = useMemo(
+    () =>
+      (modelSpecs ?? [])
+        .filter((spec) => spec.preset?.endpoint === 'Deepseek')
+        .map((spec) => spec.preset?.model)
+        .filter((model): model is string => Boolean(model)),
+    [modelSpecs],
+  );
+
+  const selectedDisplayValue = useMemo(() => {
+    const baseDisplay = getDisplayValue({
+      localize,
+      agentsMap,
+      modelSpecs,
+      selectedValues,
+      mappedEndpoints,
+    });
+
+    const matchesOptimism =
+      (selectedValues.endpoint === 'Deepseek' &&
+        ((selectedValues.modelSpec && optimismSpecNames.includes(selectedValues.modelSpec)) ||
+          (selectedValues.model && optimismModelIds.includes(selectedValues.model)))) ||
+      (selectedValues.model && optimismModelIds.includes(selectedValues.model));
+
+    if (matchesOptimism) {
+      return 'OptimismAI';
+    }
+
+    return baseDisplay;
+  }, [
+    localize,
+    agentsMap,
+    modelSpecs,
+    selectedValues,
+    mappedEndpoints,
+    optimismModelIds,
+    optimismSpecNames,
+  ]);
 
   const trigger = (
     <button
@@ -82,11 +149,11 @@ function ModelSelectorContent() {
         combobox={<input placeholder={localize('com_endpoint_search_models')} />}
         trigger={trigger}
       >
-        {searchResults ? (
-          renderSearchResults(searchResults, localize, searchValue)
+        {filteredSearchResults ? (
+          renderSearchResults(filteredSearchResults, localize, searchValue)
         ) : (
           <>
-            {renderModelSpecs(modelSpecs, selectedValues.modelSpec || '')}
+            {renderModelSpecs(displayedModelSpecs, selectedValues.modelSpec || '')}
             {renderEndpoints(mappedEndpoints ?? [])}
           </>
         )}

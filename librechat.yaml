@@ -59,10 +59,8 @@ interface:
   runCode: false
 
   # Keep web search button visible (provider is configured separately if you use it)
-  webSearch: false
+  webSearch: true
   fileCitations: true
-  mcpServers:
-    placeholder: "More Tools"
 
 # ---- Speech Configuration (Cloud Voice) ----
 speech:
@@ -79,6 +77,15 @@ speech:
   speechTab:
     conversationMode: false
 
+# ---- Web Search Configuration ----
+webSearch:
+  searchProvider: serper
+  scraperProvider: serper
+  rerankerType: jina
+  serperApiKey: "${SERPER_API_KEY}"
+  jinaApiKey: "${JINA_API_KEY}"
+  firecrawlApiKey: "${FIRECRAWL_API_KEY}"
+
 # ---- File Uploads (multimodal ON) ----
 # Remove prior 'disabled: true' rules so uploads are allowed for our endpoint.
 # If you need constraints (types/size), add them here per docs; otherwise omit fileConfig entirely.
@@ -90,14 +97,7 @@ speech:
 #       # maxFiles: 5
 #       # maxSizeMB: 15
 
- # ------- MCP Servers -------
-mcpServers:
-  Web Search:
-    type: streamable-http
-    url: "https://healthy-black-cardinal.fastmcp.app/mcp"
-    serverInstructions: true
-    timeout: 30000
- # ------ Agent Search Provider Setup -----
+# ------ Agent Search Provider Setup -----
 # ------  Memory / Personalization -----
 memory:
   disabled: false
@@ -148,8 +148,6 @@ modelSpecs:
         endpoint: "Deepseek"   # must match endpoints.custom[0].name
         model: "deepseek-reasoner"   # or another model if that’s your choice
         modelLabel: "OptimismAI"
-        mcpServers:
-          - "Web Search" 
         instructions: |
           You are OptimismAI with access to a web search tool.
           Use the `web_search` tool when the user asks about current events or unknown facts.
@@ -202,5 +200,3 @@ modelSpecs:
         endpoint: "Deepseek"
         model: "deepseek-chat"
         modelLabel: "OptimismAI Voice"
-        mcpServers:
-          - "Web Search"
