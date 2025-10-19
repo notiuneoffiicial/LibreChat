@@ -18,8 +18,10 @@ export function loadMemoryConfig(config: TCustomConfig['memory']): TMemoryConfig
   }
 
   const charLimit = memorySchema.shape.charLimit.safeParse(config.charLimit).data ?? 10000;
+  const summaryCadence =
+    memorySchema.shape.summaryCadence.safeParse(config.summaryCadence).data ?? 3;
 
-  return { ...config, charLimit };
+  return { ...config, charLimit, summaryCadence };
 }
 
 export function isMemoryEnabled(config: TMemoryConfig | undefined): boolean {
