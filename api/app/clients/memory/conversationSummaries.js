@@ -18,6 +18,13 @@ class ConversationSummaryManager {
     this.generatedCount = 0;
   }
 
+  resetCadenceState() {
+    this.cachedSummaries = [];
+    this.persistedCount = 0;
+    this.generatedCount = 0;
+    this.lastPersistedValue = null;
+  }
+
   resolveSummaryCadence() {
     const cadence = Number(this.memoryConfig?.summaryCadence);
     if (Number.isInteger(cadence) && cadence >= 1) {
@@ -42,6 +49,7 @@ class ConversationSummaryManager {
     if (this.conversationId !== stringId) {
       this.conversationId = stringId;
       this.loadedConversationId = null;
+      this.resetCadenceState();
     }
   }
 
@@ -88,6 +96,10 @@ class ConversationSummaryManager {
       return [];
     }
 
+    if (this.loadedConversationId && this.loadedConversationId !== targetId) {
+      this.resetCadenceState();
+    }
+
     if (this.loadedConversationId === targetId && this.cachedSummaries.length > 0) {
       return this.cachedSummaries;
     }
@@ -120,8 +132,7 @@ class ConversationSummaryManager {
     } catch (error) {
       logger.error('[ConversationSummaryManager] Failed to load summaries from memory', error);
       this.loadedConversationId = targetId;
-      this.cachedSummaries = [];
-      this.persistedCount = 0;
+      this.resetCadenceState();
       return [];
     }
   }

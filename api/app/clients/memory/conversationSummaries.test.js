@@ -34,7 +34,11 @@ describe('ConversationSummaryManager', () => {
       conversationId: 'abc',
     });
 
-    await disabledManager.persistSummary({ conversationId: 'abc', summary: 'Hello', tokenCount: 4 });
+    await disabledManager.persistSummary({
+      conversationId: 'abc',
+      summary: 'Hello',
+      tokenCount: 4,
+    });
     expect(setMemory).not.toHaveBeenCalled();
 
     const noUserManager = new ConversationSummaryManager({
@@ -42,12 +46,19 @@ describe('ConversationSummaryManager', () => {
       conversationId: 'abc',
     });
 
-    await noUserManager.persistSummary({ conversationId: 'abc', summary: 'Hello', tokenCount: 4 });
+    await noUserManager.persistSummary({
+      conversationId: 'abc',
+      summary: 'Hello',
+      tokenCount: 4,
+    });
     expect(setMemory).not.toHaveBeenCalled();
   });
 
   it('persists summaries according to cadence and sanitizes keys', async () => {
-    const manager = new ConversationSummaryManager({ req: baseReq, conversationId: 'Sample-Convo' });
+    const manager = new ConversationSummaryManager({
+      req: baseReq,
+      conversationId: 'Sample-Convo',
+    });
 
     getAllUserMemories.mockResolvedValueOnce([]);
     await manager.persistSummary({
@@ -122,5 +133,42 @@ describe('ConversationSummaryManager', () => {
       summaryTokenCount: 14,
       tokenCount: 14,
     });
+  });
+
+  it('resets cadence counters when switching conversations', async () => {
+    const manager = new ConversationSummaryManager({ req: baseReq, conversationId: 'First' });
+
+    getAllUserMemories.mockResolvedValueOnce([]);
+    await manager.persistSummary({
+      conversationId: 'First',
+      summary: 'Seed snapshot',
+      tokenCount: 5,
+    });
+
+    expect(manager.generatedCount).toBe(1);
+    expect(manager.persistedCount).toBe(1);
+
+    setMemory.mockClear();
+
+    manager.setConversation('Second');
+    expect(manager.generatedCount).toBe(0);
+    expect(manager.persistedCount).toBe(0);
+    expect(manager.lastPersistedValue).toBeNull();
+
+    getAllUserMemories.mockResolvedValueOnce([]);
+    await manager.persistSummary({
+      conversationId: 'Second',
+      summary: 'Intro snapshot',
+      tokenCount: 3,
+    });
+
+    expect(setMemory).toHaveBeenCalledWith({
+      userId: 'user-1',
+      key: 'convo-summary-second-1',
+      value: 'Intro snapshot',
+      tokenCount: 3,
+    });
+    expect(manager.generatedCount).toBe(1);
+    expect(manager.persistedCount).toBe(1);
   });
 });
