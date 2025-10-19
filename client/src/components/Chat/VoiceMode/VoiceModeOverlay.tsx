@@ -525,13 +525,20 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       return;
     }
 
-    if (
-      !isListening &&
-      !isLoading &&
-      !isSubmitting &&
-      !globalAudioPlaying &&
-      !globalAudioFetching
-    ) {
+    if (globalAudioPlaying || globalAudioFetching || isSubmitting) {
+      if (isListening) {
+        void stopRecording();
+      }
+
+      clearSilenceTimeout();
+      silenceHoldRef.current = 0;
+      transcriptRef.current = '';
+      setInterimTranscript('');
+      setIsUserSpeaking(false);
+      return;
+    }
+
+    if (!isListening && !isLoading && !globalAudioPlaying && !globalAudioFetching) {
       void startRecording();
     }
   }, [
@@ -543,7 +550,10 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     isOpen,
     isSubmitting,
     micEnabled,
+    setInterimTranscript,
+    setIsUserSpeaking,
     startRecording,
+    stopRecording,
   ]);
 
   const hasActiveSpeech = useMemo(
@@ -707,7 +717,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     return () => {
       stopRespondingAnimation();
     };
-  }, [ micEnabled, isUserSpeaking, orbState, stopRespondingAnimation, updateActivityLevel ]);
+  }, [micEnabled, isUserSpeaking, orbState, stopRespondingAnimation, updateActivityLevel]);
 
   useEffect(() => {
     const responseActive = isSubmitting || globalAudioPlaying || globalAudioFetching;
@@ -741,13 +751,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     setMicEnabled(false);
     stopRecordingRef.current?.();
     setIsOpen(false);
-  }, [
-    cleanupSpeakingTimeout,
-    clearSilenceTimeout,
-    pauseGlobalAudio,
-    resetActivity,
-    setIsOpen,
-  ]);
+  }, [cleanupSpeakingTimeout, clearSilenceTimeout, pauseGlobalAudio, resetActivity, setIsOpen]);
 
   const toggleMicrophone = useCallback(() => {
     const nextEnabled = !micEnabled;
