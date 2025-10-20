@@ -168,7 +168,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const [lastTranscript, setLastTranscript] = useState('');
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [activityLevel, setActivityLevel] = useState(ACTIVITY_IDLE);
-  const [micEnabled, setMicEnabled] = useState(true);
+  const [micEnabled, setMicEnabled] = useState(false);
   const [silenceDelay, setSilenceDelay] = useRecoilState(store.voiceSilenceDelay);
   const silenceDelayMs = useMemo(() => Math.max(1, silenceDelay) * 1000, [silenceDelay]);
   const formattedSilenceDelay = useMemo(
@@ -201,11 +201,20 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     value: null,
     stored: false,
   });
+  const micActivationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldAutoEnableMicRef = useRef(false);
 
   const cleanupSpeakingTimeout = useCallback(() => {
     if (speakingTimeout.current) {
       clearTimeout(speakingTimeout.current);
       speakingTimeout.current = null;
+    }
+  }, []);
+
+  const clearMicActivationTimeout = useCallback(() => {
+    if (micActivationTimeoutRef.current) {
+      clearTimeout(micActivationTimeoutRef.current);
+      micActivationTimeoutRef.current = null;
     }
   }, []);
 
@@ -348,8 +357,10 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     return () => {
       cleanupSpeakingTimeout();
       clearSilenceTimeout();
+      clearMicActivationTimeout();
+      shouldAutoEnableMicRef.current = false;
     };
-  }, [cleanupSpeakingTimeout, clearSilenceTimeout]);
+  }, [clearMicActivationTimeout, cleanupSpeakingTimeout, clearSilenceTimeout]);
 
   const restoreVoiceSelection = useCallback(() => {
     if (!storedEndpoint.current.stored && !storedModel.current.stored) {
@@ -489,6 +500,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     if (!isOpen) {
       cleanupSpeakingTimeout();
       clearSilenceTimeout();
+      clearMicActivationTimeout();
       setInterimTranscript('');
       setLastTranscript('');
       transcriptRef.current = '';
@@ -499,14 +511,28 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       setShowVoiceMenu(false);
       restoreVoiceSelection();
       pauseGlobalAudio();
+      shouldAutoEnableMicRef.current = false;
       setMicEnabled(false);
       stopRecordingRef.current?.();
       return;
     }
 
-    setMicEnabled(true);
+    shouldAutoEnableMicRef.current = true;
+    setMicEnabled(false);
+    clearMicActivationTimeout();
+    micActivationTimeoutRef.current = setTimeout(() => {
+      if (shouldAutoEnableMicRef.current) {
+        setMicEnabled(true);
+      }
+    }, 3000);
+
+    return () => {
+      shouldAutoEnableMicRef.current = false;
+      clearMicActivationTimeout();
+    };
   }, [
     cleanupSpeakingTimeout,
+    clearMicActivationTimeout,
     clearSilenceTimeout,
     isOpen,
     pauseGlobalAudio,
@@ -739,6 +765,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const closeOverlay = useCallback(() => {
     cleanupSpeakingTimeout();
     clearSilenceTimeout();
+    clearMicActivationTimeout();
     setInterimTranscript('');
     setLastTranscript('');
     transcriptRef.current = '';
@@ -748,13 +775,22 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     resetActivity();
     setShowVoiceMenu(false);
     pauseGlobalAudio();
+    shouldAutoEnableMicRef.current = false;
     setMicEnabled(false);
     stopRecordingRef.current?.();
     setIsOpen(false);
-  }, [cleanupSpeakingTimeout, clearSilenceTimeout, pauseGlobalAudio, resetActivity, setIsOpen]);
+  }, [
+    cleanupSpeakingTimeout,
+    clearMicActivationTimeout,
+    clearSilenceTimeout,
+    pauseGlobalAudio,
+    resetActivity,
+    setIsOpen,
+  ]);
 
   const toggleMicrophone = useCallback(() => {
     const nextEnabled = !micEnabled;
+    shouldAutoEnableMicRef.current = false;
     setMicEnabled(nextEnabled);
 
     if (!nextEnabled) {
