@@ -360,10 +360,12 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       clearSilenceTimeout();
       clearMicActivationTimeout();
       shouldAutoEnableMicRef.current = false;
-      void stopRecording();
-      void stopRecordingRef.current?.();
+      const stopFn = stopRecordingRef.current;
+      if (stopFn) {
+        void stopFn();
+      }
     };
-  }, [clearMicActivationTimeout, cleanupSpeakingTimeout, clearSilenceTimeout, stopRecording]);
+  }, [clearMicActivationTimeout, cleanupSpeakingTimeout, clearSilenceTimeout]);
 
   const restoreVoiceSelection = useCallback(() => {
     if (!storedEndpoint.current.stored && !storedModel.current.stored) {
