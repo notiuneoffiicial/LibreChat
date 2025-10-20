@@ -25,6 +25,7 @@ const { checkBalance } = require('~/models/balanceMethods');
 const { truncateToolCallOutputs } = require('./prompts');
 const countTokens = require('~/server/utils/countTokens');
 const { getFiles } = require('~/models/File');
+const { ConversationSummaryManager } = require('./memory');
 const TextStream = require('./TextStream');
 
 class BaseClient {
@@ -71,6 +72,10 @@ class BaseClient {
     this.currentMessages = [];
     /** @type {import('librechat-data-provider').VisionModes | undefined} */
     this.visionMode;
+    /** @type {ConversationSummaryManager | null} */
+    this.summaryManager = null;
+    /** @type {boolean} */
+    this.previous_summary_from_memory = false;
   }
 
   setOptions() {
@@ -188,6 +193,23 @@ class BaseClient {
     return [overrideConvoId, overrideUserMessageId];
   }
 
+  initializeSummaryManager({ conversationId } = {}) {
+    if (!this.shouldSummarize || !this.options?.req) {
+      this.summaryManager = null;
+      return;
+    }
+
+    if (!this.summaryManager) {
+      this.summaryManager = new ConversationSummaryManager({
+        req: this.options.req,
+        conversationId,
+      });
+      return;
+    }
+
+    this.summaryManager.setConversation(conversationId);
+  }
+
   async setMessageOptions(opts = {}) {
     if (opts && opts.replaceOptions) {
       this.setOptions(opts);
@@ -206,6 +228,7 @@ class BaseClient {
       overrideUserMessageId ?? opts.overrideParentMessageId ?? crypto.randomUUID();
     let responseMessageId = opts.responseMessageId ?? crypto.randomUUID();
     let head = isEdited ? responseMessageId : parentMessageId;
+    this.initializeSummaryManager({ conversationId });
     this.currentMessages = (await this.loadHistory(conversationId, head)) ?? [];
     this.conversationId = conversationId;
 
@@ -494,11 +517,25 @@ class BaseClient {
     length += instructions != null ? 1 : 0;
     const diff = length - context.length;
     const firstMessage = orderedWithInstructions[0];
-    const usePrevSummary =
-      shouldSummarize &&
-      diff === 1 &&
-      firstMessage?.summary &&
-      this.previous_summary.messageId === firstMessage.messageId;
+    let usePrevSummary = false;
+
+    if (shouldSummarize && this.previous_summary?.summary) {
+      if (
+        diff === 1 &&
+        firstMessage?.summary &&
+        this.previous_summary.messageId === firstMessage.messageId &&
+        !this.previous_summary_from_memory
+      ) {
+        summaryMessage = { role: 'system', content: firstMessage.summary };
+        summaryTokenCount = firstMessage.summaryTokenCount;
+        usePrevSummary = true;
+      } else if (this.previous_summary_from_memory) {
+        summaryMessage = { role: 'system', content: this.previous_summary.summary };
+        summaryTokenCount =
+          this.previous_summary.summaryTokenCount ?? this.getTokenCountForMessage(summaryMessage);
+        usePrevSummary = true;
+      }
+    }
 
     if (diff > 0) {
       payload = formattedMessages.slice(diff);
@@ -528,18 +565,35 @@ class BaseClient {
       throw new Error(errorMessage);
     }
 
-    if (usePrevSummary) {
-      summaryMessage = { role: 'system', content: firstMessage.summary };
-      summaryTokenCount = firstMessage.summaryTokenCount;
+    if (usePrevSummary && summaryMessage) {
+      summaryTokenCount = summaryTokenCount ?? this.getTokenCountForMessage(summaryMessage);
       payload.unshift(summaryMessage);
-      remainingContextTokens -= summaryTokenCount;
+      remainingContextTokens -= summaryTokenCount ?? 0;
     } else if (shouldSummarize && messagesToRefine.length > 0) {
       ({ summaryMessage, summaryTokenCount } = await this.summarizeMessages({
         messagesToRefine,
         remainingContextTokens,
       }));
-      summaryMessage && payload.unshift(summaryMessage);
-      remainingContextTokens -= summaryTokenCount;
+      if (summaryMessage) {
+        summaryTokenCount = summaryTokenCount ?? this.getTokenCountForMessage(summaryMessage);
+        payload.unshift(summaryMessage);
+        remainingContextTokens -= summaryTokenCount ?? 0;
+        const summarySource = messagesToRefine[messagesToRefine.length - 1];
+        if (summarySource?.messageId) {
+          this.previous_summary = {
+            messageId: summarySource.messageId,
+            summary: summaryMessage.content,
+            summaryTokenCount,
+            tokenCount: summaryTokenCount,
+          };
+          this.previous_summary_from_memory = false;
+        }
+        await this.summaryManager?.persistSummary({
+          conversationId: this.conversationId,
+          summary: summaryMessage.content,
+          tokenCount: summaryTokenCount,
+        });
+      }
     }
 
     // Make sure to only continue summarization logic if the summary message was generated
@@ -876,6 +930,8 @@ class BaseClient {
     logger.debug('[BaseClient] Loading history:', { conversationId, parentMessageId });
 
     const messages = (await getMessages({ conversationId })) ?? [];
+    this.previous_summary = null;
+    this.previous_summary_from_memory = false;
 
     if (messages.length === 0) {
       return [];
@@ -902,7 +958,16 @@ class BaseClient {
     for (let i = _messages.length - 1; i >= 0; i--) {
       if (_messages[i]?.summary) {
         this.previous_summary = _messages[i];
+        this.previous_summary_from_memory = false;
         break;
+      }
+    }
+
+    if (!this.previous_summary && this.summaryManager) {
+      const memorySummary = await this.summaryManager.getLatestSummaryMessage(conversationId);
+      if (memorySummary) {
+        this.previous_summary = memorySummary;
+        this.previous_summary_from_memory = true;
       }
     }
 

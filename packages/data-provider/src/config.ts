@@ -793,6 +793,13 @@ export const memorySchema = z.object({
   charLimit: z.number().optional().default(10000),
   personalize: z.boolean().default(true),
   messageWindowSize: z.number().optional().default(5),
+  summaryCadence: z
+    .number()
+    .int({ message: 'summaryCadence must be an integer' })
+    .min(1, { message: 'summaryCadence must be at least 1' })
+    .max(25, { message: 'summaryCadence must be at most 25' })
+    .optional()
+    .default(3),
   agent: z
     .union([
       z.object({
