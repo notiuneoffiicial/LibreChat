@@ -299,8 +299,9 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     silenceHoldRef.current = 0;
     clearSilenceTimeout();
     setIsUserSpeaking(false);
-    stopRecordingRef.current?.();
-  }, [clearSilenceTimeout, micEnabled, silenceDelayMs]);
+    submitTranscript(latest);
+    void stopRecordingRef.current?.();
+  }, [clearSilenceTimeout, micEnabled, silenceDelayMs, submitTranscript]);
 
   const handleInterim = useCallback(
     (text: string) => {
@@ -359,8 +360,15 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       clearSilenceTimeout();
       clearMicActivationTimeout();
       shouldAutoEnableMicRef.current = false;
+      void stopRecording();
+      void stopRecordingRef.current?.();
     };
-  }, [clearMicActivationTimeout, cleanupSpeakingTimeout, clearSilenceTimeout]);
+  }, [
+    clearMicActivationTimeout,
+    cleanupSpeakingTimeout,
+    clearSilenceTimeout,
+    stopRecording,
+  ]);
 
   const restoreVoiceSelection = useCallback(() => {
     if (!storedEndpoint.current.stored && !storedModel.current.stored) {
@@ -513,7 +521,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       pauseGlobalAudio();
       shouldAutoEnableMicRef.current = false;
       setMicEnabled(false);
-      stopRecordingRef.current?.();
+      void stopRecording();
+      void stopRecordingRef.current?.();
       return;
     }
 
@@ -538,6 +547,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     pauseGlobalAudio,
     resetActivity,
     restoreVoiceSelection,
+    stopRecording,
   ]);
 
   useEffect(() => {
@@ -547,7 +557,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
     if (!micEnabled) {
       clearSilenceTimeout();
-      stopRecordingRef.current?.();
+      void stopRecordingRef.current?.();
       return;
     }
 
@@ -777,7 +787,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     pauseGlobalAudio();
     shouldAutoEnableMicRef.current = false;
     setMicEnabled(false);
-    stopRecordingRef.current?.();
+    void stopRecording();
+    void stopRecordingRef.current?.();
     setIsOpen(false);
   }, [
     cleanupSpeakingTimeout,
@@ -786,6 +797,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     pauseGlobalAudio,
     resetActivity,
     setIsOpen,
+    stopRecording,
   ]);
 
   const toggleMicrophone = useCallback(() => {
@@ -796,7 +808,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     if (!nextEnabled) {
       cleanupSpeakingTimeout();
       clearSilenceTimeout();
-      stopRecordingRef.current?.();
+      void stopRecording();
+      void stopRecordingRef.current?.();
       setIsUserSpeaking(false);
       stopRespondingAnimation();
       updateActivityLevel(ACTIVITY_IDLE);
@@ -826,6 +839,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     isSubmitting,
     micEnabled,
     startRecording,
+    stopRecording,
     stopRespondingAnimation,
     updateActivityLevel,
   ]);
