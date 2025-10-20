@@ -108,7 +108,13 @@ class ConversationSummaryManager {
       const allMemories = await getAllUserMemories(this.userId);
       const prefix = this.getKeyPrefix(targetId);
       const relevant = allMemories
-        .filter((entry) => entry.key?.startsWith(prefix))
+        .filter((entry) => {
+          const key = entry.key;
+          if (!key) {
+            return false;
+          }
+          return key === prefix || key.startsWith(`${prefix}-`);
+        })
         .map((entry) => ({
           ...entry,
           index: this.extractIndex(entry.key) ?? 0,
