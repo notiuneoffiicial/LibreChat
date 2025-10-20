@@ -41,17 +41,16 @@ export default function Message(props: TMessageProps) {
   const { children, messageId = null, isCreatedByUser } = message ?? {};
 
   const name = useMemo(() => {
-    let result = '';
     if (isCreatedByUser === true) {
-      result = localize('com_user_message');
-    } else if (assistant) {
-      result = assistant.name ?? localize('com_ui_assistant');
-    } else if (agent) {
-      result = agent.name ?? localize('com_ui_agent');
+      return localize('com_user_message');
     }
 
-    return result;
-  }, [assistant, agent, isCreatedByUser, localize]);
+    if (agent) {
+      return agent.name ?? localize('com_ui_agent');
+    }
+
+    return 'OptimismAI';
+  }, [agent, isCreatedByUser, localize]);
 
   const iconData: TMessageIcon = useMemo(
     () => ({
