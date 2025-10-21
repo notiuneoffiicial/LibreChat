@@ -127,7 +127,9 @@ function ModelSelectorContent() {
       type="button"
       className={cn(
         'my-1 flex h-10 w-full max-w-[70vw] items-center justify-center gap-2 rounded-xl border border-border-light bg-surface-secondary px-3 py-2 text-sm text-text-primary',
-        isReadOnly ? 'cursor-not-allowed opacity-60 hover:bg-surface-secondary' : 'hover:bg-surface-tertiary',
+        isReadOnly
+          ? 'cursor-not-allowed opacity-60 hover:bg-surface-secondary'
+          : 'hover:bg-surface-tertiary',
       )}
       aria-label={localize('com_ui_select_model')}
       disabled={isReadOnly}
