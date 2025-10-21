@@ -1,13 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useRecoilState, useRecoilValue } from 'recoil';
+import { useState, useEffect, useRef } from 'react';
+import { useRecoilState } from 'recoil';
 import { useToastContext } from '@librechat/client';
 import { useSpeechToTextMutation } from '~/data-provider';
 import useGetAudioSettings from './useGetAudioSettings';
 import store from '~/store';
 
 import type { SpeechToTextOptions } from './types';
-
-const INITIAL_SILENCE_GRACE_MS = 1500;
 
 const useSpeechToTextExternal = (
   setText: (text: string) => void,
@@ -18,8 +16,6 @@ const useSpeechToTextExternal = (
   const { speechToTextEndpoint } = useGetAudioSettings();
   const isExternalSTTEnabled = speechToTextEndpoint === 'external';
   const audioStream = useRef<MediaStream | null>(null);
-  const animationFrameIdRef = useRef<number | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const dataHandlerRef = useRef<((event: BlobEvent) => void) | null>(null);
 
@@ -31,16 +27,9 @@ const useSpeechToTextExternal = (
   const audioMimeTypeRef = useRef<string>(audioMimeType);
   const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
 
-  const [minDecibels] = useRecoilState(store.decibelValue);
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [speechToText] = useRecoilState<boolean>(store.speechToText);
-  const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
-  const silenceDelaySeconds = useRecoilValue(store.voiceSilenceDelay);
-  const silenceThreshold = useMemo(
-    () => Math.max(1, silenceDelaySeconds) * 1000,
-    [silenceDelaySeconds],
-  );
 
   const { mutate: processAudio, isLoading: isProcessing } = useSpeechToTextMutation({
     onSuccess: (data) => {
@@ -119,19 +108,6 @@ const useSpeechToTextExternal = (
     }
   };
 
-  const stopSilenceMonitoring = () => {
-    if (animationFrameIdRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameIdRef.current);
-      animationFrameIdRef.current = null;
-    }
-
-    const audioContext = audioContextRef.current;
-    if (audioContext) {
-      void audioContext.close().catch(() => undefined);
-      audioContextRef.current = null;
-    }
-  };
-
   const stopMediaTracks = () => {
     if (audioStream.current) {
       audioStream.current.getTracks().forEach((track) => track.stop());
@@ -189,51 +165,7 @@ const useSpeechToTextExternal = (
       showToast({ message: 'The audio was too short', status: 'warning' });
     }
 
-    stopSilenceMonitoring();
     stopMediaTracks();
-  };
-
-  const monitorSilence = (stream: MediaStream, stopRecording: () => void) => {
-    const audioContext = new AudioContext();
-    audioContextRef.current = audioContext;
-    const audioStreamSource = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.minDecibels = minDecibels;
-    audioStreamSource.connect(analyser);
-
-    const bufferLength = analyser.frequencyBinCount;
-    const domainData = new Uint8Array(bufferLength);
-    const activationTime = Date.now();
-    let lastSoundTime = activationTime;
-    let hasDetectedSound = false;
-    const initialSilenceGrace = Math.max(INITIAL_SILENCE_GRACE_MS, silenceThreshold);
-
-    const detectSound = () => {
-      analyser.getByteFrequencyData(domainData);
-      const isSoundDetected = domainData.some((value) => value > 0);
-
-      const now = Date.now();
-
-      if (isSoundDetected) {
-        hasDetectedSound = true;
-        lastSoundTime = now;
-      }
-
-      const timeSinceLastSound = now - lastSoundTime;
-      const timeSinceActivation = now - activationTime;
-      const isOverSilenceThreshold = hasDetectedSound
-        ? timeSinceLastSound > silenceThreshold
-        : timeSinceActivation > initialSilenceGrace;
-
-      if (isOverSilenceThreshold) {
-        stopRecording();
-        return;
-      }
-
-      animationFrameIdRef.current = window.requestAnimationFrame(detectSound);
-    };
-
-    animationFrameIdRef.current = window.requestAnimationFrame(detectSound);
   };
 
   const startRecording = async () => {
@@ -265,9 +197,6 @@ const useSpeechToTextExternal = (
         recorder.addEventListener('stop', handleStop);
         recorder.start(100);
         mediaRecorderRef.current = recorder;
-        if (!audioContextRef.current && autoTranscribeAudio && speechToText) {
-          monitorSilence(audioStream.current, stopRecording);
-        }
         setIsListening(true);
       } catch (error) {
         showToast({ message: `Error starting recording: ${error}`, status: 'error' });
@@ -286,7 +215,6 @@ const useSpeechToTextExternal = (
       cleanupRecorder();
     }
 
-    stopSilenceMonitoring();
     stopMediaTracks();
     setIsListening(false);
   };
@@ -341,7 +269,6 @@ const useSpeechToTextExternal = (
   useEffect(() => {
     return () => {
       cleanupRecorder();
-      stopSilenceMonitoring();
       stopMediaTracks();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
