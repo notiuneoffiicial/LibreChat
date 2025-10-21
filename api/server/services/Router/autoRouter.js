@@ -377,7 +377,9 @@ function buildCandidate({ text, toggles, tokenBudget, previousState }) {
       : Math.max(0.74, searchSignals.confidence || 0.76);
     candidate.intensity = Math.max(candidate.intensity, intensityFloor);
     candidate.reason.push(
-      toggles?.web_search ? 'toggle:web_search' : `signal:web_search:${searchSignals.reason ?? 'implicit'}`,
+      toggles?.web_search
+        ? 'toggle:web_search'
+        : `signal:web_search:${searchSignals.reason ?? 'implicit'}`,
     );
     candidate.togglesUsed.push('web_search');
     candidate.forcedSwitch = true;
