@@ -1,6 +1,7 @@
 const validatePasswordReset = require('./validatePasswordReset');
 const validateRegistration = require('./validateRegistration');
 const buildEndpointOption = require('./buildEndpointOption');
+const autoRoute = require('./autoRoute');
 const validateMessageReq = require('./validateMessageReq');
 const checkDomainAllowed = require('./checkDomainAllowed');
 const concurrentLimiter = require('./concurrentLimiter');
@@ -48,6 +49,7 @@ module.exports = {
   checkDomainAllowed,
   validateMessageReq,
   buildEndpointOption,
+  autoRoute,
   validateRegistration,
   validatePasswordReset,
 };
