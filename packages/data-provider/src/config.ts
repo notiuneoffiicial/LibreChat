@@ -526,6 +526,7 @@ export const interfaceSchema = z
     mcpServers: mcpServersSchema.optional(),
     endpointsMenu: z.boolean().optional(),
     modelSelect: z.boolean().optional(),
+    modelSelectReadOnly: z.boolean().optional(),
     parameters: z.boolean().optional(),
     sidePanel: z.boolean().optional(),
     multiConvo: z.boolean().optional(),
@@ -556,6 +557,7 @@ export const interfaceSchema = z
   .default({
     endpointsMenu: true,
     modelSelect: true,
+    modelSelectReadOnly: false,
     parameters: true,
     sidePanel: true,
     presets: true,

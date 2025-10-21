@@ -1,5 +1,5 @@
 import debounce from 'lodash/debounce';
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { EModelEndpoint, isAgentsEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
 import type * as t from 'librechat-data-provider';
 import type { Endpoint, SelectedValues } from '~/common';
@@ -27,6 +27,7 @@ type ModelSelectorContextType = {
   agentsMap: t.TAgentsMap | undefined;
   assistantsMap: t.TAssistantsMap | undefined;
   endpointsConfig: t.TEndpointsConfig;
+  isReadOnly: boolean;
 
   // Functions
   endpointRequiresUserKey: (endpoint: string) => boolean;
@@ -57,6 +58,7 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
   const agentsMap = useAgentsMapContext();
   const assistantsMap = useAssistantsMapContext();
   const { data: endpointsConfig } = useGetEndpointsQuery();
+  const isReadOnly = startupConfig?.interface?.modelSelectReadOnly === true;
   const { endpoint, model, spec, agent_id, assistant_id, newConversation } =
     useModelSelectorChatContext();
   const modelSpecs = useMemo(() => {
@@ -137,21 +139,50 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     return filterItems(allItems, searchValue, agentsMap, assistantsMap || {});
   }, [searchValue, modelSpecs, mappedEndpoints, agentsMap, assistantsMap]);
 
-  const setDebouncedSearchValue = useMemo(
+  const debouncedSetSearchValue = useMemo(
     () =>
       debounce((value: string) => {
         setSearchValueState(value);
       }, 200),
     [],
   );
-  const setEndpointSearchValue = (endpoint: string, value: string) => {
-    setEndpointSearchValues((prev) => ({
-      ...prev,
-      [endpoint]: value,
-    }));
-  };
+
+  useEffect(() => {
+    return () => {
+      debouncedSetSearchValue.cancel();
+    };
+  }, [debouncedSetSearchValue]);
+
+  const setSearchValue = useCallback(
+    (value: string) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      debouncedSetSearchValue(value);
+    },
+    [debouncedSetSearchValue, isReadOnly],
+  );
+
+  const setEndpointSearchValue = useCallback(
+    (endpoint: string, value: string) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      setEndpointSearchValues((prev) => ({
+        ...prev,
+        [endpoint]: value,
+      }));
+    },
+    [isReadOnly, setEndpointSearchValues],
+  );
 
   const handleSelectSpec = (spec: t.TModelSpec) => {
+    if (isReadOnly) {
+      return;
+    }
+
     let model = spec.preset.model ?? null;
     onSelectSpec?.(spec);
     if (isAgentsEndpoint(spec.preset.endpoint)) {
@@ -167,6 +198,10 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
   };
 
   const handleSelectEndpoint = (endpoint: Endpoint) => {
+    if (isReadOnly) {
+      return;
+    }
+
     if (!endpoint.hasModels) {
       if (endpoint.value) {
         onSelectEndpoint?.(endpoint.value);
@@ -180,6 +215,10 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
   };
 
   const handleSelectModel = (endpoint: Endpoint, model: string) => {
+    if (isReadOnly) {
+      return;
+    }
+
     if (isAgentsEndpoint(endpoint.value)) {
       onSelectEndpoint?.(endpoint.value, {
         agent_id: model,
@@ -212,6 +251,7 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     assistantsMap,
     mappedEndpoints,
     endpointsConfig,
+    isReadOnly,
 
     // Functions
     handleSelectSpec,
@@ -220,7 +260,7 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     handleSelectEndpoint,
     setEndpointSearchValue,
     endpointRequiresUserKey,
-    setSearchValue: setDebouncedSearchValue,
+    setSearchValue,
     // Dialog
     ...keyProps,
   };
