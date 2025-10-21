@@ -7,6 +7,8 @@ import store from '~/store';
 
 import type { SpeechToTextOptions } from './types';
 
+const INITIAL_SILENCE_GRACE_MS = 1500;
+
 const useSpeechToTextExternal = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
@@ -201,18 +203,27 @@ const useSpeechToTextExternal = (
 
     const bufferLength = analyser.frequencyBinCount;
     const domainData = new Uint8Array(bufferLength);
-    let lastSoundTime = Date.now();
+    const activationTime = Date.now();
+    let lastSoundTime = activationTime;
+    let hasDetectedSound = false;
+    const initialSilenceGrace = Math.max(INITIAL_SILENCE_GRACE_MS, silenceThreshold);
 
     const detectSound = () => {
       analyser.getByteFrequencyData(domainData);
       const isSoundDetected = domainData.some((value) => value > 0);
 
+      const now = Date.now();
+
       if (isSoundDetected) {
-        lastSoundTime = Date.now();
+        hasDetectedSound = true;
+        lastSoundTime = now;
       }
 
-      const timeSinceLastSound = Date.now() - lastSoundTime;
-      const isOverSilenceThreshold = timeSinceLastSound > silenceThreshold;
+      const timeSinceLastSound = now - lastSoundTime;
+      const timeSinceActivation = now - activationTime;
+      const isOverSilenceThreshold = hasDetectedSound
+        ? timeSinceLastSound > silenceThreshold
+        : timeSinceActivation > initialSilenceGrace;
 
       if (isOverSilenceThreshold) {
         stopRecording();
