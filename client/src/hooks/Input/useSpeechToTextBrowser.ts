@@ -137,6 +137,7 @@ const useSpeechToTextBrowser = (
     }
 
     SpeechRecognition.stopListening();
+    SpeechRecognition.abortListening();
   }, [isListening]);
 
   const toggleListening = useCallback(() => {
