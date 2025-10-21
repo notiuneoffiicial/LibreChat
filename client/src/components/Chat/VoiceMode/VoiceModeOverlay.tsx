@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EModelEndpoint } from 'librechat-data-provider';
 import { Mic, MicOff, Volume2, X } from 'lucide-react';
-import { Slider, Spinner, useToastContext } from '@librechat/client';
+import { Spinner, useToastContext } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import AnimatedOrb from '../../../../../voice/animated-orb';
 import { useChatContext } from '~/Providers';
@@ -21,8 +21,6 @@ const ACTIVITY_LISTENING = 0.55;
 const ACTIVITY_RESPONDING = 0.7;
 const ACTIVITY_SPEAKING = 0.95;
 const ACTIVITY_PROCESSING = 0.45;
-const MAX_SILENCE_CHECKS = 2;
-const TRAILING_PUNCTUATION = /[.!?…。！？]["'”’)]?$/;
 
 const overlayVariants = {
   initial: { opacity: 0 },
@@ -130,24 +128,6 @@ const menuVariants = {
   },
 };
 
-const hasCompleteThought = (input: string) => {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  if (TRAILING_PUNCTUATION.test(trimmed)) {
-    return true;
-  }
-
-  const wordCount = trimmed.split(/\s+/).length;
-  if (wordCount >= 30 || trimmed.length >= 200) {
-    return true;
-  }
-
-  return false;
-};
-
 export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const localize = useLocalize();
   const { showToast } = useToastContext();
@@ -169,19 +149,10 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [activityLevel, setActivityLevel] = useState(ACTIVITY_IDLE);
   const [micEnabled, setMicEnabled] = useState(false);
-  const [silenceDelay, setSilenceDelay] = useRecoilState(store.voiceSilenceDelay);
-  const silenceDelayMs = useMemo(() => Math.max(1, silenceDelay) * 1000, [silenceDelay]);
-  const formattedSilenceDelay = useMemo(
-    () => (Number.isInteger(silenceDelay) ? silenceDelay.toFixed(0) : silenceDelay.toFixed(1)),
-    [silenceDelay],
-  );
-
   const speakingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const silenceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null);
   const respondingAnimationRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
-  const silenceHoldRef = useRef(0);
   const previousOverflow = useRef('');
   const previousSpeechEnabled = useRef(speechEnabled);
   const previousTtsEnabled = useRef(ttsEnabled);
@@ -201,27 +172,11 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     value: null,
     stored: false,
   });
-  const micActivationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shouldAutoEnableMicRef = useRef(false);
 
   const cleanupSpeakingTimeout = useCallback(() => {
     if (speakingTimeout.current) {
       clearTimeout(speakingTimeout.current);
       speakingTimeout.current = null;
-    }
-  }, []);
-
-  const clearMicActivationTimeout = useCallback(() => {
-    if (micActivationTimeoutRef.current) {
-      clearTimeout(micActivationTimeoutRef.current);
-      micActivationTimeoutRef.current = null;
-    }
-  }, []);
-
-  const clearSilenceTimeout = useCallback(() => {
-    if (silenceTimeout.current) {
-      clearTimeout(silenceTimeout.current);
-      silenceTimeout.current = null;
     }
   }, []);
 
@@ -266,8 +221,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
         return;
       }
 
-      clearSilenceTimeout();
-      silenceHoldRef.current = 0;
       lastSubmittedRef.current = trimmed;
       ask({ text: trimmed });
       setLastTranscript(trimmed);
@@ -275,33 +228,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       transcriptRef.current = '';
       setIsUserSpeaking(false);
     },
-    [ask, clearSilenceTimeout, isSubmitting, localize, showToast],
+    [ask, isSubmitting, localize, showToast],
   );
-
-  const checkSilence = useCallback(() => {
-    if (!micEnabled || !isListeningRef.current) {
-      return;
-    }
-
-    const latest = transcriptRef.current.trim();
-
-    if (!latest) {
-      silenceHoldRef.current = 0;
-      return;
-    }
-
-    if (!hasCompleteThought(latest) && silenceHoldRef.current < MAX_SILENCE_CHECKS) {
-      silenceHoldRef.current += 1;
-      silenceTimeout.current = setTimeout(checkSilence, silenceDelayMs);
-      return;
-    }
-
-    silenceHoldRef.current = 0;
-    clearSilenceTimeout();
-    setIsUserSpeaking(false);
-    submitTranscript(latest);
-    void stopRecordingRef.current?.();
-  }, [clearSilenceTimeout, micEnabled, silenceDelayMs, submitTranscript]);
 
   const handleInterim = useCallback(
     (text: string) => {
@@ -309,31 +237,19 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       const trimmed = text.trim();
       transcriptRef.current = trimmed;
 
-      if (!trimmed) {
-        clearSilenceTimeout();
-        return;
-      }
-
       setIsUserSpeaking(true);
       cleanupSpeakingTimeout();
       speakingTimeout.current = setTimeout(() => {
         setIsUserSpeaking(false);
       }, 320);
-
-      silenceHoldRef.current = 0;
-      clearSilenceTimeout();
-      if (micEnabled) {
-        silenceTimeout.current = setTimeout(checkSilence, silenceDelayMs);
-      }
     },
-    [checkSilence, clearSilenceTimeout, cleanupSpeakingTimeout, micEnabled, silenceDelayMs],
+    [cleanupSpeakingTimeout],
   );
 
   const handleComplete = useCallback(
     (text: string) => {
       const trimmed = text.trim();
       transcriptRef.current = trimmed;
-      clearSilenceTimeout();
       setInterimTranscript('');
 
       if (!trimmed) {
@@ -342,7 +258,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
       submitTranscript(trimmed);
     },
-    [clearSilenceTimeout, submitTranscript],
+    [submitTranscript],
   );
 
   const { isListening, isLoading, startRecording, stopRecording } = useSpeechToText(
@@ -357,15 +273,12 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   useEffect(() => {
     return () => {
       cleanupSpeakingTimeout();
-      clearSilenceTimeout();
-      clearMicActivationTimeout();
-      shouldAutoEnableMicRef.current = false;
       const stopFn = stopRecordingRef.current;
       if (stopFn) {
         void stopFn();
       }
     };
-  }, [clearMicActivationTimeout, cleanupSpeakingTimeout, clearSilenceTimeout]);
+  }, [cleanupSpeakingTimeout]);
 
   const restoreVoiceSelection = useCallback(() => {
     if (!storedEndpoint.current.stored && !storedModel.current.stored) {
@@ -504,42 +417,26 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   useEffect(() => {
     if (!isOpen) {
       cleanupSpeakingTimeout();
-      clearSilenceTimeout();
-      clearMicActivationTimeout();
       setInterimTranscript('');
       setLastTranscript('');
       transcriptRef.current = '';
       lastSubmittedRef.current = '';
-      silenceHoldRef.current = 0;
       responseActiveRef.current = false;
       resetActivity();
       setShowVoiceMenu(false);
       restoreVoiceSelection();
       pauseGlobalAudio();
-      shouldAutoEnableMicRef.current = false;
       setMicEnabled(false);
       void stopRecording();
       void stopRecordingRef.current?.();
       return;
     }
 
-    shouldAutoEnableMicRef.current = true;
-    setMicEnabled(false);
-    clearMicActivationTimeout();
-    micActivationTimeoutRef.current = setTimeout(() => {
-      if (shouldAutoEnableMicRef.current) {
-        setMicEnabled(true);
-      }
-    }, 3000);
-
     return () => {
-      shouldAutoEnableMicRef.current = false;
-      clearMicActivationTimeout();
+      setMicEnabled(false);
     };
   }, [
     cleanupSpeakingTimeout,
-    clearMicActivationTimeout,
-    clearSilenceTimeout,
     isOpen,
     pauseGlobalAudio,
     resetActivity,
@@ -553,7 +450,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     }
 
     if (!micEnabled) {
-      clearSilenceTimeout();
       void stopRecordingRef.current?.();
       return;
     }
@@ -563,8 +459,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
         void stopRecording();
       }
 
-      clearSilenceTimeout();
-      silenceHoldRef.current = 0;
       transcriptRef.current = '';
       setInterimTranscript('');
       setIsUserSpeaking(false);
@@ -575,7 +469,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       void startRecording();
     }
   }, [
-    clearSilenceTimeout,
     globalAudioFetching,
     globalAudioPlaying,
     isListening,
@@ -765,47 +658,32 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       setInterimTranscript('');
       setLastTranscript('');
       transcriptRef.current = '';
-      silenceHoldRef.current = 0;
       responseActiveRef.current = false;
     }
   }, [globalAudioFetching, globalAudioPlaying, isSubmitting]);
 
   const closeOverlay = useCallback(() => {
     cleanupSpeakingTimeout();
-    clearSilenceTimeout();
-    clearMicActivationTimeout();
     setInterimTranscript('');
     setLastTranscript('');
     transcriptRef.current = '';
     lastSubmittedRef.current = '';
-    silenceHoldRef.current = 0;
     responseActiveRef.current = false;
     resetActivity();
     setShowVoiceMenu(false);
     pauseGlobalAudio();
-    shouldAutoEnableMicRef.current = false;
     setMicEnabled(false);
     void stopRecording();
     void stopRecordingRef.current?.();
     setIsOpen(false);
-  }, [
-    cleanupSpeakingTimeout,
-    clearMicActivationTimeout,
-    clearSilenceTimeout,
-    pauseGlobalAudio,
-    resetActivity,
-    setIsOpen,
-    stopRecording,
-  ]);
+  }, [cleanupSpeakingTimeout, pauseGlobalAudio, resetActivity, setIsOpen, stopRecording]);
 
   const toggleMicrophone = useCallback(() => {
     const nextEnabled = !micEnabled;
-    shouldAutoEnableMicRef.current = false;
     setMicEnabled(nextEnabled);
 
     if (!nextEnabled) {
       cleanupSpeakingTimeout();
-      clearSilenceTimeout();
       void stopRecording();
       void stopRecordingRef.current?.();
       setIsUserSpeaking(false);
@@ -814,7 +692,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       return;
     }
 
-    silenceHoldRef.current = 0;
     transcriptRef.current = '';
     lastSubmittedRef.current = '';
 
@@ -828,7 +705,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       void startRecording();
     }
   }, [
-    clearSilenceTimeout,
     cleanupSpeakingTimeout,
     globalAudioFetching,
     globalAudioPlaying,
@@ -841,15 +717,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     stopRespondingAnimation,
     updateActivityLevel,
   ]);
-
-  const handleSilenceDelayChange = useCallback(
-    (value: number[]) => {
-      const nextValue = Number(Number(value[0]).toFixed(1));
-      const boundedValue = Math.min(10, Math.max(1, nextValue));
-      setSilenceDelay(boundedValue);
-    },
-    [setSilenceDelay],
-  );
   const microphoneIcon = useMemo(() => {
     if (isLoading) {
       return <Spinner className="h-8 w-8 text-white" />;
@@ -865,14 +732,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   if (typeof document === 'undefined') {
     return null;
   }
-
-  const silenceLabel = localize('com_ui_voice_overlay_silence_label');
-  const silenceValueText = localize('com_ui_voice_overlay_silence_value', {
-    seconds: formattedSilenceDelay,
-  });
-  const silenceDescription = localize('com_ui_voice_overlay_silence_description', {
-    seconds: formattedSilenceDelay,
-  });
 
   return createPortal(
     <AnimatePresence initial={false} mode="wait">
@@ -928,23 +787,6 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
                       {localize('com_ui_voice_overlay_voice_settings')}
                     </p>
                     <VoiceDropdown />
-                    <div className="mt-5 space-y-3">
-                      <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-white/50">
-                        <span>{silenceLabel}</span>
-                        <span className="font-semibold text-white/80">{silenceValueText}</span>
-                      </div>
-                      <Slider
-                        value={[silenceDelay]}
-                        min={1}
-                        max={10}
-                        step={0.5}
-                        onValueChange={handleSilenceDelayChange}
-                        className="w-full"
-                        aria-label={silenceLabel}
-                        onDoubleClick={() => setSilenceDelay(3)}
-                      />
-                      <p className="text-xs text-white/50">{silenceDescription}</p>
-                    </div>
                     <p className="mt-5 text-xs text-white/50">
                       {usingExternalVoices
                         ? localize('com_ui_voice_overlay_using_cloud')
