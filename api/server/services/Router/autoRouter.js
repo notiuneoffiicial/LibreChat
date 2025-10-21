@@ -170,6 +170,61 @@ const KEYWORD_GROUPS = [
 const QUICK_PATTERNS = [/\bquick\b/i, /\bfast\b/i, /\bbrief\b/i, /\bconcise\b/i, /\bshort\b/i, /tl;dr/i];
 const DETAIL_PATTERNS = [/\bthorough\b/i, /\bdeep dive\b/i, /in-depth/i, /detailed/i, /comprehensive/i];
 const SUPPORT_PATTERNS = [/vent/i, /overwhelmed/i, /burnt? out/i, /lonely/i, /heartbroken/i];
+const EXPLICIT_SEARCH_PATTERNS = [
+  /\bweb ?search\b/i,
+  /\bsearch (?:the )?(?:web|internet|online)\b/i,
+  /\bsearch\b[^\n]{0,80}\b(on the (?:web|internet)|online)\b/i,
+  /\blook (?:it )?up\b[^\n]{0,80}\b(on(?:line)?|on the (?:web|internet)|on google|on bing|on duckduckgo)\b/i,
+  /\bfind\b[^\n]{0,80}\b(on(?:line)?|on the (?:web|internet))\b/i,
+  /\benable\b[^\n]{0,80}\bweb search\b/i,
+  /\buse\b[^\n]{0,80}\bweb search\b/i,
+  /\bgoogle (?:search|it|this|for)\b/i,
+  /\bcheck\b[^\n]{0,80}\b(on the (?:web|internet)|online)\b/i,
+  /\bbrows(?:e|ing)\b[^\n]{0,80}\bweb\b/i,
+];
+const IMPLICIT_SEARCH_PATTERNS = [
+  /\b(latest|current|today'?s|recent|breaking|up-to-date|up to date|newest)\b[^\n]{0,80}\b(news|updates?|headlines?|events?)\b/i,
+  /\b(news|headlines?|updates?)\b[^\n]{0,80}\b(today|this (?:week|month|year)|currently|latest|recent)\b/i,
+  /\b(stock|stocks?|share|market|price|prices|rate|rates|trading|bitcoin|crypto)\b[^\n]{0,80}\b(today|current|latest|now|this (?:week|month|year))\b/i,
+  /\bexchange rate\b/i,
+  /\bweather\b[^\n]{0,80}\b(today|tomorrow|this (?:week|weekend))\b/i,
+  /\b(score|result|final)\b[^\n]{0,80}\b(game|match|team|sport|series)\b/i,
+  /\bwhat happened\b[^\n]{0,80}\b(today|this (?:week|month|year))\b/i,
+  /\brecent\b[^\n]{0,80}\b(studies?|papers?|research|articles?|reports?)\b/i,
+  /\btrending\b/i,
+  /\bwhen\b[^\n]{0,60}\b(release date|launch|premiere)\b/i,
+  /\b(today|current)\b[^\n]{0,80}\b(gas prices|mortgage rates|interest rates)\b/i,
+  /\bflight\b[^\n]{0,80}\b(status|arrivals?|departures?)\b/i,
+];
+const RECENCY_PATTERNS = [
+  /\blatest\b/i,
+  /\bcurrent\b/i,
+  /\btoday\b/i,
+  /\btonight\b/i,
+  /\bthis (?:week|month|year)\b/i,
+  /\brecent\b/i,
+  /\bbreaking\b/i,
+  /\bright now\b/i,
+  /\bupcoming\b/i,
+];
+const SEARCH_TOPIC_PATTERNS = [
+  /\bnews\b/i,
+  /\bupdate[s]?\b/i,
+  /\bheadline[s]?\b/i,
+  /\bevent[s]?\b/i,
+  /\btrend(?:s|ing)?\b/i,
+  /\bmarket\b/i,
+  /\bstock[s]?\b/i,
+  /\bprice[s]?\b/i,
+  /\brate[s]?\b/i,
+  /\bweather\b/i,
+  /\bforecast\b/i,
+  /\bsport[s]?\b/i,
+  /\bscore[s]?\b/i,
+  /\brelease date\b/i,
+  /\blaunch\b/i,
+  /\bannouncement\b/i,
+];
 
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
@@ -195,6 +250,61 @@ function computeKeywordSignals(text) {
 
   signals.sort((a, b) => b.intensity - a.intensity);
   return signals;
+}
+
+function collectMatches(patterns, text) {
+  const matches = [];
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    if (pattern.test(text)) {
+      matches.push(pattern.source ?? pattern.toString());
+    }
+  }
+
+  return matches;
+}
+
+function detectSearchSignals(text) {
+  const explicitMatches = collectMatches(EXPLICIT_SEARCH_PATTERNS, text);
+  const implicitMatches = collectMatches(IMPLICIT_SEARCH_PATTERNS, text);
+  const recencyMatches = collectMatches(RECENCY_PATTERNS, text);
+  const topicMatches = collectMatches(SEARCH_TOPIC_PATTERNS, text);
+  const comboMatch = recencyMatches.length > 0 && topicMatches.length > 0;
+
+  const combinedImplicitMatches = implicitMatches.slice();
+  if (comboMatch) {
+    combinedImplicitMatches.push(`combo:${recencyMatches[0]}&${topicMatches[0]}`);
+  }
+
+  const hasExplicit = explicitMatches.length > 0;
+  const hasImplicit = combinedImplicitMatches.length > 0;
+  const shouldSearch = hasExplicit || hasImplicit;
+
+  let confidence = 0;
+  if (hasExplicit) {
+    confidence = Math.min(0.9, 0.8 + (explicitMatches.length - 1) * 0.04);
+  } else if (hasImplicit) {
+    confidence = Math.min(0.85, 0.72 + combinedImplicitMatches.length * 0.03);
+  }
+
+  let reason = null;
+  if (hasExplicit && hasImplicit) {
+    reason = 'mixed';
+  } else if (hasExplicit) {
+    reason = 'explicit';
+  } else if (hasImplicit) {
+    reason = comboMatch ? 'implicit:combo' : 'implicit';
+  }
+
+  return {
+    shouldSearch,
+    reason,
+    confidence,
+    explicitMatches,
+    implicitMatches: combinedImplicitMatches,
+    recencyMatches,
+    topicMatches,
+  };
 }
 
 function detectQuickIntent(text, tokenBudget) {
@@ -237,25 +347,52 @@ function buildCandidate({ text, toggles, tokenBudget, previousState }) {
     }
   }
 
-  if (toggles?.web_search && toggles?.thinking) {
+  const searchSignals = detectSearchSignals(normalized);
+  const thinkingToggle = Boolean(toggles?.thinking);
+  let webSearchToggle = Boolean(toggles?.web_search);
+  let autoWebSearch = false;
+
+  if (!webSearchToggle && searchSignals.shouldSearch) {
+    webSearchToggle = true;
+    autoWebSearch = true;
+  }
+
+  if (webSearchToggle && thinkingToggle) {
     candidate.intent = 'strategy';
-    candidate.intensity = Math.max(candidate.intensity, 0.86);
+    const intensityFloor = Math.max(0.86, searchSignals.confidence || 0);
+    candidate.intensity = Math.max(candidate.intensity, intensityFloor);
     candidate.reason.push('toggle:web_search+thinking');
+    if (!toggles?.web_search) {
+      candidate.reason.push(`signal:web_search:${searchSignals.reason ?? 'implicit'}`);
+      if (toggles?.thinking) {
+        candidate.reason.push('toggle:thinking');
+      }
+    }
     candidate.togglesUsed.push('thinking', 'web_search');
     candidate.forcedSwitch = true;
-  } else if (toggles?.web_search) {
+  } else if (webSearchToggle) {
     candidate.intent = 'research';
-    candidate.intensity = Math.max(candidate.intensity, 0.74);
-    candidate.reason.push('toggle:web_search');
+    const intensityFloor = toggles?.web_search
+      ? 0.74
+      : Math.max(0.74, searchSignals.confidence || 0.76);
+    candidate.intensity = Math.max(candidate.intensity, intensityFloor);
+    candidate.reason.push(
+      toggles?.web_search
+        ? 'toggle:web_search'
+        : `signal:web_search:${searchSignals.reason ?? 'implicit'}`,
+    );
     candidate.togglesUsed.push('web_search');
     candidate.forcedSwitch = true;
-  } else if (toggles?.thinking) {
+  } else if (thinkingToggle) {
     candidate.intent = 'deep_reasoning';
     candidate.intensity = Math.max(candidate.intensity, 0.82);
     candidate.reason.push('toggle:thinking');
     candidate.togglesUsed.push('thinking');
     candidate.forcedSwitch = true;
   }
+
+  candidate.autoWebSearch = autoWebSearch;
+  candidate.searchSignals = searchSignals;
 
   if (!candidate.togglesUsed.includes('thinking') && detectQuickIntent(normalized, tokenBudget)) {
     candidate.intent = 'quick';
@@ -299,6 +436,8 @@ function buildCandidate({ text, toggles, tokenBudget, previousState }) {
   }
 
   candidate.keywordHits = Array.from(new Set(candidate.keywordHits));
+  candidate.togglesUsed = Array.from(new Set(candidate.togglesUsed));
+  candidate.reason = Array.from(new Set(candidate.reason));
   return { ...candidate, keywordSignals };
 }
 
@@ -377,6 +516,14 @@ function applyAutoRouting(req) {
   const previousState = getState(gaugeKey);
 
   const candidate = buildCandidate({ text, toggles, tokenBudget, previousState });
+  const togglesAfterRouting = {
+    ...toggles,
+  };
+
+  if (candidate.autoWebSearch && !togglesAfterRouting.web_search) {
+    togglesAfterRouting.web_search = true;
+  }
+
   const { state: gaugeState, switched } = updateGauge({
     key: gaugeKey,
     candidate,
@@ -392,6 +539,10 @@ function applyAutoRouting(req) {
   }
 
   applyPreset(body, targetSpec.preset, targetSpec.name);
+
+  if (togglesAfterRouting.web_search) {
+    body.web_search = true;
+  }
 
   let sanitized;
   try {
@@ -414,10 +565,12 @@ function applyAutoRouting(req) {
     model: body.model,
     intensity: Number((gaugeState.intensity ?? 0).toFixed(2)),
     switched,
-    toggles,
+    toggles: togglesAfterRouting,
     keywordHits: candidate.keywordHits,
     tokenBudget,
     reason: candidate.reason,
+    autoWebSearch: candidate.autoWebSearch,
+    searchSignals: candidate.searchSignals,
   });
 
   return {
@@ -426,6 +579,7 @@ function applyAutoRouting(req) {
     spec: targetSpec.name,
     gauge: gaugeState,
     candidate,
+    toggles: togglesAfterRouting,
   };
 }
 
