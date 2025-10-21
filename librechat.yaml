@@ -70,6 +70,15 @@ speech:
       model: "gpt-4o-mini-tts"
       voices:
         - alloy
+        - ash
+        - ballad
+        - coral
+        - echo
+        - fable
+        - nova
+        - onyx
+        - sage
+        - shimmer
   stt:
     openai:
       apiKey: "${OPENAI_API_KEY}"
