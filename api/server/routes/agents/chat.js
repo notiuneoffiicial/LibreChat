@@ -6,6 +6,7 @@ const {
   moderateText,
   // validateModel,
   validateConvoAccess,
+  autoRoute,
   buildEndpointOption,
   canAccessAgentFromBody,
 } = require('~/server/middleware');
@@ -31,6 +32,7 @@ const checkAgentResourceAccess = canAccessAgentFromBody({
 router.use(checkAgentAccess);
 router.use(checkAgentResourceAccess);
 router.use(validateConvoAccess);
+router.use(autoRoute);
 router.use(buildEndpointOption);
 router.use(setHeaders);
 

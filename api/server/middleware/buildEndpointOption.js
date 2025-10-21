@@ -30,14 +30,19 @@ const buildFunction = {
 
 async function buildEndpointOption(req, res, next) {
   const { endpoint, endpointType } = req.body;
-  let parsedBody;
-  try {
-    parsedBody = parseCompactConvo({ endpoint, endpointType, conversation: req.body });
-  } catch (error) {
-    logger.warn(
-      `Error parsing conversation for endpoint ${endpoint}${error?.message ? `: ${error.message}` : ''}`,
-    );
-    return handleError(res, { text: 'Error parsing conversation' });
+  let parsedBody = req.autoRoutedConversation;
+
+  if (!parsedBody) {
+    try {
+      parsedBody = parseCompactConvo({ endpoint, endpointType, conversation: req.body });
+    } catch (error) {
+      logger.warn(
+        `Error parsing conversation for endpoint ${endpoint}${error?.message ? `: ${error.message}` : ''}`,
+      );
+      return handleError(res, { text: 'Error parsing conversation' });
+    }
+  } else {
+    delete req.autoRoutedConversation;
   }
 
   const appConfig = req.config;
