@@ -595,16 +595,16 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   );
 
   const statusKey = useMemo(() => {
-    if (!micEnabled) {
-      return 'com_ui_voice_overlay_status_muted' as const;
-    }
-
     if (globalAudioPlaying) {
       return 'com_ui_voice_overlay_status_speaking' as const;
     }
 
     if (isSubmitting || globalAudioFetching || isLoading) {
       return 'com_ui_voice_overlay_status_processing' as const;
+    }
+
+    if (!micEnabled) {
+      return 'com_ui_voice_overlay_status_muted' as const;
     }
 
     if (isUserSpeaking || (isListening && hasActiveSpeech)) {
@@ -628,16 +628,16 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   ]);
 
   const orbState = useMemo(() => {
-    if (!micEnabled) {
-      return 'muted';
-    }
-
     if (globalAudioPlaying) {
       return 'responding';
     }
 
     if (isSubmitting || globalAudioFetching || isLoading) {
       return 'processing';
+    }
+
+    if (!micEnabled) {
+      return 'muted';
     }
 
     if (isUserSpeaking || (isListening && hasActiveSpeech)) {
@@ -661,7 +661,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   ]);
 
   const orbVisualState = useMemo(() => {
-    if (!micEnabled) {
+    if (orbState === 'muted') {
       return {
         glow: 0.85,
         hoverIntensity: 0.25,
@@ -695,7 +695,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
           animation: { scale: 1, opacity: 1 },
         };
     }
-  }, [micEnabled, orbState]);
+  }, [orbState]);
 
   const transcriptToDisplay = interimTranscript || lastTranscript;
   const statusText = localize(statusKey);
@@ -706,7 +706,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     : 'bg-white/10 hover:bg-white/20 text-white/90 shadow-lg ring-2 ring-transparent';
 
   useEffect(() => {
-    if (!micEnabled) {
+    if (orbState === 'muted') {
+      stopRespondingAnimation();
       updateActivityLevel(ACTIVITY_IDLE);
       return () => {
         stopRespondingAnimation();
@@ -750,7 +751,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     return () => {
       stopRespondingAnimation();
     };
-  }, [micEnabled, isUserSpeaking, orbState, stopRespondingAnimation, updateActivityLevel]);
+  }, [isUserSpeaking, orbState, stopRespondingAnimation, updateActivityLevel]);
 
   useEffect(() => {
     const responseActive = isSubmitting || globalAudioPlaying || globalAudioFetching;
