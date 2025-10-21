@@ -54,6 +54,7 @@ interface:
   modelSelect: false
   parameters: false
   presets: false
+  modelSelectReadOnly: true
 
   # Disable Code Interpreter button
   runCode: false
