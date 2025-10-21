@@ -82,6 +82,8 @@ interface:
 
   endpointsMenu: true
   modelSelect: true
+  # Set to true to keep the selector visible but disable interaction (default: false)
+  modelSelectReadOnly: false
   parameters: true
   sidePanel: true
   presets: true

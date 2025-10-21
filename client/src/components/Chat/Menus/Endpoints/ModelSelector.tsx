@@ -8,6 +8,7 @@ import { getSelectedIcon, getDisplayValue } from './utils';
 import { CustomMenu as Menu } from './CustomMenu';
 import DialogManager from './DialogManager';
 import { useLocalize } from '~/hooks';
+import { cn } from '~/utils';
 
 function ModelSelectorContent() {
   const localize = useLocalize();
@@ -18,6 +19,7 @@ function ModelSelectorContent() {
     modelSpecs,
     mappedEndpoints,
     endpointsConfig,
+    isReadOnly,
     // State
     searchValue,
     searchResults,
@@ -122,8 +124,15 @@ function ModelSelectorContent() {
 
   const trigger = (
     <button
-      className="my-1 flex h-10 w-full max-w-[70vw] items-center justify-center gap-2 rounded-xl border border-border-light bg-surface-secondary px-3 py-2 text-sm text-text-primary hover:bg-surface-tertiary"
+      type="button"
+      className={cn(
+        'my-1 flex h-10 w-full max-w-[70vw] items-center justify-center gap-2 rounded-xl border border-border-light bg-surface-secondary px-3 py-2 text-sm text-text-primary',
+        isReadOnly
+          ? 'cursor-not-allowed opacity-60 hover:bg-surface-secondary'
+          : 'hover:bg-surface-tertiary',
+      )}
       aria-label={localize('com_ui_select_model')}
+      disabled={isReadOnly}
     >
       {selectedIcon && React.isValidElement(selectedIcon) && (
         <div className="flex flex-shrink-0 items-center justify-center overflow-hidden">
@@ -138,15 +147,22 @@ function ModelSelectorContent() {
     <div className="relative flex w-full max-w-md flex-col items-center gap-2">
       <Menu
         values={selectedValues}
+        disabled={isReadOnly}
         onValuesChange={(values: Record<string, any>) => {
+          if (isReadOnly) {
+            return;
+          }
+
           setSelectedValues({
             endpoint: values.endpoint || '',
             model: values.model || '',
             modelSpec: values.modelSpec || '',
           });
         }}
-        onSearch={(value) => setSearchValue(value)}
-        combobox={<input placeholder={localize('com_endpoint_search_models')} />}
+        onSearch={isReadOnly ? undefined : (value) => setSearchValue(value)}
+        combobox={
+          isReadOnly ? undefined : <input placeholder={localize('com_endpoint_search_models')} />
+        }
         trigger={trigger}
       >
         {filteredSearchResults ? (
