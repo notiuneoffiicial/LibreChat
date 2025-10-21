@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Blocks, MCPIcon, AttachmentIcon } from '@librechat/client';
-import { Database, Bookmark, Settings2, ArrowRightToLine, MessageSquareQuote } from 'lucide-react';
+import { Database, Bookmark, Settings2, ArrowRightToLine, MessageSquareQuote, Music3 } from 'lucide-react';
 import {
   Permissions,
   EModelEndpoint,
@@ -19,6 +19,7 @@ import PromptsAccordion from '~/components/Prompts/PromptsAccordion';
 import Parameters from '~/components/SidePanel/Parameters/Panel';
 import FilesPanel from '~/components/SidePanel/Files/Panel';
 import MCPPanel from '~/components/SidePanel/MCP/MCPPanel';
+import SpotifyPanel from '~/components/SidePanel/Spotify/SpotifyPanel';
 import { useGetStartupConfig } from '~/data-provider';
 import { useHasAccess } from '~/hooks';
 
@@ -167,6 +168,16 @@ export default function useSideNavLinks({
         icon: MCPIcon,
         id: 'mcp-settings',
         Component: MCPPanel,
+      });
+    }
+
+    if (startupConfig?.mcpServers?.spotify) {
+      links.push({
+        title: 'com_spotify_integration_title',
+        label: '',
+        icon: Music3,
+        id: 'spotify',
+        Component: SpotifyPanel,
       });
     }
 

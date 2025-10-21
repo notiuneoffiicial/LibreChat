@@ -12,7 +12,7 @@ import { Badge } from '@librechat/client';
 import { useRecoilValue, useRecoilCallback } from 'recoil';
 import type { LucideIcon } from 'lucide-react';
 import CodeInterpreter from './CodeInterpreter';
-import { BadgeRowProvider } from '~/Providers';
+import { BadgeRowProvider, useBadgeRowContext } from '~/Providers';
 import ToolsDropdown from './ToolsDropdown';
 import type { BadgeItem } from '~/common';
 import { useChatBadges } from '~/hooks';
@@ -23,6 +23,7 @@ import MCPSelect from './MCPSelect';
 import WebSearch from './WebSearch';
 import ThinkingToggle from './ThinkingToggle';
 import store from '~/store';
+import SpotifyIntegrationDialog from './SpotifyIntegrationDialog';
 
 interface BadgeRowProps {
   showEphemeralBadges?: boolean;
@@ -90,6 +91,19 @@ const BadgeWrapper = React.memo(
 );
 
 BadgeWrapper.displayName = 'BadgeWrapper';
+
+const SpotifyIntegrationDialogContainer = memo(() => {
+  const { spotifyIntegration, conversationId } = useBadgeRowContext();
+  return (
+    <SpotifyIntegrationDialog
+      isOpen={spotifyIntegration.isDialogOpen}
+      onOpenChange={spotifyIntegration.setIsDialogOpen}
+      conversationId={conversationId}
+    />
+  );
+});
+
+SpotifyIntegrationDialogContainer.displayName = 'SpotifyIntegrationDialogContainer';
 
 interface DragState {
   draggedBadge: BadgeItem | null;
@@ -399,6 +413,7 @@ function BadgeRow({
         )}
       </div>
       <ToolDialogs />
+      <SpotifyIntegrationDialogContainer />
     </BadgeRowProvider>
   );
 }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useSetRecoilState } from 'recoil';
 import { Tools, Constants, LocalStorageKeys, AgentCapabilities } from 'librechat-data-provider';
 import type { TAgentsEndpoint } from 'librechat-data-provider';
@@ -22,6 +22,10 @@ interface BadgeRowContextType {
   codeApiKeyForm: ReturnType<typeof useCodeApiKeyForm>;
   searchApiKeyForm: ReturnType<typeof useSearchApiKeyForm>;
   mcpServerManager: ReturnType<typeof useMCPServerManager>;
+  spotifyIntegration: {
+    isDialogOpen: boolean;
+    setIsDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  };
 }
 
 const BadgeRowContext = createContext<BadgeRowContextType | undefined>(undefined);
@@ -144,6 +148,8 @@ export default function BadgeRowProvider({
   const codeApiKeyForm = useCodeApiKeyForm({});
   const { setIsDialogOpen: setCodeDialogOpen } = codeApiKeyForm;
 
+  const [isSpotifyDialogOpen, setIsSpotifyDialogOpen] = useState(false);
+
   const codeInterpreter = useToolToggle({
     conversationId,
     setIsDialogOpen: setCodeDialogOpen,
@@ -198,6 +204,10 @@ export default function BadgeRowProvider({
     codeInterpreter,
     searchApiKeyForm,
     mcpServerManager,
+    spotifyIntegration: {
+      isDialogOpen: isSpotifyDialogOpen,
+      setIsDialogOpen: setIsSpotifyDialogOpen,
+    },
   };
 
   return <BadgeRowContext.Provider value={value}>{children}</BadgeRowContext.Provider>;

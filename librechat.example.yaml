@@ -190,6 +190,24 @@ actions:
 #       - -y
 #       - "mcp-obsidian"
 #       - /path/to/obsidian/vault
+#   spotify:
+#     type: sse
+#     url: ${SPOTIFY_MCP_URL}
+#     requiresOAuth: true
+#     chatMenu: true
+#     oauth:
+#       authorization_url: https://accounts.spotify.com/authorize
+#       token_url: https://accounts.spotify.com/api/token
+#       scope: ${SPOTIFY_OAUTH_SCOPE}
+#       client_id: ${SPOTIFY_CLIENT_ID}
+#       client_secret: ${SPOTIFY_CLIENT_SECRET}
+#     customUserVars:
+#       preferred_playlists:
+#         title: 'Preferred Spotify playlists'
+#         description: 'Managed via the Spotify integration UI.'
+#       vibe_playlists:
+#         title: 'Mood-based Spotify playlists'
+#         description: 'Managed via the Spotify integration UI.'
 
 # Definition of custom endpoints
 endpoints:

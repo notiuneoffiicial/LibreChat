@@ -195,6 +195,31 @@ export interface MCPAuthValuesResponse {
   authValueFlags: Record<string, boolean>;
 }
 
+export interface SpotifyPlaylistImage {
+  url: string;
+  width?: number | null;
+  height?: number | null;
+}
+
+export interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  description?: string | null;
+  url?: string | null;
+  images?: SpotifyPlaylistImage[];
+  tags?: string[];
+}
+
+export interface SpotifyPlaylistsResponse {
+  playlists: SpotifyPlaylist[];
+}
+
+export interface SpotifyPreferencesResponse {
+  preferredPlaylists: string[];
+  vibePlaylists: string[];
+  lastSyncedAt?: string | null;
+}
+
 /* SharePoint Graph API Token */
 export type GraphTokenParams = {
   scopes: string;

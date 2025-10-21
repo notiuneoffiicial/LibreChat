@@ -166,6 +166,9 @@ export const cancelMCPOAuth = (serverName: string) => {
   return `${BASE_URL}/api/mcp/oauth/cancel/${serverName}`;
 };
 
+export const spotifyPlaylists = () => `${BASE_URL}/api/mcp/spotify/playlists`;
+export const spotifyPreferences = () => `${BASE_URL}/api/mcp/spotify/preferences`;
+
 export const config = () => `${BASE_URL}/api/config`;
 
 export const prompts = () => `${BASE_URL}/api/prompts`;

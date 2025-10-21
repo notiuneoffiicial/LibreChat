@@ -42,7 +42,7 @@ interface:
   termsOfService:
     externalUrl: "https://optimismai.app/terms"
     openNewTab: true
-      
+
   # Keep right panel but trim items
   sidePanel: true
   bookmarks: true
@@ -61,6 +61,33 @@ interface:
   # Keep web search button visible (provider is configured separately if you use it)
   webSearch: true
   fileCitations: true
+
+mcpServers:
+  spotify:
+    type: sse
+    url: "${SPOTIFY_MCP_URL}"
+    requiresOAuth: true
+    startup: false
+    chatMenu: true
+    serverInstructions: |
+      Use the Spotify MCP tools to inspect the user's playlists and suggest music when it can help.
+      - list_user_playlists(query?): retrieve playlists surfaced through the Spotify integration UI.
+      - suggest_playlist(context, vibe?): request a playlist that matches the user's current mood or goal.
+      - queue_playlist(playlist_id, track_id?): share or queue a playlist only after the user explicitly agrees.
+      Always check the saved "Comfort picks" and "Energy & focus" categories before recommending music and confirm with the user before sharing a link or triggering playback.
+    oauth:
+      authorization_url: "https://accounts.spotify.com/authorize"
+      token_url: "https://accounts.spotify.com/api/token"
+      scope: "${SPOTIFY_OAUTH_SCOPE}"
+      client_id: "${SPOTIFY_CLIENT_ID}"
+      client_secret: "${SPOTIFY_CLIENT_SECRET}"
+    customUserVars:
+      preferred_playlists:
+        title: "Preferred Spotify playlists"
+        description: "Managed automatically by the Spotify integration UI."
+      vibe_playlists:
+        title: "Mood-based Spotify playlists"
+        description: "Managed automatically by the Spotify integration UI."
 
 # ---- Speech Configuration (Cloud Voice) ----
 speech:
@@ -185,6 +212,15 @@ modelSpecs:
           Speak in plain, warm, human language. Avoid jargon and labels.
           Use bullet points only if the user asks for a list or the content is complex; otherwise keep a natural flow.
           Respect autonomy. Offer possibilities, never commands.
+          Music Support
+          When the user's emotional state or context suggests music might help, explore the idea gently.
+          Check whether Spotify playlists are connected via the integration before suggesting anything.
+          Use the Spotify MCP tools when music is welcome:
+            - Call `list_user_playlists` to review available playlists and their saved categories.
+            - Prefer playlists tagged as “Comfort picks” when the user needs reassurance or grounding.
+            - Prefer playlists tagged as “Energy & focus” when the user wants motivation, creativity, or momentum.
+            - Use `suggest_playlist` for mood-based inspiration and `queue_playlist` only after the user explicitly agrees to listen.
+          Always ask permission before sharing or queuing a playlist. If Spotify is not connected, explain how to open the Spotify integration from the Tools menu or side panel.
           Strict Output Guardrails
           Never use these words: lens, reframe, pipeline, SVNS, attune, grounding.
           Never label your process (e.g., “first I will…,” “here is a reframe”). The method must remain invisible.
@@ -234,6 +270,15 @@ modelSpecs:
           Speak in plain, warm, human language. Avoid jargon and labels.
           Use bullet points only if the user asks for a list or the content is complex; otherwise keep a natural flow.
           Respect autonomy. Offer possibilities, never commands.
+          Music Support
+          When the user's emotional state or context suggests music might help, explore the idea gently.
+          Check whether Spotify playlists are connected via the integration before suggesting anything.
+          Use the Spotify MCP tools when music is welcome:
+            - Call `list_user_playlists` to review available playlists and their saved categories.
+            - Prefer playlists tagged as “Comfort picks” when the user needs reassurance or grounding.
+            - Prefer playlists tagged as “Energy & focus” when the user wants motivation, creativity, or momentum.
+            - Use `suggest_playlist` for mood-based inspiration and `queue_playlist` only after the user explicitly agrees to listen.
+          Always ask permission before sharing or queuing a playlist. If Spotify is not connected, explain how to open the Spotify integration from the Tools menu or side panel.
           Conversation Style
           Mimic Human Conversation to the degree that is compatible with your other instructions, avoid long winded respones unless you're deep into a conversation, avoid bullet points
           & lists, add fillers in your responses, such as Hmm, Uh, Eh, Er, you know etc, filler phrases & interjections where natural & appopriate are encouraged

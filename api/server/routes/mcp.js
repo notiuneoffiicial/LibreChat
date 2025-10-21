@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { logger } = require('@librechat/data-schemas');
-const { CacheKeys, Constants } = require('librechat-data-provider');
+const { CacheKeys, Constants, Tools } = require('librechat-data-provider');
 const {
   createSafeUser,
   MCPOAuthHandler,
@@ -26,6 +26,209 @@ const router = Router();
  */
 router.get('/tools', requireJwtAuth, async (req, res) => {
   return getMCPTools(req, res);
+});
+
+const SPOTIFY_SERVER_NAME = 'spotify';
+
+router.get('/spotify/playlists', requireJwtAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user?.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const mcpManager = getMCPManager();
+    const serverConfig = mcpManager.getRawConfig(SPOTIFY_SERVER_NAME);
+    if (!serverConfig) {
+      return res.status(404).json({ error: 'Spotify MCP server is not configured' });
+    }
+
+    let customUserVars;
+    if (serverConfig.customUserVars && Object.keys(serverConfig.customUserVars).length > 0) {
+      const authMap = await getUserMCPAuthMap({
+        userId: user.id,
+        servers: [SPOTIFY_SERVER_NAME],
+        findPluginAuthsByKeys,
+      });
+      customUserVars = authMap?.[`${Constants.mcp_prefix}${SPOTIFY_SERVER_NAME}`];
+    }
+
+    const flowsCache = getLogStores(CacheKeys.FLOWS);
+    const flowManager = getFlowStateManager(flowsCache);
+
+    const [content, artifacts] = await mcpManager.callTool({
+      serverName: SPOTIFY_SERVER_NAME,
+      toolName: 'list_user_playlists',
+      provider: 'deepseek',
+      user,
+      flowManager,
+      customUserVars,
+      tokenMethods: {
+        findToken,
+        createToken,
+        updateToken,
+      },
+    });
+
+    const normalizePlaylist = (playlist) => {
+      if (!playlist) {
+        return null;
+      }
+
+      const id = playlist.id || playlist.uri || playlist.url;
+      if (!id) {
+        return null;
+      }
+
+      const images = Array.isArray(playlist.images)
+        ? playlist.images.map((image) => ({
+            url: image.url,
+            width: image.width ?? null,
+            height: image.height ?? null,
+          }))
+        : undefined;
+
+      let url = playlist.url ?? playlist.external_urls?.spotify ?? null;
+
+      if (!url && typeof playlist.uri === 'string') {
+        url = playlist.uri;
+      }
+
+      if (typeof url === 'string' && url.startsWith('spotify:playlist:')) {
+        url = `https://open.spotify.com/playlist/${url.split(':').pop()}`;
+      }
+
+      let tags;
+      if (Array.isArray(playlist.tags)) {
+        tags = playlist.tags;
+      } else if (playlist.category) {
+        tags = [playlist.category];
+      }
+
+      return {
+        id,
+        name: playlist.name || 'Untitled playlist',
+        description: playlist.description ?? null,
+        url,
+        images,
+        tags,
+      };
+    };
+
+    const uniquePlaylists = new Map();
+
+    const collectFromArray = (items) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item) => {
+        const normalized = normalizePlaylist(item);
+        if (normalized && !uniquePlaylists.has(normalized.id)) {
+          uniquePlaylists.set(normalized.id, normalized);
+        }
+      });
+    };
+
+    if (Array.isArray(content)) {
+      const textContent = content
+        .filter((entry) => entry?.type === 'text' && typeof entry.text === 'string')
+        .map((entry) => entry.text)
+        .join('\n');
+      if (textContent) {
+        try {
+          const parsed = JSON.parse(textContent);
+          if (Array.isArray(parsed)) {
+            collectFromArray(parsed);
+          } else if (Array.isArray(parsed.playlists)) {
+            collectFromArray(parsed.playlists);
+          }
+        } catch (error) {
+          logger.debug('[MCP Spotify] Unable to parse playlists JSON from tool response', error);
+        }
+      }
+    } else if (typeof content === 'string' && content.trim().length) {
+      try {
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          collectFromArray(parsed);
+        } else if (Array.isArray(parsed.playlists)) {
+          collectFromArray(parsed.playlists);
+        }
+      } catch (error) {
+        logger.debug('[MCP Spotify] Unable to parse playlists JSON from tool response', error);
+      }
+    }
+
+    const uiResources = artifacts?.[Tools.ui_resources]?.data;
+    if (Array.isArray(uiResources)) {
+      uiResources.forEach((resource) => {
+        if (!resource?.metadata) return;
+        const normalized = normalizePlaylist({
+          id: resource.metadata.id,
+          name: resource.name,
+          description: resource.description,
+          url: resource.uri,
+          tags: resource.metadata.tags,
+        });
+        if (normalized && !uniquePlaylists.has(normalized.id)) {
+          uniquePlaylists.set(normalized.id, normalized);
+        }
+      });
+    }
+
+    res.json({ playlists: Array.from(uniquePlaylists.values()) });
+  } catch (error) {
+    logger.error('[MCP Spotify] Failed to fetch playlists', error);
+    const message = error?.message ?? '';
+    if (message.includes('OAuth') || message.includes('401')) {
+      return res.status(401).json({ error: 'Spotify authentication required' });
+    }
+    res.status(500).json({ error: 'Failed to fetch Spotify playlists' });
+  }
+});
+
+router.get('/spotify/preferences', requireJwtAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user?.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const parseValue = (value) => {
+      if (!value) {
+        return [];
+      }
+      if (Array.isArray(value)) {
+        return value.map(String);
+      }
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            return parsed.map(String);
+          }
+        } catch (error) {
+          logger.debug('[MCP Spotify] Unable to parse stored playlist preferences', error);
+        }
+      }
+      return [];
+    };
+
+    const pluginKey = `${Constants.mcp_prefix}${SPOTIFY_SERVER_NAME}`;
+    const preferredRaw = await getUserPluginAuthValue(
+      user.id,
+      'preferred_playlists',
+      false,
+      pluginKey,
+    );
+    const vibeRaw = await getUserPluginAuthValue(user.id, 'vibe_playlists', false, pluginKey);
+
+    res.json({
+      preferredPlaylists: parseValue(preferredRaw),
+      vibePlaylists: parseValue(vibeRaw),
+    });
+  } catch (error) {
+    logger.error('[MCP Spotify] Failed to load playlist preferences', error);
+    res.status(500).json({ error: 'Failed to load Spotify playlist preferences' });
+  }
 });
 
 /**

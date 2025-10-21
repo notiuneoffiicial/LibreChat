@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import * as Ariakit from '@ariakit/react';
-import { Globe, Settings, Settings2, TerminalSquareIcon } from 'lucide-react';
+import { Globe, Music3, Settings, Settings2, TerminalSquareIcon } from 'lucide-react';
 import { TooltipAnchor, DropdownPopup, PinIcon, VectorIcon } from '@librechat/client';
 import type { MenuItemProps } from '~/common';
 import {
@@ -34,6 +34,7 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     codeApiKeyForm,
     codeInterpreter,
     searchApiKeyForm,
+    spotifyIntegration,
   } = useBadgeRowContext();
   const { data: startupConfig } = useGetStartupConfig();
 
@@ -291,6 +292,23 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     dropdownItems.push({
       hideOnClick: false,
       render: (props) => <MCPSubMenu {...props} placeholder={mcpPlaceholder} />,
+    });
+  }
+
+  if (startupConfig?.mcpServers?.spotify) {
+    dropdownItems.push({
+      onClick: () => {
+        spotifyIntegration.setIsDialogOpen(true);
+        setIsPopoverActive(false);
+      },
+      render: (props) => (
+        <div {...props}>
+          <div className="flex items-center gap-2">
+            <Music3 className="icon-md" />
+            <span>{localize('com_spotify_integration_title')}</span>
+          </div>
+        </div>
+      ),
     });
   }
 

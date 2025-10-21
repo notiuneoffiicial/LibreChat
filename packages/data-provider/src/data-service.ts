@@ -163,6 +163,14 @@ export const getMCPAuthValues = (serverName: string): Promise<q.MCPAuthValuesRes
   return request.get(endpoints.mcpAuthValues(serverName));
 };
 
+export const getSpotifyPlaylists = (): Promise<q.SpotifyPlaylistsResponse> => {
+  return request.get(endpoints.spotifyPlaylists());
+};
+
+export const getSpotifyPreferences = (): Promise<q.SpotifyPreferencesResponse> => {
+  return request.get(endpoints.spotifyPreferences());
+};
+
 export function cancelMCPOAuth(serverName: string): Promise<m.CancelMCPOAuthResponse> {
   return request.post(endpoints.cancelMCPOAuth(serverName), {});
 }

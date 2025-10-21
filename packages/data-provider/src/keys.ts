@@ -29,6 +29,8 @@ export enum QueryKeys {
   mcpTools = 'mcpTools',
   mcpConnectionStatus = 'mcpConnectionStatus',
   mcpAuthValues = 'mcpAuthValues',
+  spotifyPlaylists = 'spotifyPlaylists',
+  spotifyPreferences = 'spotifyPreferences',
   agentTools = 'agentTools',
   actions = 'actions',
   assistantDocs = 'assistantDocs',
