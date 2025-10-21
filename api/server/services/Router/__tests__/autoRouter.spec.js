@@ -126,4 +126,21 @@ describe('applyAutoRouting', () => {
     applyAutoRouting(req);
     expect(req.body.spec).toBe('optimism_quick');
   });
+
+  it('skips auto routing when a spec is already provided', () => {
+    const req = createRequest({
+      body: {
+        text: 'Quickly outline a go-to-market strategy.',
+        max_tokens: 256,
+        spec: 'optimism_strategy',
+        model: 'deepseek-reasoner',
+      },
+    });
+
+    applyAutoRouting(req);
+
+    expect(req.body.spec).toBe('optimism_strategy');
+    expect(req.body.model).toBe('deepseek-reasoner');
+    expect(req.autoRoutedConversation).toEqual(expect.objectContaining({ spec: 'optimism_strategy' }));
+  });
 });

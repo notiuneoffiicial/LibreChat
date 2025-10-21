@@ -349,6 +349,11 @@ function applyAutoRouting(req) {
     return null;
   }
 
+  if (typeof body?.spec === 'string' && body.spec.trim() !== '') {
+    req.autoRoutedConversation = parsedConversation;
+    return null;
+  }
+
   const text = typeof body.text === 'string' ? body.text.trim() : '';
   if (!text) {
     req.autoRoutedConversation = parsedConversation;
