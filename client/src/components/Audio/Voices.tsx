@@ -32,6 +32,7 @@ export function BrowserVoiceDropdown() {
         sizeClasses="min-w-[200px] !max-w-[400px] [--anchor-max-width:400px]"
         testId="BrowserVoiceDropdown"
         className="z-50"
+        portal={false}
         aria-labelledby={labelId}
       />
     </div>
@@ -64,6 +65,7 @@ export function ExternalVoiceDropdown() {
         sizeClasses="min-w-[200px] !max-w-[400px] [--anchor-max-width:400px]"
         testId="ExternalVoiceDropdown"
         className="z-50"
+        portal={false}
         aria-labelledby={labelId}
       />
     </div>

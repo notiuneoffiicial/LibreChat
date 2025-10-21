@@ -151,6 +151,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const [micEnabled, setMicEnabled] = useState(false);
   const speakingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null);
+  const pauseGlobalAudioRef = useRef(pauseGlobalAudio);
   const respondingAnimationRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
   const previousOverflow = useRef('');
@@ -271,12 +272,18 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   stopRecordingRef.current = stopRecording;
 
   useEffect(() => {
+    pauseGlobalAudioRef.current = pauseGlobalAudio;
+  }, [pauseGlobalAudio]);
+
+  useEffect(() => {
     return () => {
       cleanupSpeakingTimeout();
+      pauseGlobalAudioRef.current?.();
       const stopFn = stopRecordingRef.current;
       if (stopFn) {
         void stopFn();
       }
+      setMicEnabled(false);
     };
   }, [cleanupSpeakingTimeout]);
 
@@ -427,22 +434,12 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       restoreVoiceSelection();
       pauseGlobalAudio();
       setMicEnabled(false);
-      void stopRecording();
-      void stopRecordingRef.current?.();
-      return;
+      const stopFn = stopRecordingRef.current;
+      if (stopFn) {
+        void stopFn();
+      }
     }
-
-    return () => {
-      setMicEnabled(false);
-    };
-  }, [
-    cleanupSpeakingTimeout,
-    isOpen,
-    pauseGlobalAudio,
-    resetActivity,
-    restoreVoiceSelection,
-    stopRecording,
-  ]);
+  }, [cleanupSpeakingTimeout, isOpen, pauseGlobalAudio, resetActivity, restoreVoiceSelection]);
 
   useEffect(() => {
     if (!isOpen) {
