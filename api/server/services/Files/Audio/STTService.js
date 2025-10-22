@@ -36,6 +36,132 @@ const MIME_TO_EXTENSION_MAP = {
   'audio/x-flac': 'flac',
 };
 
+const TEXT_DELTA_EVENT_TYPES = new Set([
+  'transcript.text.delta',
+  'transcript.delta',
+  'response.output_text.delta',
+]);
+
+const TEXT_DONE_EVENT_TYPES = new Set([
+  'transcript.text.done',
+  'transcript.done',
+  'response.completed',
+  'response.output_text.done',
+]);
+
+const TEXT_ERROR_EVENT_TYPES = new Set(['response.error', 'response.failed']);
+
+function extractTextFromContent(content) {
+  if (!Array.isArray(content)) {
+    return '';
+  }
+
+  return content
+    .map((item) => {
+      if (!item) {
+        return '';
+      }
+
+      if (typeof item === 'string') {
+        return item;
+      }
+
+      if (typeof item.text === 'string') {
+        return item.text;
+      }
+
+      return '';
+    })
+    .join('');
+}
+
+function extractTextFromResponse(response) {
+  if (!response || typeof response !== 'object') {
+    return '';
+  }
+
+  if (Array.isArray(response.output_text) && response.output_text.length > 0) {
+    const text = response.output_text.filter((part) => typeof part === 'string').join('');
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (Array.isArray(response.output)) {
+    const text = response.output
+      .map((item) => extractTextFromContent(item?.content))
+      .filter(Boolean)
+      .join('');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (Array.isArray(response.content)) {
+    const text = extractTextFromContent(response.content);
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  return '';
+}
+
+function extractTextFromEvent(event) {
+  if (!event || typeof event !== 'object') {
+    return '';
+  }
+
+  if (typeof event.text === 'string' && event.text.trim()) {
+    return event.text;
+  }
+
+  if (typeof event.delta === 'string' && event.delta.trim()) {
+    return event.delta;
+  }
+
+  if (typeof event.output_text === 'string' && event.output_text.trim()) {
+    return event.output_text;
+  }
+
+  if (Array.isArray(event.output_text) && event.output_text.length > 0) {
+    const text = event.output_text.filter((part) => typeof part === 'string').join('');
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (event.segment && typeof event.segment.text === 'string' && event.segment.text.trim()) {
+    return event.segment.text;
+  }
+
+  if (Array.isArray(event.segments)) {
+    const text = event.segments
+      .map((segment) => (segment && typeof segment.text === 'string' ? segment.text : ''))
+      .filter(Boolean)
+      .join(' ');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  const responseText = extractTextFromResponse(event.response || event.result);
+  if (responseText.trim()) {
+    return responseText;
+  }
+
+  if (Array.isArray(event.content)) {
+    const text = extractTextFromContent(event.content);
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  return '';
+}
+
 /**
  * Gets the file extension from the MIME type.
  * @param {string} mimeType - The MIME type.
@@ -241,13 +367,42 @@ class STTService {
       });
 
       for await (const event of stream) {
-        if (event?.type === 'transcript.text.delta' && event.delta) {
-          finalText += event.delta;
-          this.writeStreamEvent(res, 'delta', { text: event.delta });
-        } else if (event?.type === 'transcript.text.done') {
-          finalText = event.text ?? finalText;
+        const type = event?.type;
+
+        if (!type) {
+          continue;
+        }
+
+        if (TEXT_DELTA_EVENT_TYPES.has(type)) {
+          const deltaText = extractTextFromEvent(event);
+
+          if (deltaText) {
+            finalText += deltaText;
+            this.writeStreamEvent(res, 'delta', { text: deltaText });
+          }
+
+          continue;
+        }
+
+        if (TEXT_DONE_EVENT_TYPES.has(type)) {
+          const resolvedText = extractTextFromEvent(event);
+
+          if (resolvedText) {
+            finalText = resolvedText;
+          }
+
           this.writeStreamEvent(res, 'done', { text: finalText });
           doneSent = true;
+          continue;
+        }
+
+        if (TEXT_ERROR_EVENT_TYPES.has(type)) {
+          const message =
+            event?.error?.message ||
+            event?.response?.error?.message ||
+            'An error occurred while streaming the transcription';
+
+          throw new Error(message);
         }
       }
     } finally {
