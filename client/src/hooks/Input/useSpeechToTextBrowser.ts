@@ -22,7 +22,7 @@ const useSpeechToTextBrowser = (
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [autoTranscribeAudio] = useRecoilState<boolean>(store.autoTranscribeAudio);
-  const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
+  const { autoSendOnSuccess = false, enableHotkeys = true, autoSendDelayOverride } = options ?? {};
 
   const {
     listening,
@@ -63,13 +63,15 @@ const useSpeechToTextBrowser = (
       return;
     }
 
-    const shouldAutoSend = autoSendOnSuccess || autoSendText > -1;
+    const effectiveDelaySeconds = autoSendDelayOverride ?? autoSendText;
+    const hasConfiguredDelay = effectiveDelaySeconds > -1;
+    const shouldAutoSend = autoSendOnSuccess || hasConfiguredDelay;
 
     if (!shouldAutoSend) {
       return;
     }
 
-    const delaySeconds = autoSendText > -1 ? autoSendText : 0;
+    const delaySeconds = hasConfiguredDelay ? effectiveDelaySeconds : 0;
     const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
 
     const sendTranscript = () => {
@@ -95,6 +97,7 @@ const useSpeechToTextBrowser = (
     finalTranscript,
     autoSendText,
     autoSendOnSuccess,
+    autoSendDelayOverride,
   ]);
 
   const startListening = useCallback(() => {
