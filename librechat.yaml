@@ -83,7 +83,7 @@ speech:
   stt:
     openai:
       apiKey: "${OPENAI_API_KEY}"
-      model: "gpt-4o-mini-transcribe"
+      model: "whisper-1"
       stream: true
   speechTab:
     conversationMode: false
