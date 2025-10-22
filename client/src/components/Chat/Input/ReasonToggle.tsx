@@ -12,7 +12,7 @@ type ToggleArgs = {
 const REASONER_MODEL = 'deepseek-reasoner';
 const CHAT_MODEL = 'deepseek-chat';
 
-export default function ThinkingToggle() {
+export default function ReasonToggle() {
   const { conversation, newConversation, isSubmitting } = useChatContext();
   const assistantsMap = useAssistantsMapContext();
   const { data: startupConfig } = useGetStartupConfig();
@@ -20,7 +20,7 @@ export default function ThinkingToggle() {
 
   const modelSpecs = useMemo(() => startupConfig?.modelSpecs?.list ?? [], [startupConfig]);
 
-  const thinkingSpec = useMemo(
+  const reasonSpec = useMemo(
     () => modelSpecs.find((spec) => spec.preset?.model === REASONER_MODEL),
     [modelSpecs],
   );
@@ -38,14 +38,14 @@ export default function ThinkingToggle() {
     returnHandlers: true,
   });
 
-  const isThinking = useMemo(() => {
+  const isReasoning = useMemo(() => {
     const currentModel = conversation?.model ?? '';
     if (currentModel) {
       return currentModel === REASONER_MODEL;
     }
 
-    return conversation?.spec != null && conversation.spec === thinkingSpec?.name;
-  }, [conversation?.model, conversation?.spec, thinkingSpec?.name]);
+    return conversation?.spec != null && conversation.spec === reasonSpec?.name;
+  }, [conversation?.model, conversation?.spec, reasonSpec?.name]);
 
   const handleToggle = useCallback(
     ({ value }: ToggleArgs) => {
@@ -53,30 +53,30 @@ export default function ThinkingToggle() {
         return;
       }
 
-      if (!onSelectSpec || !thinkingSpec || !chatSpec || isSubmitting) {
+      if (!onSelectSpec || !reasonSpec || !chatSpec || isSubmitting) {
         return;
       }
 
-      if ((value && isThinking) || (!value && !isThinking)) {
+      if ((value && isReasoning) || (!value && !isReasoning)) {
         return;
       }
 
-      const targetSpec = value ? thinkingSpec : chatSpec;
+      const targetSpec = value ? reasonSpec : chatSpec;
       onSelectSpec(targetSpec);
     },
-    [onSelectSpec, thinkingSpec, chatSpec, isSubmitting, isThinking],
+    [onSelectSpec, reasonSpec, chatSpec, isSubmitting, isReasoning],
   );
 
-  if (!thinkingSpec || !chatSpec) {
+  if (!reasonSpec || !chatSpec) {
     return null;
   }
 
   return (
     <CheckboxButton
       className="max-w-fit"
-      checked={isThinking}
+      checked={isReasoning}
       setValue={handleToggle}
-      label="Thinking"
+      label="Reason"
       isCheckedClassName="border-purple-500/40 bg-purple-500/10 hover:bg-purple-600/10"
       icon={<Brain className="icon-md" />}
     />
