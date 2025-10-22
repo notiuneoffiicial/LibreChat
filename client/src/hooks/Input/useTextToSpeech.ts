@@ -95,22 +95,30 @@ const useTextToSpeech = (props?: TUseTextToSpeech) => {
       if (lastSelectedVoice != null) {
         const currentVoice =
           typeof lastSelectedVoice === 'object' ? lastSelectedVoice.value : lastSelectedVoice;
-        logger.log('useTextToSpeech.ts - Effect:', { voices, voice: currentVoice });
-        setVoice(currentVoice?.toString() ?? undefined);
+        if (currentVoice?.toString() !== voice) {
+          logger.log('useTextToSpeech.ts - Effect:', { voices, voice: currentVoice });
+          setVoice(currentVoice?.toString() ?? undefined);
+        }
         return;
       }
 
-      logger.log('useTextToSpeech.ts - Effect:', { voices, voice: firstVoice.value });
-      setVoice(firstVoice.value?.toString() ?? undefined);
+      if (firstVoice.value?.toString() !== voice) {
+        logger.log('useTextToSpeech.ts - Effect:', { voices, voice: firstVoice.value });
+        setVoice(firstVoice.value?.toString() ?? undefined);
+      }
     } else if (voices.length) {
       const lastSelectedVoice = voices.find((v) => v === voice);
       if (lastSelectedVoice != null) {
-        logger.log('useTextToSpeech.ts - Effect:', { voices, voice: lastSelectedVoice });
-        setVoice(lastSelectedVoice.toString());
+        if (lastSelectedVoice.toString() !== voice) {
+          logger.log('useTextToSpeech.ts - Effect:', { voices, voice: lastSelectedVoice });
+          setVoice(lastSelectedVoice.toString());
+        }
         return;
       }
-      logger.log('useTextToSpeech.ts - Effect:', { voices, voice: firstVoice });
-      setVoice(firstVoice.toString());
+      if (firstVoice.toString() !== voice) {
+        logger.log('useTextToSpeech.ts - Effect:', { voices, voice: firstVoice });
+        setVoice(firstVoice.toString());
+      }
     }
   }, [setVoice, textToSpeechEndpoint, voice, voices]);
 
