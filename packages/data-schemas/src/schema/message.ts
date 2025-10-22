@@ -56,6 +56,10 @@ const messageSchema: Schema<IMessage> = new Schema(
       type: String,
       meiliIndex: true,
     },
+    reasoning: {
+      type: String,
+      default: null,
+    },
     summary: {
       type: String,
     },
