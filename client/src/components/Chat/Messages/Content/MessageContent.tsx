@@ -124,7 +124,17 @@ const MessageContent = ({
   const { message } = props;
   const { messageId } = message;
 
+  const { reasoning } = message;
+
   const { thinkingSummary, regularContent } = useMemo(() => {
+    const normalizedReasoning = reasoning?.trim();
+    if (normalizedReasoning) {
+      return {
+        thinkingSummary: generalizeReasoning(normalizedReasoning),
+        regularContent: text,
+      };
+    }
+
     const thinkingMatch = text.match(/:::thinking([\s\S]*?):::/);
     if (!thinkingMatch) {
       return {
@@ -138,7 +148,7 @@ const MessageContent = ({
       thinkingSummary: rawThinking ? generalizeReasoning(rawThinking) : [],
       regularContent: text.replace(/:::thinking[\s\S]*?:::/, '').trim(),
     };
-  }, [text]);
+  }, [reasoning, text]);
 
   const showRegularCursor = useMemo(() => isLast && isSubmitting, [isLast, isSubmitting]);
 

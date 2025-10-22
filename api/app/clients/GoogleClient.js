@@ -794,6 +794,11 @@ class GoogleClient extends BaseClient {
      */
     return (msg) => {
       if (msg.text != null && msg.text && msg.text.startsWith(':::thinking')) {
+        const reasoningMatch = msg.text.match(/:::thinking([\s\S]*?):::/);
+        if (reasoningMatch) {
+          msg.reasoning = reasoningMatch[1].trim();
+        }
+
         msg.text = msg.text.replace(/:::thinking.*?:::/gs, '').trim();
       } else if (msg.content != null) {
         msg.text = parseTextParts(msg.content, true);
