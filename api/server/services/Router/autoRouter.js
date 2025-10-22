@@ -1,8 +1,5 @@
 const { logger } = require('@librechat/data-schemas');
-const {
-  parseCompactConvo,
-  removeNullishValues,
-} = require('librechat-data-provider');
+const { parseCompactConvo, removeNullishValues } = require('librechat-data-provider');
 const { DEFAULT_INTENT, updateGauge, getState } = require('./intentGauge');
 
 const AUTO_ROUTED_ENDPOINTS = new Set(['Deepseek']);
