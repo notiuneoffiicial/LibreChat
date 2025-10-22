@@ -14,6 +14,8 @@ import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import { langSubset, preprocessLaTeX } from '~/utils';
 import { unicodeCitation } from '~/components/Web';
 import { code, a, p } from './MarkdownComponents';
+import { useRecoilValue } from 'recoil';
+import store from '~/store';
 
 type TContentProps = {
   content: string;
@@ -22,17 +24,18 @@ type TContentProps = {
 
 const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
   const isInitializing = content === '';
+  const latexParsingEnabled = useRecoilValue(store.latexParsing);
 
   const currentContent = useMemo(() => {
     if (isInitializing) {
       return '';
     }
-    return preprocessLaTeX(content);
-  }, [content, isInitializing]);
 
-  const rehypePlugins = useMemo(
-    () => [
-      [rehypeKatex],
+    return latexParsingEnabled ? preprocessLaTeX(content) : content;
+  }, [content, isInitializing, latexParsingEnabled]);
+
+  const rehypePlugins = useMemo(() => {
+    const plugins: Pluggable[] = [
       [
         rehypeHighlight,
         {
@@ -41,18 +44,30 @@ const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
           subset: langSubset,
         },
       ],
-    ],
-    [],
-  );
+    ];
 
-  const remarkPlugins: Pluggable[] = [
-    supersub,
-    remarkGfm,
-    remarkDirective,
-    artifactPlugin,
-    [remarkMath, { singleDollarTextMath: false }],
-    unicodeCitation,
-  ];
+    if (latexParsingEnabled) {
+      plugins.unshift([rehypeKatex]);
+    }
+
+    return plugins;
+  }, [latexParsingEnabled]);
+
+  const remarkPlugins: Pluggable[] = useMemo(() => {
+    const basePlugins: Pluggable[] = [
+      supersub,
+      remarkGfm,
+      remarkDirective,
+      artifactPlugin,
+      unicodeCitation,
+    ];
+
+    if (latexParsingEnabled) {
+      basePlugins.push([remarkMath, { singleDollarTextMath: false }]);
+    }
+
+    return basePlugins;
+  }, [latexParsingEnabled]);
 
   if (isInitializing) {
     return (

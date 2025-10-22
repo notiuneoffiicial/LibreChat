@@ -137,6 +137,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const [speechEnabled, setSpeechEnabled] = useRecoilState(store.speechToText);
   const [ttsEnabled, setTtsEnabled] = useRecoilState(store.textToSpeech);
   const [automaticPlayback, setAutomaticPlayback] = useRecoilState(store.automaticPlayback);
+  const autoSendDelay = useRecoilValue(store.autoSendText);
   const globalAudioPlaying = useRecoilValue(store.globalAudioPlayingFamily(index));
   const globalAudioFetching = useRecoilValue(store.globalAudioFetchingFamily(index));
 
@@ -173,6 +174,8 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     value: null,
     stored: false,
   });
+  const overlayTitleId = 'voice-mode-overlay-title';
+  const voiceMenuId = 'voice-mode-voice-menu';
 
   const cleanupSpeakingTimeout = useCallback(() => {
     if (speakingTimeout.current) {
@@ -589,6 +592,21 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
   const transcriptToDisplay = interimTranscript || lastTranscript;
   const statusText = localize(statusKey);
+  const silenceDelay = autoSendDelay >= 0 ? autoSendDelay : null;
+  const silenceValueText = useMemo(
+    () =>
+      silenceDelay != null
+        ? localize('com_ui_voice_overlay_silence_value', { seconds: silenceDelay })
+        : null,
+    [localize, silenceDelay],
+  );
+  const silenceDescriptionText = useMemo(
+    () =>
+      silenceDelay != null
+        ? localize('com_ui_voice_overlay_silence_description', { seconds: silenceDelay })
+        : null,
+    [localize, silenceDelay],
+  );
   const usingExternalVoices = textToSpeechEndpoint === 'external';
 
   const microphoneButtonClass = micEnabled
@@ -748,32 +766,47 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
           <motion.div
             className="relative flex h-full flex-col text-white"
             variants={contentVariants}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={overlayTitleId}
           >
-            <motion.div
-              className="relative flex items-center justify-between px-6 py-5"
-              variants={headerVariants}
-            >
-              <button
-                type="button"
-                onClick={() => setShowVoiceMenu((prev) => !prev)}
-                className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20"
+            <motion.div className="relative flex items-center px-6 py-5" variants={headerVariants}>
+              <div className="flex flex-1 items-center justify-start">
+                <button
+                  type="button"
+                  onClick={() => setShowVoiceMenu((prev) => !prev)}
+                  className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20"
+                  aria-haspopup="menu"
+                  aria-expanded={showVoiceMenu}
+                  aria-controls={voiceMenuId}
+                >
+                  <Volume2 className="h-4 w-4" />
+                  <span>{localize('com_ui_voice_overlay_choose_voice')}</span>
+                </button>
+              </div>
+              <h1
+                id={overlayTitleId}
+                className="flex-1 text-center text-base font-semibold text-white"
               >
-                <Volume2 className="h-4 w-4" />
-                <span>{localize('com_ui_voice_overlay_choose_voice')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={closeOverlay}
-                className="flex size-10 items-center justify-center rounded-full bg-white/10 backdrop-blur transition hover:bg-white/20"
-                aria-label={localize('com_ui_voice_overlay_close')}
-                title={localize('com_ui_voice_overlay_close')}
-              >
-                <X className="h-5 w-5" />
-              </button>
+                {localize('com_ui_voice_overlay_title')}
+              </h1>
+              <div className="flex flex-1 items-center justify-end">
+                <button
+                  type="button"
+                  onClick={closeOverlay}
+                  className="flex size-10 items-center justify-center rounded-full bg-white/10 backdrop-blur transition hover:bg-white/20"
+                  aria-label={localize('com_ui_voice_overlay_close')}
+                  title={localize('com_ui_voice_overlay_close')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
               <AnimatePresence>
                 {showVoiceMenu && (
                   <motion.div
                     key="voice-menu"
+                    id={voiceMenuId}
+                    role="menu"
                     className="absolute left-6 top-[4.5rem] w-[min(20rem,calc(100vw-3rem))] rounded-3xl border border-white/10 bg-[#0d0d1a]/90 p-5 shadow-2xl backdrop-blur"
                     variants={menuVariants}
                     initial="initial"
@@ -861,6 +894,19 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
               animate="animate"
               exit="exit"
             >
+              {silenceDelay != null && (
+                <div className="flex max-w-xs flex-col items-center text-center text-xs text-white/60 sm:max-w-sm">
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-white/50">
+                    {localize('com_ui_voice_overlay_silence_label')}
+                  </span>
+                  <span className="text-base font-semibold text-white sm:text-lg">
+                    {silenceValueText ?? ''}
+                  </span>
+                  <span className="mt-1 text-[0.7rem] leading-relaxed text-white/60 sm:text-xs">
+                    {silenceDescriptionText ?? ''}
+                  </span>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={toggleMicrophone}
