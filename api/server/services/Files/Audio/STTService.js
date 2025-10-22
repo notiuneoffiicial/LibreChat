@@ -1,7 +1,9 @@
 const axios = require('axios');
 const fs = require('fs').promises;
+const { createReadStream } = require('fs');
 const FormData = require('form-data');
 const { Readable } = require('stream');
+const OpenAI = require('openai');
 const { logger } = require('@librechat/data-schemas');
 const { genAzureEndpoint } = require('@librechat/api');
 const { extractEnvVariable, STTProviders } = require('librechat-data-provider');
@@ -89,6 +91,24 @@ class STTService {
       [STTProviders.OPENAI]: this.openAIProvider,
       [STTProviders.AZURE_OPENAI]: this.azureOpenAIProvider,
     };
+  }
+
+  setupStreamResponse(res) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+  }
+
+  writeStreamEvent(res, event, payload = {}) {
+    const data = JSON.stringify({ event, ...payload });
+    res.write(`${data}\n`);
+    res.flush?.();
+  }
+
+  writeStreamError(res, error) {
+    const message = error?.message || 'An error occurred while streaming the transcription';
+    this.writeStreamEvent(res, 'error', { message });
   }
 
   /**
@@ -185,6 +205,56 @@ class STTService {
     [headers].forEach(this.removeUndefined);
 
     return [url, data, headers];
+  }
+
+  async openAIStreamProvider(res, sttSchema, { filePath, language }) {
+    const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
+
+    if (!apiKey) {
+      throw new Error('OpenAI API key is not configured for STT streaming');
+    }
+
+    const clientOptions = { apiKey };
+
+    if (sttSchema?.url) {
+      clientOptions.baseURL = sttSchema.url;
+    }
+
+    if (sttSchema?.organization) {
+      clientOptions.organization = extractEnvVariable(sttSchema.organization);
+    }
+
+    const openai = new OpenAI(clientOptions);
+
+    const isoLanguage = language ? language.split('-')[0] : undefined;
+    const fileStream = createReadStream(filePath);
+
+    let finalText = '';
+    let doneSent = false;
+
+    try {
+      const stream = await openai.audio.transcriptions.create({
+        file: fileStream,
+        model: sttSchema.model,
+        stream: true,
+        ...(isoLanguage ? { language: isoLanguage } : {}),
+      });
+
+      for await (const event of stream) {
+        if (event?.type === 'transcript.text.delta' && event.delta) {
+          finalText += event.delta;
+          this.writeStreamEvent(res, 'delta', { text: event.delta });
+        } else if (event?.type === 'transcript.text.done') {
+          finalText = event.text ?? finalText;
+          this.writeStreamEvent(res, 'done', { text: finalText });
+          doneSent = true;
+        }
+      }
+    } finally {
+      fileStream.close?.();
+    }
+
+    return { finalText: finalText.trim(), doneSent };
   }
 
   /**
@@ -285,6 +355,14 @@ class STTService {
     }
   }
 
+  async streamRequest(res, provider, sttSchema, { filePath, language }) {
+    if (provider !== STTProviders.OPENAI) {
+      throw new Error(`Streaming STT is not supported for provider ${provider}`);
+    }
+
+    return this.openAIStreamProvider(res, sttSchema, { filePath, language });
+  }
+
   /**
    * Processes a speech-to-text request.
    * @async
@@ -297,16 +375,43 @@ class STTService {
       return res.status(400).json({ message: 'No audio file provided in the FormData' });
     }
 
-    const audioBuffer = await fs.readFile(req.file.path);
-    const audioFile = {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-    };
-
     try {
       const [provider, sttSchema] = await this.getProviderSchema(req);
       const language = req.body?.language || '';
+      const streamingRequested = req.query?.stream === 'true' || Boolean(sttSchema.stream);
+
+      if (streamingRequested) {
+        this.setupStreamResponse(res);
+        try {
+          const { finalText, doneSent } = await this.streamRequest(res, provider, sttSchema, {
+            filePath: req.file.path,
+            language,
+          });
+
+          if (!res.writableEnded) {
+            if (!doneSent) {
+              this.writeStreamEvent(res, 'done', { text: finalText });
+            }
+            res.end();
+          }
+        } catch (error) {
+          logger.error('An error occurred while streaming the audio:', error);
+          if (!res.writableEnded) {
+            this.writeStreamError(res, error);
+            res.end();
+          }
+        }
+
+        return;
+      }
+
+      const audioBuffer = await fs.readFile(req.file.path);
+      const audioFile = {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      };
+
       const text = await this.sttRequest(provider, sttSchema, { audioBuffer, audioFile, language });
       res.json({ text });
     } catch (error) {
