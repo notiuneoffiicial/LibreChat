@@ -58,7 +58,7 @@ function createRequest(overrides = {}) {
   return {
     body: {
       endpoint: 'Deepseek',
-      endpointType: 'Deepseek',
+      endpointType: 'custom',
       conversationId: 'convo-1',
       text: 'Hello there',
       createdAt: baseDate,
@@ -75,6 +75,21 @@ function createRequest(overrides = {}) {
 describe('applyAutoRouting', () => {
   beforeEach(() => {
     resetGauge();
+  });
+
+  it('auto enables web search when explicit search intent is detected', () => {
+    const req = createRequest({
+      body: {
+        text: 'Please search the web for the latest optimism news.',
+        web_search: false,
+      },
+    });
+
+    const result = applyAutoRouting(req);
+
+    expect(result.candidate.autoWebSearch).toBe(true);
+    expect(req.body.web_search).toBe(true);
+    expect(req.body.spec).toBe('optimism_researcher');
   });
 
   it('routes writing intent to the writing preset', () => {
@@ -113,6 +128,40 @@ describe('applyAutoRouting', () => {
     applyAutoRouting(req);
     expect(req.body.spec).toBe('optimism_researcher');
     expect(req.body.model).toBe('deepseek-reasoner');
+  });
+
+  it('routes default agent endpoint requests using model specs', () => {
+    const req = createRequest({
+      body: {
+        endpoint: 'agents',
+        endpointType: 'agents',
+        text: 'Find the latest research on optimism and provide sources.',
+      },
+    });
+
+    applyAutoRouting(req);
+
+    expect(req.body.endpoint).toBe('Deepseek');
+    expect(req.body.endpointType).toBe('agents');
+    expect(req.body.spec).toBe('optimism_researcher');
+    expect(req.body.web_search).toBe(true);
+  });
+
+  it('skips auto routing when an agent id is provided', () => {
+    const req = createRequest({
+      body: {
+        endpoint: 'agents',
+        endpointType: 'agents',
+        agent_id: 'agent-123',
+        text: 'Write a plan for the week.',
+      },
+    });
+
+    const result = applyAutoRouting(req);
+
+    expect(result).toBeNull();
+    expect(req.body.spec).toBeUndefined();
+    expect(req.body.endpoint).toBe('agents');
   });
 
   it('prefers the quick preset for concise requests with a small token budget', () => {

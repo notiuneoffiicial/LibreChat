@@ -5,7 +5,29 @@ const {
 } = require('librechat-data-provider');
 const { DEFAULT_INTENT, updateGauge, getState } = require('./intentGauge');
 
-const AUTO_ROUTED_ENDPOINTS = new Set(['Deepseek']);
+const AUTO_ROUTED_ENDPOINTS = new Set(['Deepseek', 'agents']);
+
+function toBoolean(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  return Boolean(value);
+}
 
 const INTENT_TO_SPEC = {
   [DEFAULT_INTENT]: 'optimism_companion',
@@ -348,8 +370,8 @@ function buildCandidate({ text, toggles, tokenBudget, previousState }) {
   }
 
   const searchSignals = detectSearchSignals(normalized);
-  const thinkingToggle = Boolean(toggles?.thinking);
-  let webSearchToggle = Boolean(toggles?.web_search);
+  const thinkingToggle = toBoolean(toggles?.thinking);
+  let webSearchToggle = toBoolean(toggles?.web_search);
   let autoWebSearch = false;
 
   if (!webSearchToggle && searchSignals.shouldSearch) {
@@ -476,6 +498,10 @@ function applyAutoRouting(req) {
     return null;
   }
 
+  if (body?.agent_id || body?.agentOptions?.agent) {
+    return null;
+  }
+
   let parsedConversation;
   try {
     parsedConversation = parseCompactConvo({
@@ -506,8 +532,8 @@ function applyAutoRouting(req) {
   );
 
   const toggles = {
-    thinking: Boolean(body.thinking ?? parsedConversation?.thinking),
-    web_search: Boolean(body.web_search ?? parsedConversation?.web_search),
+    thinking: body.thinking ?? parsedConversation?.thinking,
+    web_search: body.web_search ?? parsedConversation?.web_search,
   };
 
   const userId = req.user?.id ?? 'anonymous';
