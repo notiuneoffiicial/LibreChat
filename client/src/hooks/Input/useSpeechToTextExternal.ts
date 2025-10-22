@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { request } from 'librechat-data-provider';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRecoilState } from 'recoil';
 import { useToastContext } from '@librechat/client';
@@ -11,6 +12,32 @@ type STTStreamEvent =
   | { event: 'delta'; text?: string }
   | { event: 'done'; text?: string }
   | { event: 'error'; message?: string };
+
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const response = await request.refreshToken();
+        const token = response?.token ?? null;
+
+        if (token) {
+          request.dispatchTokenUpdatedEvent(token);
+        }
+
+        return token;
+      } catch (error) {
+        console.error('Failed to refresh access token for STT streaming', error);
+        throw error;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+}
 
 const useSpeechToTextExternal = (
   setText: (text: string) => void,
@@ -108,25 +135,48 @@ const useSpeechToTextExternal = (
 
   const streamTranscription = useCallback(
     async (formData: FormData, signal: AbortSignal) => {
-      const headers: HeadersInit = {};
-      const authHeader = axios.defaults.headers.common?.Authorization;
-      const acceptLanguageHeader = axios.defaults.headers.common?.['Accept-Language'];
+      const buildHeaders = (tokenOverride?: string): HeadersInit => {
+        const headers: HeadersInit = {};
+        const authHeader = tokenOverride
+          ? `Bearer ${tokenOverride}`
+          : axios.defaults.headers.common?.Authorization;
+        const acceptLanguageHeader = axios.defaults.headers.common?.['Accept-Language'];
 
-      if (authHeader) {
-        headers.Authorization = authHeader;
+        if (typeof authHeader === 'string') {
+          headers.Authorization = authHeader;
+        }
+
+        if (typeof acceptLanguageHeader === 'string') {
+          headers['Accept-Language'] = acceptLanguageHeader;
+        }
+
+        return headers;
+      };
+
+      const fetchTranscription = (headers: HeadersInit) =>
+        fetch('/api/speech/stt?stream=true', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          signal,
+          headers,
+        });
+
+      let headers = buildHeaders();
+      let response = await fetchTranscription(headers);
+
+      if (response.status === 401) {
+        try {
+          const refreshedToken = await refreshAccessToken();
+
+          if (refreshedToken) {
+            headers = buildHeaders(refreshedToken);
+            response = await fetchTranscription(headers);
+          }
+        } catch {
+          // Ignore refresh errors; response status handling below will surface the failure.
+        }
       }
-
-      if (acceptLanguageHeader) {
-        headers['Accept-Language'] = acceptLanguageHeader;
-      }
-
-      const response = await fetch('/api/speech/stt?stream=true', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        signal,
-        headers,
-      });
 
       if (!response.ok) {
         throw new Error(`STT request failed with status ${response.status}`);
