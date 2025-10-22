@@ -1295,7 +1295,12 @@ ${convo}
         delete modelOptions.temperature;
       }
 
-      let reasoningKey = 'reasoning_content';
+      const responsesApiEnabled =
+        modelOptions.useResponsesApi === true ||
+        this.options.useResponsesApi === true ||
+        this.options.agent?.model_parameters?.useResponsesApi === true;
+
+      let reasoningKey = responsesApiEnabled ? 'reasoning' : 'reasoning_content';
       if (this.useOpenRouter) {
         modelOptions.include_reasoning = true;
         reasoningKey = 'reasoning';
