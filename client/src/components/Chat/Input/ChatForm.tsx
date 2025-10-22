@@ -2,7 +2,12 @@ import { memo, useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import { useWatch } from 'react-hook-form';
 import { TextareaAutosize } from '@librechat/client';
 import { useRecoilState, useRecoilValue } from 'recoil';
-import { Constants, isAssistantsEndpoint, isAgentsEndpoint } from 'librechat-data-provider';
+import {
+  Constants,
+  isAssistantsEndpoint,
+  isAgentsEndpoint,
+  alternateName,
+} from 'librechat-data-provider';
 import {
   useChatContext,
   useChatFormContext,
@@ -34,11 +39,13 @@ import BadgeRow from './BadgeRow';
 import Mention from './Mention';
 import VoiceModeButton from '../VoiceMode/VoiceModeButton';
 import store from '~/store';
+import { useLocalize } from '~/hooks';
 
 const ChatForm = memo(({ index = 0 }: { index?: number }) => {
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   useFocusChatEffect(textAreaRef);
+  const localize = useLocalize();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [, setIsScrollable] = useState(false);
@@ -108,6 +115,50 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
     [requiresKey, invalidAssistant],
   );
 
+  const endpointName = useMemo(
+    () => conversation?.endpointType ?? conversation?.endpoint ?? '',
+    [conversation?.endpointType, conversation?.endpoint],
+  );
+
+  const missingAgent = useMemo(
+    () => isAgentsEndpoint(endpoint) && !(conversation?.agent_id ?? ''),
+    [conversation?.agent_id, endpoint],
+  );
+
+  const messageRecipient = useMemo(() => {
+    if (conversation?.modelLabel) {
+      return conversation.modelLabel;
+    }
+
+    if (endpointName) {
+      const names = alternateName as Record<string, string | undefined>;
+      return names[endpointName] ?? endpointName;
+    }
+
+    return localize('com_endpoint_ai');
+  }, [conversation?.modelLabel, endpointName, localize]);
+
+  const basePlaceholder = useMemo(() => {
+    if (requiresKey) {
+      return localize('com_endpoint_config_placeholder');
+    }
+
+    if (invalidAssistant && isAssistantsEndpoint(endpoint)) {
+      return localize('com_endpoint_assistant_placeholder');
+    }
+
+    if (missingAgent) {
+      return localize('com_endpoint_agent_placeholder');
+    }
+
+    return localize('com_endpoint_message_placeholder');
+  }, [endpoint, invalidAssistant, localize, missingAgent, requiresKey]);
+
+  const ariaLabel = useMemo(
+    () => localize('com_endpoint_message_new', { 0: messageRecipient }),
+    [localize, messageRecipient],
+  );
+
   const handleContainerClick = useCallback(() => {
     /** Check if the device is a touchscreen */
     if (window.matchMedia?.('(pointer: coarse)').matches) {
@@ -149,6 +200,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
     submitButtonRef,
     setIsScrollable,
     disabled: disableInputs,
+    placeholder: basePlaceholder,
   });
 
   useQueryParams({ textAreaRef });
@@ -192,6 +244,10 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
   }, [backupBadges, setBadges, setIsEditingBadges]);
 
   const isMoreThanThreeRows = visualRowCount > 3;
+
+  const textareaPlaceholder = isNotAppendable
+    ? localize('com_endpoint_message_not_appendable')
+    : basePlaceholder;
 
   const baseClasses = useMemo(
     () =>
@@ -273,8 +329,8 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
                   tabIndex={0}
                   data-testid="text-input"
                   rows={1}
-                  placeholder="Ask OptimismAI"
-                  aria-label="Ask OptimismAI"
+                  placeholder={textareaPlaceholder}
+                  aria-label={ariaLabel}
                   onFocus={() => {
                     handleFocusOrClick();
                     setIsTextAreaFocused(true);

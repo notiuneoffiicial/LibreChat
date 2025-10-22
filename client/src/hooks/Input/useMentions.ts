@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
 import {
   Permissions,
@@ -23,6 +23,7 @@ import { useAgentsMapContext } from '~/Providers/AgentsMapContext';
 import { mapEndpoints, getPresetTitle } from '~/utils';
 import { EndpointIcon } from '~/components/Endpoints';
 import useHasAccess from '~/hooks/Roles/useHasAccess';
+import { useLocalize } from '~/hooks';
 
 const defaultInterface = getConfigDefaults().interface;
 
@@ -58,10 +59,30 @@ export default function useMentions({
   assistantMap: TAssistantsMap;
   includeAssistants: boolean;
 }) {
+  const localize = useLocalize();
   const hasAgentAccess = useHasAccess({
     permissionType: PermissionTypes.AGENTS,
     permission: Permissions.USE,
   });
+
+  const describeEndpoint = useCallback(
+    (endpointKey: string | null | undefined) => {
+      if (!endpointKey) {
+        return localize('com_endpoint_ai');
+      }
+
+      if (isAgentsEndpoint(endpointKey)) {
+        return localize('com_endpoint_agent_placeholder');
+      }
+
+      if (isAssistantsEndpoint(endpointKey)) {
+        return localize('com_endpoint_assistant_placeholder');
+      }
+
+      return localize('com_endpoint_ai');
+    },
+    [localize],
+  );
 
   const agentsMap = useAgentsMapContext();
   const { data: presets } = useGetPresetsQuery();
@@ -195,17 +216,20 @@ export default function useMentions({
         }),
         type: 'modelSpec' as const,
       })),
-      ...(interfaceConfig.modelSelect === true ? validEndpoints : []).map((endpoint) => ({
-        value: endpoint,
-        label: alternateName[endpoint as string] ?? endpoint ?? '',
-        type: 'endpoint' as const,
-        icon: EndpointIcon({
-          conversation: { endpoint },
-          endpointsConfig,
-          context: 'menu-item',
-          size: 20,
-        }),
-      })),
+      ...(interfaceConfig.modelSelect === true
+        ? validEndpoints.map((endpoint) => ({
+            value: endpoint,
+            label: alternateName[endpoint as string] ?? endpoint ?? '',
+            type: 'endpoint' as const,
+            description: describeEndpoint(endpoint),
+            icon: EndpointIcon({
+              conversation: { endpoint },
+              endpointsConfig,
+              context: 'menu-item',
+              size: 20,
+            }),
+          }))
+        : []),
       ...(interfaceConfig.modelSelect === true ? (agentsList ?? []) : []),
       ...(endpointsConfig?.[EModelEndpoint.assistants] &&
       includeAssistants &&
@@ -250,6 +274,7 @@ export default function useMentions({
     includeAssistants,
     interfaceConfig.presets,
     interfaceConfig.modelSelect,
+    describeEndpoint,
   ]);
 
   return {

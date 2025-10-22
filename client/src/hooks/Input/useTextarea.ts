@@ -16,11 +16,13 @@ export default function useTextarea({
   textAreaRef,
   submitButtonRef,
   setIsScrollable,
+  placeholder,
 }: {
   textAreaRef: React.RefObject<HTMLTextAreaElement>;
   submitButtonRef: React.RefObject<HTMLButtonElement>;
   setIsScrollable: React.Dispatch<React.SetStateAction<boolean>>;
   disabled?: boolean;
+  placeholder: string;
 }) {
   const isComposing = useRef(false);
   const { handleFiles } = useFileHandling();
@@ -50,11 +52,13 @@ export default function useTextarea({
 
   useEffect(() => {
     const currentValue = textAreaRef.current?.value ?? '';
-    if (currentValue) {
+    if (currentValue || !placeholder) {
       return;
     }
 
-    const placeholder = 'Ask OptimismAI';
+    if (textAreaRef.current?.disabled) {
+      return;
+    }
 
     if (textAreaRef.current?.getAttribute('placeholder') === placeholder) {
       return;
@@ -71,7 +75,7 @@ export default function useTextarea({
     debouncedSetPlaceholder();
 
     return () => debouncedSetPlaceholder.cancel();
-  }, [textAreaRef]);
+  }, [placeholder, textAreaRef]);
 
   const handleKeyDown = useCallback(
     (e: KeyEvent) => {
