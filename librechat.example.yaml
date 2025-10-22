@@ -144,7 +144,8 @@ registration:
 #     openai:
 #       url: ''
 #       apiKey: '${STT_API_KEY}'
-#       model: ''
+#       model: 'gpt-4o-mini-transcribe'
+#       stream: true
 
 # rateLimits:
 #   fileUploads:
