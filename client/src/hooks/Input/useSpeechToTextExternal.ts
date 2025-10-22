@@ -431,12 +431,7 @@ const useSpeechToTextExternal = (
     } else {
       showToast({ message: 'Microphone permission not granted', status: 'error' });
     }
-  }, [
-    getMicrophonePermission,
-    isRequestBeingMade,
-    scheduleInterimTranscription,
-    showToast,
-  ]);
+  }, [getMicrophonePermission, isRequestBeingMade, scheduleInterimTranscription, showToast]);
 
   const stopRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
