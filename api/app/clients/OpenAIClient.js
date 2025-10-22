@@ -25,6 +25,7 @@ const {
   getResponseSender,
   validateVisionModel,
   mapModelToAzureConfig,
+  Providers,
 } = require('librechat-data-provider');
 const {
   truncateText,
@@ -1295,9 +1296,21 @@ ${convo}
         delete modelOptions.temperature;
       }
 
+      const endpointId = this.options.endpoint?.toLowerCase();
+      const endpointType = this.options.endpointType?.toLowerCase();
+      const reverseProxyHost = this.options.reverseProxyUrl?.toLowerCase();
+      const modelName = (modelOptions.model ?? '').toLowerCase();
+      const usesDeepSeekReasoning =
+        endpointId === Providers.DEEPSEEK ||
+        endpointType === Providers.DEEPSEEK ||
+        reverseProxyHost?.includes(Providers.DEEPSEEK) ||
+        modelName.includes(Providers.DEEPSEEK);
+
       let reasoningKey = 'reasoning_content';
       if (this.useOpenRouter) {
         modelOptions.include_reasoning = true;
+        reasoningKey = 'reasoning';
+      } else if (usesDeepSeekReasoning) {
         reasoningKey = 'reasoning';
       }
       if (this.useOpenRouter && modelOptions.reasoning_effort != null) {
