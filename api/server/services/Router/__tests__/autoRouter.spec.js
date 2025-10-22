@@ -92,6 +92,21 @@ describe('applyAutoRouting', () => {
     expect(req.body.spec).toBe('optimism_researcher');
   });
 
+  it('auto enables web search when toggle strings disable it explicitly', () => {
+    const req = createRequest({
+      body: {
+        text: 'Search the web for recent optimism research breakthroughs.',
+        web_search: 'false',
+      },
+    });
+
+    const result = applyAutoRouting(req);
+
+    expect(result.candidate.autoWebSearch).toBe(true);
+    expect(req.body.web_search).toBe(true);
+    expect(req.body.spec).toBe('optimism_researcher');
+  });
+
   it('routes writing intent to the writing preset', () => {
     const req = createRequest({
       body: {

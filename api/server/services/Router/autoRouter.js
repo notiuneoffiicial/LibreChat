@@ -542,9 +542,12 @@ function applyAutoRouting(req) {
   const previousState = getState(gaugeKey);
 
   const candidate = buildCandidate({ text, toggles, tokenBudget, previousState });
-  const togglesAfterRouting = {
-    ...toggles,
-  };
+  const togglesAfterRouting = Object.fromEntries(
+    Object.entries(toggles).map(([key, value]) => [
+      key,
+      value === undefined ? value : toBoolean(value),
+    ]),
+  );
 
   if (candidate.autoWebSearch && !togglesAfterRouting.web_search) {
     togglesAfterRouting.web_search = true;
