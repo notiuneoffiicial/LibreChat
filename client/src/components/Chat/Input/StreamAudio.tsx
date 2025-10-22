@@ -79,8 +79,23 @@ export default function StreamAudio({ index = 0 }) {
         }
 
         let cacheKey = latestMessage?.text ?? '';
-        const cache = await caches.open('tts-responses');
-        const cachedResponse = await cache.match(cacheKey);
+        const canUseCache = typeof caches !== 'undefined';
+        let cache: Cache | null = null;
+        let cachedResponse: Response | undefined;
+
+        if (cacheTTS && canUseCache) {
+          try {
+            cache = await caches.open('tts-responses');
+            if (cacheKey) {
+              cachedResponse = await cache.match(cacheKey);
+            }
+          } catch (error) {
+            logger.warn('StreamAudio', 'Cache API unavailable for TTS responses', error);
+            cache = null;
+          }
+        } else if (cacheTTS && !canUseCache) {
+          logger.warn('StreamAudio', 'Cache API is not available; skipping TTS caching');
+        }
 
         setAudioRunId(activeRunId);
         if (cachedResponse) {
@@ -137,38 +152,57 @@ export default function StreamAudio({ index = 0 }) {
         }
 
         if (chunks.length) {
-          logger.log('Adding audio to cache');
-          const latestMessages = getMessages() ?? [];
-          const targetMessage = latestMessages.find(
-            (msg) => msg.messageId === latestMessage?.messageId,
-          );
-          cacheKey = targetMessage?.text ?? '';
-          if (!cacheKey) {
-            throw new Error('Cache key not found');
-          }
           const audioBlob = new Blob(chunks, { type });
-          const cachedResponse = new Response(audioBlob);
-          await cache.put(cacheKey, cachedResponse);
-          if (!browserSupportsType) {
-            const unconsumedResponse = await cache.match(cacheKey);
-            if (!unconsumedResponse) {
-              throw new Error('Failed to fetch audio from cache');
+
+          if (cacheTTS && canUseCache && !cache) {
+            try {
+              cache = await caches.open('tts-responses');
+            } catch (error) {
+              logger.warn('StreamAudio', 'Cache API unavailable when storing TTS response', error);
+              cache = null;
             }
-            const audioBlob = await unconsumedResponse.blob();
+          }
+
+          if (cacheTTS && cache) {
+            logger.log('Adding audio to cache');
+            const latestMessages = getMessages() ?? [];
+            const targetMessage = latestMessages.find(
+              (msg) => msg.messageId === latestMessage?.messageId,
+            );
+
+            const resolvedCacheKey = targetMessage?.text ?? cacheKey;
+
+            if (resolvedCacheKey) {
+              const cachedResponse = new Response(audioBlob);
+              await cache.put(resolvedCacheKey, cachedResponse);
+
+              if (!browserSupportsType) {
+                const unconsumedResponse = await cache.match(resolvedCacheKey);
+                if (!unconsumedResponse) {
+                  throw new Error('Failed to fetch audio from cache');
+                }
+                const cachedBlob = await unconsumedResponse.blob();
+                const blobUrl = URL.createObjectURL(cachedBlob);
+                setGlobalAudioURL(blobUrl);
+              }
+            } else if (!browserSupportsType) {
+              const blobUrl = URL.createObjectURL(audioBlob);
+              setGlobalAudioURL(blobUrl);
+            }
+          } else if (!browserSupportsType) {
             const blobUrl = URL.createObjectURL(audioBlob);
             setGlobalAudioURL(blobUrl);
           }
-          setIsFetching(false);
         }
 
         logger.log('Audio stream reading ended');
       } catch (error) {
-        if (error?.['message'] !== promiseTimeoutMessage) {
+        if (error?.['message'] === promiseTimeoutMessage) {
           logger.log(promiseTimeoutMessage);
-          return;
+        } else {
+          logger.error('Error fetching audio:', error);
         }
-        logger.error('Error fetching audio:', error);
-        setIsFetching(false);
+        setAudioRunId(null);
         setGlobalAudioURL(null);
       } finally {
         setIsFetching(false);

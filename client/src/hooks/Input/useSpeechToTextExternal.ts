@@ -12,6 +12,8 @@ type STTStreamEvent =
   | { event: 'done'; text?: string }
   | { event: 'error'; message?: string };
 
+const INTERIM_THROTTLE_MS = 750;
+
 const useSpeechToTextExternal = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
@@ -26,6 +28,11 @@ const useSpeechToTextExternal = (
   const stopListenerRef = useRef<(() => void) | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const interimControllerRef = useRef<AbortController | null>(null);
+  const interimTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const totalSizeRef = useRef(0);
+  const lastSentSizeRef = useRef(0);
+  const isRequestBeingMadeRef = useRef(false);
 
   const [permission, setPermission] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -38,6 +45,14 @@ const useSpeechToTextExternal = (
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [speechToText] = useRecoilState<boolean>(store.speechToText);
+
+  const updateRequestBeingMade = useCallback(
+    (value: boolean) => {
+      isRequestBeingMadeRef.current = value;
+      setIsRequestBeingMade(value);
+    },
+    [setIsRequestBeingMade],
+  );
 
   const stopMediaTracks = useCallback(() => {
     if (audioStream.current) {
@@ -199,9 +214,70 @@ const useSpeechToTextExternal = (
     [processStreamEvent],
   );
 
+  const sendInterimTranscription = useCallback(async () => {
+    if (
+      !audioChunksRef.current.length ||
+      !speechToText ||
+      !isListening ||
+      isRequestBeingMadeRef.current
+    ) {
+      return;
+    }
+
+    const totalSize = totalSizeRef.current;
+    if (totalSize === 0 || totalSize === lastSentSizeRef.current) {
+      return;
+    }
+
+    lastSentSizeRef.current = totalSize;
+
+    try {
+      interimControllerRef.current?.abort();
+      const controller = new AbortController();
+      interimControllerRef.current = controller;
+
+      const mimeType = audioMimeTypeRef.current;
+      const fileExtension = getFileExtension(mimeType);
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+
+      const formData = new FormData();
+      formData.append('audio', audioBlob, `audio.${fileExtension}`);
+      if (languageSTT) {
+        formData.append('language', languageSTT);
+      }
+
+      const interimText = await streamTranscription(formData, controller.signal);
+      const trimmed = interimText.trim();
+      if (trimmed) {
+        setText(trimmed);
+      }
+    } catch (error) {
+      if ((error as DOMException)?.name === 'AbortError') {
+        return;
+      }
+      console.error('Interim transcription error:', error);
+    }
+  }, [isListening, languageSTT, setText, speechToText, streamTranscription]);
+
+  const scheduleInterimTranscription = useCallback(() => {
+    if (
+      !speechToText ||
+      !isListening ||
+      isRequestBeingMadeRef.current ||
+      interimTimeoutRef.current != null
+    ) {
+      return;
+    }
+
+    interimTimeoutRef.current = setTimeout(() => {
+      interimTimeoutRef.current = null;
+      void sendInterimTranscription();
+    }, INTERIM_THROTTLE_MS);
+  }, [isListening, sendInterimTranscription, speechToText]);
+
   const processAudioStream = useCallback(
     async (formData: FormData) => {
-      setIsRequestBeingMade(true);
+      updateRequestBeingMade(true);
       setIsStreaming(true);
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -242,7 +318,10 @@ const useSpeechToTextExternal = (
       } finally {
         abortControllerRef.current = null;
         setIsStreaming(false);
-        setIsRequestBeingMade(false);
+        updateRequestBeingMade(false);
+        interimControllerRef.current?.abort();
+        lastSentSizeRef.current = 0;
+        totalSizeRef.current = 0;
       }
     },
     [
@@ -252,6 +331,7 @@ const useSpeechToTextExternal = (
       showToast,
       speechToText,
       streamTranscription,
+      updateRequestBeingMade,
     ],
   );
 
@@ -264,6 +344,13 @@ const useSpeechToTextExternal = (
 
       audioChunksRef.current = [];
 
+      if (interimTimeoutRef.current) {
+        clearTimeout(interimTimeoutRef.current);
+        interimTimeoutRef.current = null;
+      }
+      interimControllerRef.current?.abort();
+      lastSentSizeRef.current = 0;
+
       const formData = new FormData();
       formData.append('audio', audioBlob, `audio.${fileExtension}`);
       if (languageSTT) {
@@ -275,11 +362,25 @@ const useSpeechToTextExternal = (
     } else {
       showToast({ message: 'The audio was too short', status: 'warning' });
       cleanupRecorder();
-      setIsRequestBeingMade(false);
+      updateRequestBeingMade(false);
+      if (interimTimeoutRef.current) {
+        clearTimeout(interimTimeoutRef.current);
+        interimTimeoutRef.current = null;
+      }
+      interimControllerRef.current?.abort();
+      lastSentSizeRef.current = 0;
+      totalSizeRef.current = 0;
     }
 
     stopMediaTracks();
-  }, [cleanupRecorder, languageSTT, processAudioStream, showToast, stopMediaTracks]);
+  }, [
+    cleanupRecorder,
+    languageSTT,
+    processAudioStream,
+    showToast,
+    stopMediaTracks,
+    updateRequestBeingMade,
+  ]);
 
   const handleStopRef = useRef(handleStop);
   handleStopRef.current = handleStop;
@@ -301,12 +402,18 @@ const useSpeechToTextExternal = (
         audioMimeTypeRef.current = bestMimeType;
         setAudioMimeType(bestMimeType);
 
+        audioChunksRef.current = [];
+        totalSizeRef.current = 0;
+        lastSentSizeRef.current = 0;
+
         const recorder = new MediaRecorder(audioStream.current, {
           mimeType: bestMimeType,
         });
         const handleDataAvailable = (event: BlobEvent) => {
           if (event.data.size > 0) {
             audioChunksRef.current.push(event.data);
+            totalSizeRef.current += event.data.size;
+            scheduleInterimTranscription();
           }
         };
 
@@ -315,7 +422,7 @@ const useSpeechToTextExternal = (
         const stopListener = () => handleStopRef.current();
         stopListenerRef.current = stopListener;
         recorder.addEventListener('stop', stopListener);
-        recorder.start(100);
+        recorder.start(250);
         mediaRecorderRef.current = recorder;
         setIsListening(true);
       } catch (error) {
@@ -324,7 +431,12 @@ const useSpeechToTextExternal = (
     } else {
       showToast({ message: 'Microphone permission not granted', status: 'error' });
     }
-  }, [getMicrophonePermission, isRequestBeingMade, showToast]);
+  }, [
+    getMicrophonePermission,
+    isRequestBeingMade,
+    scheduleInterimTranscription,
+    showToast,
+  ]);
 
   const stopRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -337,6 +449,11 @@ const useSpeechToTextExternal = (
 
     stopMediaTracks();
     setIsListening(false);
+    if (interimTimeoutRef.current) {
+      clearTimeout(interimTimeoutRef.current);
+      interimTimeoutRef.current = null;
+    }
+    interimControllerRef.current?.abort();
   }, [cleanupRecorder, stopMediaTracks]);
 
   const externalStartRecording = useCallback(() => {
@@ -401,6 +518,10 @@ const useSpeechToTextExternal = (
       cleanupRecorder();
       stopMediaTracks();
       abortControllerRef.current?.abort();
+      interimControllerRef.current?.abort();
+      if (interimTimeoutRef.current) {
+        clearTimeout(interimTimeoutRef.current);
+      }
     };
   }, [cleanupRecorder, stopMediaTracks]);
 
