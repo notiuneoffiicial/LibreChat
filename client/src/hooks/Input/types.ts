@@ -12,4 +12,11 @@ export interface SpeechToTextOptions {
    * listener can be removed and avoid unexpected recordings.
    */
   enableHotkeys?: boolean;
+  /**
+   * Overrides the delay (in seconds) before automatically submitting a
+   * completed transcription. When omitted, the user's configured auto-send
+   * delay is used. Provide `0` to submit immediately or `-1` to skip the
+   * automatic submission delay entirely.
+   */
+  autoSendDelayOverride?: number | null;
 }

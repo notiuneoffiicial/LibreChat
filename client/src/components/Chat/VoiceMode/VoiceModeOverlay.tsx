@@ -151,6 +151,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const [activityLevel, setActivityLevel] = useState(ACTIVITY_IDLE);
   const [micEnabled, setMicEnabled] = useState(false);
   const speakingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null);
   const pauseGlobalAudioRef = useRef(pauseGlobalAudio);
   const respondingAnimationRef = useRef<number | null>(null);
@@ -184,6 +185,13 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     }
   }, []);
 
+  const clearAutoSendTimeout = useCallback(() => {
+    if (autoSendTimeoutRef.current) {
+      clearTimeout(autoSendTimeoutRef.current);
+      autoSendTimeoutRef.current = null;
+    }
+  }, []);
+
   const stopRespondingAnimation = useCallback(() => {
     if (respondingAnimationRef.current !== null) {
       cancelAnimationFrame(respondingAnimationRef.current);
@@ -208,6 +216,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
       if (!trimmed) {
         setInterimTranscript('');
+        clearAutoSendTimeout();
         return;
       }
 
@@ -216,6 +225,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
           status: 'warning',
           message: localize('com_ui_voice_overlay_error_submitting'),
         });
+        clearAutoSendTimeout();
         return;
       }
 
@@ -229,10 +239,11 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       ask({ text: trimmed });
       setLastTranscript(trimmed);
       setInterimTranscript('');
+      clearAutoSendTimeout();
       transcriptRef.current = '';
       setIsUserSpeaking(false);
     },
-    [ask, isSubmitting, localize, showToast],
+    [ask, clearAutoSendTimeout, isSubmitting, localize, showToast],
   );
 
   const handleInterim = useCallback(
@@ -242,12 +253,13 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       transcriptRef.current = trimmed;
 
       setIsUserSpeaking(true);
+      clearAutoSendTimeout();
       cleanupSpeakingTimeout();
       speakingTimeout.current = setTimeout(() => {
         setIsUserSpeaking(false);
       }, 320);
     },
-    [cleanupSpeakingTimeout],
+    [cleanupSpeakingTimeout, clearAutoSendTimeout],
   );
 
   const handleComplete = useCallback(
@@ -268,7 +280,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   const { isListening, isLoading, startRecording, stopRecording } = useSpeechToText(
     handleInterim,
     handleComplete,
-    { autoSendOnSuccess: true, enableHotkeys: isOpen },
+    { autoSendOnSuccess: true, enableHotkeys: isOpen, autoSendDelayOverride: 0 },
   );
 
   isListeningRef.current = isListening;
@@ -281,6 +293,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   useEffect(() => {
     return () => {
       cleanupSpeakingTimeout();
+      clearAutoSendTimeout();
       pauseGlobalAudioRef.current?.();
       const stopFn = stopRecordingRef.current;
       if (stopFn) {
@@ -288,7 +301,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
       }
       setMicEnabled(false);
     };
-  }, [cleanupSpeakingTimeout]);
+  }, [cleanupSpeakingTimeout, clearAutoSendTimeout]);
 
   const restoreVoiceSelection = useCallback(() => {
     if (!storedEndpoint.current.stored && !storedModel.current.stored) {
@@ -427,6 +440,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
   useEffect(() => {
     if (!isOpen) {
       cleanupSpeakingTimeout();
+      clearAutoSendTimeout();
       setInterimTranscript('');
       setLastTranscript('');
       transcriptRef.current = '';
@@ -442,7 +456,14 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
         void stopFn();
       }
     }
-  }, [cleanupSpeakingTimeout, isOpen, pauseGlobalAudio, resetActivity, restoreVoiceSelection]);
+  }, [
+    cleanupSpeakingTimeout,
+    clearAutoSendTimeout,
+    isOpen,
+    pauseGlobalAudio,
+    resetActivity,
+    restoreVoiceSelection,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -679,6 +700,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
 
   const closeOverlay = useCallback(() => {
     cleanupSpeakingTimeout();
+    clearAutoSendTimeout();
     setInterimTranscript('');
     setLastTranscript('');
     transcriptRef.current = '';
@@ -691,10 +713,18 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     void stopRecording();
     void stopRecordingRef.current?.();
     setIsOpen(false);
-  }, [cleanupSpeakingTimeout, pauseGlobalAudio, resetActivity, setIsOpen, stopRecording]);
+  }, [
+    cleanupSpeakingTimeout,
+    clearAutoSendTimeout,
+    pauseGlobalAudio,
+    resetActivity,
+    setIsOpen,
+    stopRecording,
+  ]);
 
   const toggleMicrophone = useCallback(() => {
     const nextEnabled = !micEnabled;
+    clearAutoSendTimeout();
     setMicEnabled(nextEnabled);
 
     if (!nextEnabled) {
@@ -721,6 +751,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     }
   }, [
     cleanupSpeakingTimeout,
+    clearAutoSendTimeout,
     globalAudioFetching,
     globalAudioPlaying,
     isListening,
@@ -731,6 +762,46 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
     stopRecording,
     stopRespondingAnimation,
     updateActivityLevel,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen || !micEnabled || silenceDelay == null) {
+      clearAutoSendTimeout();
+      return;
+    }
+
+    if (isUserSpeaking || interimTranscript.trim()) {
+      clearAutoSendTimeout();
+      return;
+    }
+
+    if (!transcriptRef.current) {
+      clearAutoSendTimeout();
+      return;
+    }
+
+    if (autoSendTimeoutRef.current) {
+      return;
+    }
+
+    autoSendTimeoutRef.current = setTimeout(() => {
+      autoSendTimeoutRef.current = null;
+      if (micEnabled) {
+        toggleMicrophone();
+      }
+    }, silenceDelay * 1000);
+
+    return () => {
+      clearAutoSendTimeout();
+    };
+  }, [
+    clearAutoSendTimeout,
+    interimTranscript,
+    isOpen,
+    isUserSpeaking,
+    micEnabled,
+    silenceDelay,
+    toggleMicrophone,
   ]);
   const microphoneIcon = useMemo(() => {
     if (isLoading) {
@@ -771,6 +842,9 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
             aria-labelledby={overlayTitleId}
           >
             <motion.div className="relative flex items-center px-6 py-5" variants={headerVariants}>
+              <span id={overlayTitleId} className="sr-only">
+                {localize('com_ui_voice_overlay_title')}
+              </span>
               <div className="flex flex-1 items-center justify-start">
                 <button
                   type="button"
@@ -784,12 +858,7 @@ export default function VoiceModeOverlay({ index }: VoiceModeOverlayProps) {
                   <span>{localize('com_ui_voice_overlay_choose_voice')}</span>
                 </button>
               </div>
-              <h1
-                id={overlayTitleId}
-                className="flex-1 text-center text-base font-semibold text-white"
-              >
-                {localize('com_ui_voice_overlay_title')}
-              </h1>
+              <div className="flex flex-1 justify-center" aria-hidden="true" />
               <div className="flex flex-1 items-center justify-end">
                 <button
                   type="button"
