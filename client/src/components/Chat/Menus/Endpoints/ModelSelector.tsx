@@ -55,8 +55,9 @@ function ModelSelectorContent() {
     [modelSpecs],
   );
 
-  const displayedModelSpecs = useMemo(() =>
-    (modelSpecs ?? []).filter((spec) => !hiddenModelSpecNames.has(spec.name)),
+  const displayedModelSpecs = useMemo(
+    () =>
+      (modelSpecs ?? []).filter((spec) => !hiddenModelSpecNames.has(spec.name)),
     [modelSpecs, hiddenModelSpecNames],
   );
 
