@@ -40,7 +40,7 @@ const useSpeechToTextExternal = (
   const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
   const audioMimeTypeRef = useRef<string>(audioMimeType);
   const [isStreaming, setIsStreaming] = useState(false);
-  const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
+  const { autoSendOnSuccess = false, enableHotkeys = true, autoSendDelayOverride } = options ?? {};
 
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
@@ -290,13 +290,15 @@ const useSpeechToTextExternal = (
           return;
         }
 
-        const shouldAutoSend = autoSendOnSuccess || (speechToText && autoSendText > -1);
+        const effectiveDelaySeconds = autoSendDelayOverride ?? autoSendText;
+        const hasConfiguredDelay = effectiveDelaySeconds > -1;
+        const shouldAutoSend = autoSendOnSuccess || (speechToText && hasConfiguredDelay);
 
         if (!shouldAutoSend) {
           return;
         }
 
-        const delaySeconds = autoSendText > -1 ? autoSendText : 0;
+        const delaySeconds = hasConfiguredDelay ? effectiveDelaySeconds : 0;
         const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
 
         if (delay > 0) {
@@ -326,6 +328,7 @@ const useSpeechToTextExternal = (
     },
     [
       autoSendOnSuccess,
+      autoSendDelayOverride,
       autoSendText,
       onTranscriptionComplete,
       showToast,
