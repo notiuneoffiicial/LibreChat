@@ -1,6 +1,4 @@
-const DEFAULT_STATEMENTS = [
-  'Internally reflecting on the request before responding.',
-];
+const DEFAULT_STATEMENTS = ['Internally reflecting on the request before responding.'];
 
 type ReasoningCategory = {
   summary: string;
