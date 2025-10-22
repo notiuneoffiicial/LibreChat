@@ -12,6 +12,7 @@ import { useLocalize } from '~/hooks';
 import Container from './Container';
 import Markdown from './Markdown';
 import { cn } from '~/utils';
+import generalizeReasoning from '~/utils/generalizeReasoning';
 import store from '~/store';
 
 export const ErrorMessage = ({
@@ -123,11 +124,19 @@ const MessageContent = ({
   const { message } = props;
   const { messageId } = message;
 
-  const { thinkingContent, regularContent } = useMemo(() => {
+  const { thinkingSummary, regularContent } = useMemo(() => {
     const thinkingMatch = text.match(/:::thinking([\s\S]*?):::/);
+    if (!thinkingMatch) {
+      return {
+        thinkingSummary: [] as string[],
+        regularContent: text,
+      };
+    }
+
+    const rawThinking = thinkingMatch[1].trim();
     return {
-      thinkingContent: thinkingMatch ? thinkingMatch[1].trim() : '',
-      regularContent: thinkingMatch ? text.replace(/:::thinking[\s\S]*?:::/, '').trim() : text,
+      thinkingSummary: rawThinking ? generalizeReasoning(rawThinking) : [],
+      regularContent: text.replace(/:::thinking[\s\S]*?:::/, '').trim(),
     };
   }, [text]);
 
@@ -153,8 +162,14 @@ const MessageContent = ({
 
   return (
     <>
-      {thinkingContent.length > 0 && (
-        <Thinking key={`thinking-${messageId}`}>{thinkingContent}</Thinking>
+      {thinkingSummary.length > 0 && (
+        <Thinking key={`thinking-${messageId}`}>
+          <ul className="list-outside list-disc space-y-2 pl-5 text-sm leading-6 text-text-secondary">
+            {thinkingSummary.map((statement, index) => (
+              <li key={`${messageId}-thought-${index}`}>{statement}</li>
+            ))}
+          </ul>
+        </Thinking>
       )}
       <DisplayMessage
         key={`display-${messageId}`}

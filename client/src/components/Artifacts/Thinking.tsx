@@ -17,14 +17,14 @@ const CONTENT_STYLES = {
     'absolute left-0 h-[calc(100%-10px)] border-l-2 border-border-medium dark:border-border-heavy',
   partBorder:
     'absolute left-0 h-[calc(100%)] border-l-2 border-border-medium dark:border-border-heavy',
-  text: 'whitespace-pre-wrap leading-[26px]',
+  body: 'whitespace-pre-wrap leading-[26px]',
 } as const;
 
 export const ThinkingContent: FC<{ children: React.ReactNode; isPart?: boolean }> = memo(
   ({ isPart, children }) => (
     <div className={CONTENT_STYLES.wrapper}>
       <div className={isPart === true ? CONTENT_STYLES.partBorder : CONTENT_STYLES.border} />
-      <p className={CONTENT_STYLES.text}>{children}</p>
+      <div className={CONTENT_STYLES.body}>{children}</div>
     </div>
   ),
 );
