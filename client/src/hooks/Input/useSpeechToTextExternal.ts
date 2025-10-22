@@ -245,7 +245,14 @@ const useSpeechToTextExternal = (
         setIsRequestBeingMade(false);
       }
     },
-    [autoSendOnSuccess, autoSendText, onTranscriptionComplete, showToast, speechToText, streamTranscription],
+    [
+      autoSendOnSuccess,
+      autoSendText,
+      onTranscriptionComplete,
+      showToast,
+      speechToText,
+      streamTranscription,
+    ],
   );
 
   const handleStop = useCallback(() => {
