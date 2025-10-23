@@ -38,7 +38,7 @@ RUN \
 
 COPY --chown=node:node . .
 
-RUN npm run build:data-schemas
+RUN npm run build
 
 RUN \
     # React client build
