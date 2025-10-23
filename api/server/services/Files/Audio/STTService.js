@@ -108,6 +108,100 @@ function extractTextFromResponse(response) {
   return '';
 }
 
+function extractTextFromDelta(delta) {
+  if (!delta) {
+    return '';
+  }
+
+  if (typeof delta === 'string') {
+    return delta;
+  }
+
+  if (Array.isArray(delta)) {
+    return delta
+      .map((item) => extractTextFromDelta(item))
+      .filter(Boolean)
+      .join('');
+  }
+
+  if (typeof delta !== 'object') {
+    return '';
+  }
+
+  if (typeof delta.text === 'string' && delta.text.trim()) {
+    return delta.text;
+  }
+
+  if (Array.isArray(delta.text) && delta.text.length > 0) {
+    const text = delta.text
+      .map((item) => (typeof item === 'string' ? item : extractTextFromDelta(item)))
+      .filter(Boolean)
+      .join('');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (typeof delta.output_text === 'string' && delta.output_text.trim()) {
+    return delta.output_text;
+  }
+
+  if (Array.isArray(delta.output_text) && delta.output_text.length > 0) {
+    const text = delta.output_text
+      .map((item) => (typeof item === 'string' ? item : extractTextFromDelta(item)))
+      .filter(Boolean)
+      .join('');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (Array.isArray(delta.content) && delta.content.length > 0) {
+    const text = extractTextFromContent(delta.content);
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (Array.isArray(delta.output) && delta.output.length > 0) {
+    const text = delta.output
+      .map((item) => extractTextFromContent(item?.content))
+      .filter(Boolean)
+      .join('');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (delta.segment) {
+    const text = extractTextFromDelta(delta.segment);
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (Array.isArray(delta.segments) && delta.segments.length > 0) {
+    const text = delta.segments
+      .map((segment) => (segment && typeof segment.text === 'string' ? segment.text : ''))
+      .filter(Boolean)
+      .join(' ');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  const responseText = extractTextFromResponse(delta.response || delta.result);
+  if (responseText.trim()) {
+    return responseText;
+  }
+
+  return '';
+}
+
 function extractTextFromEvent(event) {
   if (!event || typeof event !== 'object') {
     return '';
@@ -117,8 +211,24 @@ function extractTextFromEvent(event) {
     return event.text;
   }
 
+  if (Array.isArray(event.text) && event.text.length > 0) {
+    const text = event.text
+      .map((item) => (typeof item === 'string' ? item : extractTextFromDelta(item)))
+      .filter(Boolean)
+      .join('');
+
+    if (text.trim()) {
+      return text;
+    }
+  }
+
   if (typeof event.delta === 'string' && event.delta.trim()) {
     return event.delta;
+  }
+
+  const deltaText = extractTextFromDelta(event.delta);
+  if (deltaText.trim()) {
+    return deltaText;
   }
 
   if (typeof event.output_text === 'string' && event.output_text.trim()) {
@@ -154,6 +264,20 @@ function extractTextFromEvent(event) {
 
   if (Array.isArray(event.content)) {
     const text = extractTextFromContent(event.content);
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (event.transcript) {
+    const text = extractTextFromDelta(event.transcript);
+    if (text.trim()) {
+      return text;
+    }
+  }
+
+  if (event.item) {
+    const text = extractTextFromDelta(event.item);
     if (text.trim()) {
       return text;
     }
