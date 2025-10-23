@@ -73,6 +73,7 @@ const DELTA_TYPE_PATTERN = /\b(delta|partial|segment|update)\b/i;
 const DONE_TYPE_PATTERN = /\b(done|complete|final|finish|stop|completed)\b/i;
 const ERROR_TYPE_PATTERN = /\b(error|fail|cancel|abort)\b/i;
 
+
 const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
 
 function appendTranscriptSegment(previous, incoming) {
