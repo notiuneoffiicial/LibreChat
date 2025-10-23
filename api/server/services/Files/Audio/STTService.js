@@ -73,44 +73,102 @@ const DELTA_TYPE_PATTERN = /\b(delta|partial|segment|update)\b/i;
 const DONE_TYPE_PATTERN = /\b(done|complete|final|finish|stop|completed)\b/i;
 const ERROR_TYPE_PATTERN = /\b(error|fail|cancel|abort)\b/i;
 
-
 const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
 
-function appendTranscriptSegment(previous, incoming) {
+function longestCommonPrefixLength(a, b) {
+  const max = Math.min(a.length, b.length);
+  let index = 0;
+
+  while (index < max && a[index] === b[index]) {
+    index += 1;
+  }
+
+  return index;
+}
+
+function longestCommonSuffixLength(a, b) {
+  const max = Math.min(a.length, b.length);
+  let index = 0;
+
+  while (index < max && a[a.length - 1 - index] === b[b.length - 1 - index]) {
+    index += 1;
+  }
+
+  return index;
+}
+
+function shouldRewriteTranscript(previous, incoming) {
+  const prior = typeof previous === 'string' ? previous.trim() : '';
+  const next = typeof incoming === 'string' ? incoming.trim() : '';
+
+  if (!prior || !next || prior === next) {
+    return false;
+  }
+
+  const lowerPrior = prior.toLowerCase();
+  const lowerNext = next.toLowerCase();
+
+  if (lowerNext.includes(lowerPrior) && !lowerNext.startsWith(lowerPrior)) {
+    return true;
+  }
+
+  if (lowerPrior.includes(lowerNext)) {
+    return true;
+  }
+
+  const prefixLength = longestCommonPrefixLength(lowerPrior, lowerNext);
+  if (prefixLength > 0 && prefixLength < lowerPrior.length) {
+    return true;
+  }
+
+  const suffixLength = longestCommonSuffixLength(lowerPrior, lowerNext);
+  if (suffixLength > 0 && suffixLength < lowerPrior.length) {
+    return true;
+  }
+
+  return false;
+}
+
+function appendTranscriptSegment(previous, incoming, options = {}) {
+  const { allowRewrite = false } = options;
   const prior = typeof previous === 'string' ? previous : '';
   const next = typeof incoming === 'string' ? incoming : '';
 
   if (!next) {
-    return { next: prior, delta: '' };
+    return { next: prior, delta: '', rewrite: false };
   }
 
   if (!prior) {
-    return { next, delta: next };
+    return { next, delta: next, rewrite: false };
   }
 
   if (next === prior) {
-    return { next: prior, delta: '' };
+    return { next: prior, delta: '', rewrite: false };
   }
 
   if (next.startsWith(prior)) {
-    return { next, delta: next.slice(prior.length) };
+    return { next, delta: next.slice(prior.length), rewrite: false };
   }
 
   if (prior.endsWith(next) || prior.includes(next)) {
-    return { next: prior, delta: '' };
+    return { next: prior, delta: '', rewrite: false };
+  }
+
+  if (allowRewrite && shouldRewriteTranscript(prior, next)) {
+    return { next, delta: '', rewrite: true };
   }
 
   const maxOverlap = Math.min(prior.length, next.length);
   for (let i = maxOverlap; i > 0; i -= 1) {
     if (next.startsWith(prior.slice(-i))) {
       const delta = next.slice(i);
-      return { next: prior + delta, delta };
+      return { next: prior + delta, delta, rewrite: false };
     }
   }
 
   const joiner = prior.endsWith(' ') || next.startsWith(' ') ? '' : ' ';
   const delta = joiner ? `${joiner}${next}` : next;
-  return { next: `${prior}${delta}`, delta };
+  return { next: `${prior}${delta}`, delta, rewrite: false };
 }
 
 function collectTextFromStructure(value, visited = new Set(), context = false) {
@@ -1123,29 +1181,31 @@ class STTService {
           event?.delta?.final === false ||
           event?.delta?.done === false;
 
-        if (hasText) {
-          const { next, delta } = appendTranscriptSegment(aggregatedText, text);
-          aggregatedText = next;
-          finalText = aggregatedText;
+          if (hasText) {
+            const { next, delta, rewrite } = appendTranscriptSegment(aggregatedText, text, {
+              allowRewrite: isDoneEvent,
+            });
+            aggregatedText = next;
+            finalText = aggregatedText;
 
-          if (delta && (isDeltaEvent || !isDoneEvent)) {
-            this.writeStreamEvent(res, 'delta', { text: delta });
-          }
+          if (delta && !rewrite && (isDeltaEvent || !isDoneEvent)) {
+              this.writeStreamEvent(res, 'delta', { text: delta });
+            }
 
-          if (isDoneEvent) {
-            this.writeStreamEvent(res, 'done', { text: finalText.trim() });
-            doneSent = true;
+            if (isDoneEvent) {
+              this.writeStreamEvent(res, 'done', { text: finalText.trim() });
+              doneSent = true;
+              continue;
+            }
+
             continue;
           }
 
-          continue;
-        }
-
-        if (isDoneEvent) {
-          finalText = aggregatedText;
-          this.writeStreamEvent(res, 'done', { text: finalText.trim() });
-          doneSent = true;
-        }
+          if (isDoneEvent) {
+            finalText = aggregatedText;
+            this.writeStreamEvent(res, 'done', { text: finalText.trim() });
+            doneSent = true;
+          }
       }
     } finally {
       fileStream.close?.();
