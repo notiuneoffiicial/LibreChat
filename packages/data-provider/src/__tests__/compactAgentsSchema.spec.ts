@@ -5,11 +5,12 @@ import {
   ReasoningEffort,
   ReasoningSummary,
   Verbosity,
+  type TConversation,
 } from '../schemas';
 
 describe('compactAgentsSchema', () => {
   it('retains preset parameters when sanitizing agent payloads', () => {
-    const conversation = {
+    const conversation: Partial<TConversation> = {
       endpoint: EModelEndpoint.agents,
       spec: 'optimism_companion',
       model: 'deepseek-chat',
@@ -56,7 +57,7 @@ describe('compactAgentsSchema', () => {
       region: 'us-east-1',
       additionalModelRequestFields: { foo: 'bar' },
       stream: false,
-    } as const;
+    };
 
     const sanitized = parseCompactConvo({
       endpoint: EModelEndpoint.agents,
