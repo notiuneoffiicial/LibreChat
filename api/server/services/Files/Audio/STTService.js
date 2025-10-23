@@ -54,6 +54,7 @@ const TEXT_DONE_EVENT_TYPES = new Set([
 
 const TEXT_ERROR_EVENT_TYPES = new Set(['response.error', 'response.failed']);
 
+
 const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
 
 function collectTextFromStructure(value, visited = new Set(), context = false) {
