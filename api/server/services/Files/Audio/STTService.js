@@ -292,6 +292,189 @@ function extractTextFromTranscript(transcript) {
   return fallback.trim() ? fallback : '';
 }
 
+
+const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
+
+function collectTextFromStructure(value, visited = new Set(), context = false) {
+  if (value == null) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return context && trimmed ? value : '';
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => collectTextFromStructure(item, visited, context))
+      .filter(Boolean);
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return context ? parts.join('') : parts.join(' ');
+  }
+
+  if (typeof value !== 'object') {
+    return '';
+  }
+
+  if (visited.has(value)) {
+    return '';
+  }
+
+  visited.add(value);
+
+  const parts = Object.entries(value)
+    .map(([key, item]) => {
+      if (item == null) {
+        return '';
+      }
+
+      const lowerKey = key.toLowerCase();
+      const nextContext = context || TEXT_KEY_PATTERN.test(lowerKey);
+      return collectTextFromStructure(item, visited, nextContext);
+    })
+    .filter(Boolean);
+
+  visited.delete(value);
+
+  if (parts.length === 0) {
+    return '';
+  }
+
+  const joined = parts.join(' ');
+  return context ? joined : joined.trim();
+}
+
+function extractTextFromTranscript(transcript) {
+  if (!transcript) {
+    return '';
+  }
+
+  if (typeof transcript === 'string') {
+    return transcript;
+  }
+
+  if (Array.isArray(transcript)) {
+    const combined = transcript
+      .map((item) => extractTextFromTranscript(item))
+      .filter(Boolean)
+      .join(' ');
+
+    const trimmed = combined.trim();
+    return trimmed ? combined : '';
+  }
+
+  if (typeof transcript !== 'object') {
+    return '';
+  }
+
+  if (typeof transcript.text === 'string' && transcript.text.trim()) {
+    return transcript.text;
+  }
+
+  if (Array.isArray(transcript.text)) {
+    const combined = transcript.text
+      .map((item) => (typeof item === 'string' ? item : extractTextFromTranscript(item)))
+      .filter(Boolean)
+      .join('');
+
+    if (combined.trim()) {
+      return combined;
+    }
+  }
+
+  if (Array.isArray(transcript.items)) {
+    const combined = transcript.items
+      .map((item) => {
+        if (!item) {
+          return '';
+        }
+
+        if (typeof item === 'string') {
+          return item;
+        }
+
+        if (typeof item.text === 'string' && item.text.trim()) {
+          return item.text;
+        }
+
+        if (Array.isArray(item.text)) {
+          return item.text
+            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
+            .filter(Boolean)
+            .join('');
+        }
+
+        if (typeof item.content === 'string' && item.content.trim()) {
+          return item.content;
+        }
+
+        if (Array.isArray(item.content)) {
+          return item.content
+            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
+            .filter(Boolean)
+            .join('');
+        }
+
+        if (Array.isArray(item.alternatives)) {
+          for (const alt of item.alternatives) {
+            if (!alt) {
+              continue;
+            }
+
+            if (typeof alt === 'string' && alt.trim()) {
+              return alt;
+            }
+
+            if (typeof alt.text === 'string' && alt.text.trim()) {
+              return alt.text;
+            }
+          }
+        }
+
+        if (typeof item.value === 'string' && item.value.trim()) {
+          return item.value;
+        }
+
+        if (Array.isArray(item.value)) {
+          return item.value
+            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
+            .filter(Boolean)
+            .join('');
+        }
+
+        return extractTextFromTranscript(item);
+      })
+      .filter(Boolean)
+      .join(' ');
+
+    if (combined.trim()) {
+      return combined;
+    }
+  }
+
+  if (transcript.transcript) {
+    const text = extractTextFromTranscript(transcript.transcript);
+    if (text) {
+      return text;
+    }
+  }
+
+  if (transcript.delta) {
+    const text = extractTextFromDelta(transcript.delta);
+    if (text) {
+      return text;
+    }
+  }
+
+  const fallback = collectTextFromStructure(transcript, new Set(), true);
+  return fallback.trim() ? fallback : '';
+}
+
 function extractTextFromContent(content) {
   if (!Array.isArray(content)) {
     return '';
