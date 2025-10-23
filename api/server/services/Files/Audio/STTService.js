@@ -75,225 +75,101 @@ const ERROR_TYPE_PATTERN = /\b(error|fail|cancel|abort)\b/i;
 
 const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
 
-function appendTranscriptSegment(previous, incoming) {
+function longestCommonPrefixLength(a, b) {
+  const max = Math.min(a.length, b.length);
+  let index = 0;
+
+  while (index < max && a[index] === b[index]) {
+    index += 1;
+  }
+
+  return index;
+}
+
+function longestCommonSuffixLength(a, b) {
+  const max = Math.min(a.length, b.length);
+  let index = 0;
+
+  while (index < max && a[a.length - 1 - index] === b[b.length - 1 - index]) {
+    index += 1;
+  }
+
+  return index;
+}
+
+function shouldRewriteTranscript(previous, incoming) {
+  const prior = typeof previous === 'string' ? previous.trim() : '';
+  const next = typeof incoming === 'string' ? incoming.trim() : '';
+
+  if (!prior || !next || prior === next) {
+    return false;
+  }
+
+  const lowerPrior = prior.toLowerCase();
+  const lowerNext = next.toLowerCase();
+
+  if (lowerNext.includes(lowerPrior) && !lowerNext.startsWith(lowerPrior)) {
+    return true;
+  }
+
+  if (lowerPrior.includes(lowerNext)) {
+    return true;
+  }
+
+  const prefixLength = longestCommonPrefixLength(lowerPrior, lowerNext);
+  if (prefixLength > 0 && prefixLength < lowerPrior.length) {
+    return true;
+  }
+
+  const suffixLength = longestCommonSuffixLength(lowerPrior, lowerNext);
+  if (suffixLength > 0 && suffixLength < lowerPrior.length) {
+    return true;
+  }
+
+  return false;
+}
+
+function appendTranscriptSegment(previous, incoming, options = {}) {
+  const { allowRewrite = false } = options;
   const prior = typeof previous === 'string' ? previous : '';
   const next = typeof incoming === 'string' ? incoming : '';
 
   if (!next) {
-    return { next: prior, delta: '' };
+    return { next: prior, delta: '', rewrite: false };
   }
 
   if (!prior) {
-    return { next, delta: next };
+    return { next, delta: next, rewrite: false };
   }
 
   if (next === prior) {
-    return { next: prior, delta: '' };
+    return { next: prior, delta: '', rewrite: false };
   }
 
   if (next.startsWith(prior)) {
-    return { next, delta: next.slice(prior.length) };
+    return { next, delta: next.slice(prior.length), rewrite: false };
   }
 
   if (prior.endsWith(next) || prior.includes(next)) {
-    return { next: prior, delta: '' };
+    return { next: prior, delta: '', rewrite: false };
+  }
+
+  if (allowRewrite && shouldRewriteTranscript(prior, next)) {
+    return { next, delta: '', rewrite: true };
   }
 
   const maxOverlap = Math.min(prior.length, next.length);
   for (let i = maxOverlap; i > 0; i -= 1) {
     if (next.startsWith(prior.slice(-i))) {
       const delta = next.slice(i);
-      return { next: prior + delta, delta };
+      return { next: prior + delta, delta, rewrite: false };
     }
   }
 
   const joiner = prior.endsWith(' ') || next.startsWith(' ') ? '' : ' ';
   const delta = joiner ? `${joiner}${next}` : next;
-  return { next: `${prior}${delta}`, delta };
+  return { next: `${prior}${delta}`, delta, rewrite: false };
 }
-
-function collectTextFromStructure(value, visited = new Set(), context = false) {
-  if (value == null) {
-    return '';
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return context && trimmed ? value : '';
-  }
-
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((item) => collectTextFromStructure(item, visited, context))
-      .filter(Boolean);
-
-    if (parts.length === 0) {
-      return '';
-    }
-
-    return context ? parts.join('') : parts.join(' ');
-  }
-
-  if (typeof value !== 'object') {
-    return '';
-  }
-
-  if (visited.has(value)) {
-    return '';
-  }
-
-  visited.add(value);
-
-  const parts = Object.entries(value)
-    .map(([key, item]) => {
-      if (item == null) {
-        return '';
-      }
-
-      const lowerKey = key.toLowerCase();
-      const nextContext = context || TEXT_KEY_PATTERN.test(lowerKey);
-      return collectTextFromStructure(item, visited, nextContext);
-    })
-    .filter(Boolean);
-
-  visited.delete(value);
-
-  if (parts.length === 0) {
-    return '';
-  }
-
-  const joined = parts.join(' ');
-  return context ? joined : joined.trim();
-}
-
-function extractTextFromTranscript(transcript) {
-  if (!transcript) {
-    return '';
-  }
-
-  if (typeof transcript === 'string') {
-    return transcript;
-  }
-
-  if (Array.isArray(transcript)) {
-    const combined = transcript
-      .map((item) => extractTextFromTranscript(item))
-      .filter(Boolean)
-      .join(' ');
-
-    const trimmed = combined.trim();
-    return trimmed ? combined : '';
-  }
-
-  if (typeof transcript !== 'object') {
-    return '';
-  }
-
-  if (typeof transcript.text === 'string' && transcript.text.trim()) {
-    return transcript.text;
-  }
-
-  if (Array.isArray(transcript.text)) {
-    const combined = transcript.text
-      .map((item) => (typeof item === 'string' ? item : extractTextFromTranscript(item)))
-      .filter(Boolean)
-      .join('');
-
-    if (combined.trim()) {
-      return combined;
-    }
-  }
-
-  if (Array.isArray(transcript.items)) {
-    const combined = transcript.items
-      .map((item) => {
-        if (!item) {
-          return '';
-        }
-
-        if (typeof item === 'string') {
-          return item;
-        }
-
-        if (typeof item.text === 'string' && item.text.trim()) {
-          return item.text;
-        }
-
-        if (Array.isArray(item.text)) {
-          return item.text
-            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
-            .filter(Boolean)
-            .join('');
-        }
-
-        if (typeof item.content === 'string' && item.content.trim()) {
-          return item.content;
-        }
-
-        if (Array.isArray(item.content)) {
-          return item.content
-            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
-            .filter(Boolean)
-            .join('');
-        }
-
-        if (Array.isArray(item.alternatives)) {
-          for (const alt of item.alternatives) {
-            if (!alt) {
-              continue;
-            }
-
-            if (typeof alt === 'string' && alt.trim()) {
-              return alt;
-            }
-
-            if (typeof alt.text === 'string' && alt.text.trim()) {
-              return alt.text;
-            }
-          }
-        }
-
-        if (typeof item.value === 'string' && item.value.trim()) {
-          return item.value;
-        }
-
-        if (Array.isArray(item.value)) {
-          return item.value
-            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
-            .filter(Boolean)
-            .join('');
-        }
-
-        return extractTextFromTranscript(item);
-      })
-      .filter(Boolean)
-      .join(' ');
-
-    if (combined.trim()) {
-      return combined;
-    }
-  }
-
-  if (transcript.transcript) {
-    const text = extractTextFromTranscript(transcript.transcript);
-    if (text) {
-      return text;
-    }
-  }
-
-  if (transcript.delta) {
-    const text = extractTextFromDelta(transcript.delta);
-    if (text) {
-      return text;
-    }
-  }
-
-  const fallback = collectTextFromStructure(transcript, new Set(), true);
-  return fallback.trim() ? fallback : '';
-}
-
-
-const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
 
 function collectTextFromStructure(value, visited = new Set(), context = false) {
   if (value == null) {
@@ -1122,29 +998,31 @@ class STTService {
           event?.delta?.final === false ||
           event?.delta?.done === false;
 
-        if (hasText) {
-          const { next, delta } = appendTranscriptSegment(aggregatedText, text);
-          aggregatedText = next;
-          finalText = aggregatedText;
+          if (hasText) {
+            const { next, delta, rewrite } = appendTranscriptSegment(aggregatedText, text, {
+              allowRewrite: isDoneEvent,
+            });
+            aggregatedText = next;
+            finalText = aggregatedText;
 
-          if (delta && (isDeltaEvent || !isDoneEvent)) {
-            this.writeStreamEvent(res, 'delta', { text: delta });
-          }
+            if (delta && !rewrite && (isDeltaEvent || !isDoneEvent)) {
+              this.writeStreamEvent(res, 'delta', { text: delta });
+            }
 
-          if (isDoneEvent) {
-            this.writeStreamEvent(res, 'done', { text: finalText.trim() });
-            doneSent = true;
+            if (isDoneEvent) {
+              this.writeStreamEvent(res, 'done', { text: finalText.trim() });
+              doneSent = true;
+              continue;
+            }
+
             continue;
           }
 
-          continue;
-        }
-
-        if (isDoneEvent) {
-          finalText = aggregatedText;
-          this.writeStreamEvent(res, 'done', { text: finalText.trim() });
-          doneSent = true;
-        }
+          if (isDoneEvent) {
+            finalText = aggregatedText;
+            this.writeStreamEvent(res, 'done', { text: finalText.trim() });
+            doneSent = true;
+          }
       }
     } finally {
       fileStream.close?.();
