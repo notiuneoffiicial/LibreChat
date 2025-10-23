@@ -40,19 +40,258 @@ const TEXT_DELTA_EVENT_TYPES = new Set([
   'transcript.text.delta',
   'transcript.delta',
   'transcript.segment.delta',
+  'transcription.delta',
+  'transcription.segment.delta',
   'response.output_text.delta',
   'response.audio.transcript.delta',
+  'response.transcription.delta',
 ]);
 
 const TEXT_DONE_EVENT_TYPES = new Set([
   'transcript.text.done',
   'transcript.done',
+  'transcription.done',
+  'transcription.final',
+  'transcription.completed',
   'response.completed',
   'response.output_text.done',
   'response.audio.transcript.done',
+  'response.transcription.done',
+  'response.transcription.completed',
 ]);
 
-const TEXT_ERROR_EVENT_TYPES = new Set(['response.error', 'response.failed']);
+const TEXT_ERROR_EVENT_TYPES = new Set([
+  'response.error',
+  'response.failed',
+  'transcription.error',
+  'transcription.failed',
+  'response.transcription.error',
+  'response.transcription.failed',
+]);
+
+const DELTA_TYPE_PATTERN = /\b(delta|partial|segment|update)\b/i;
+const DONE_TYPE_PATTERN = /\b(done|complete|final|finish|stop|completed)\b/i;
+const ERROR_TYPE_PATTERN = /\b(error|fail|cancel|abort)\b/i;
+
+
+const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
+
+function appendTranscriptSegment(previous, incoming) {
+  const prior = typeof previous === 'string' ? previous : '';
+  const next = typeof incoming === 'string' ? incoming : '';
+
+  if (!next) {
+    return { next: prior, delta: '' };
+  }
+
+  if (!prior) {
+    return { next, delta: next };
+  }
+
+  if (next === prior) {
+    return { next: prior, delta: '' };
+  }
+
+  if (next.startsWith(prior)) {
+    return { next, delta: next.slice(prior.length) };
+  }
+
+  if (prior.endsWith(next) || prior.includes(next)) {
+    return { next: prior, delta: '' };
+  }
+
+  const maxOverlap = Math.min(prior.length, next.length);
+  for (let i = maxOverlap; i > 0; i -= 1) {
+    if (next.startsWith(prior.slice(-i))) {
+      const delta = next.slice(i);
+      return { next: prior + delta, delta };
+    }
+  }
+
+  const joiner = prior.endsWith(' ') || next.startsWith(' ') ? '' : ' ';
+  const delta = joiner ? `${joiner}${next}` : next;
+  return { next: `${prior}${delta}`, delta };
+}
+
+function collectTextFromStructure(value, visited = new Set(), context = false) {
+  if (value == null) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return context && trimmed ? value : '';
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => collectTextFromStructure(item, visited, context))
+      .filter(Boolean);
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return context ? parts.join('') : parts.join(' ');
+  }
+
+  if (typeof value !== 'object') {
+    return '';
+  }
+
+  if (visited.has(value)) {
+    return '';
+  }
+
+  visited.add(value);
+
+  const parts = Object.entries(value)
+    .map(([key, item]) => {
+      if (item == null) {
+        return '';
+      }
+
+      const lowerKey = key.toLowerCase();
+      const nextContext = context || TEXT_KEY_PATTERN.test(lowerKey);
+      return collectTextFromStructure(item, visited, nextContext);
+    })
+    .filter(Boolean);
+
+  visited.delete(value);
+
+  if (parts.length === 0) {
+    return '';
+  }
+
+  const joined = parts.join(' ');
+  return context ? joined : joined.trim();
+}
+
+function extractTextFromTranscript(transcript) {
+  if (!transcript) {
+    return '';
+  }
+
+  if (typeof transcript === 'string') {
+    return transcript;
+  }
+
+  if (Array.isArray(transcript)) {
+    const combined = transcript
+      .map((item) => extractTextFromTranscript(item))
+      .filter(Boolean)
+      .join(' ');
+
+    const trimmed = combined.trim();
+    return trimmed ? combined : '';
+  }
+
+  if (typeof transcript !== 'object') {
+    return '';
+  }
+
+  if (typeof transcript.text === 'string' && transcript.text.trim()) {
+    return transcript.text;
+  }
+
+  if (Array.isArray(transcript.text)) {
+    const combined = transcript.text
+      .map((item) => (typeof item === 'string' ? item : extractTextFromTranscript(item)))
+      .filter(Boolean)
+      .join('');
+
+    if (combined.trim()) {
+      return combined;
+    }
+  }
+
+  if (Array.isArray(transcript.items)) {
+    const combined = transcript.items
+      .map((item) => {
+        if (!item) {
+          return '';
+        }
+
+        if (typeof item === 'string') {
+          return item;
+        }
+
+        if (typeof item.text === 'string' && item.text.trim()) {
+          return item.text;
+        }
+
+        if (Array.isArray(item.text)) {
+          return item.text
+            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
+            .filter(Boolean)
+            .join('');
+        }
+
+        if (typeof item.content === 'string' && item.content.trim()) {
+          return item.content;
+        }
+
+        if (Array.isArray(item.content)) {
+          return item.content
+            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
+            .filter(Boolean)
+            .join('');
+        }
+
+        if (Array.isArray(item.alternatives)) {
+          for (const alt of item.alternatives) {
+            if (!alt) {
+              continue;
+            }
+
+            if (typeof alt === 'string' && alt.trim()) {
+              return alt;
+            }
+
+            if (typeof alt.text === 'string' && alt.text.trim()) {
+              return alt.text;
+            }
+          }
+        }
+
+        if (typeof item.value === 'string' && item.value.trim()) {
+          return item.value;
+        }
+
+        if (Array.isArray(item.value)) {
+          return item.value
+            .map((entry) => (typeof entry === 'string' ? entry : extractTextFromTranscript(entry)))
+            .filter(Boolean)
+            .join('');
+        }
+
+        return extractTextFromTranscript(item);
+      })
+      .filter(Boolean)
+      .join(' ');
+
+    if (combined.trim()) {
+      return combined;
+    }
+  }
+
+  if (transcript.transcript) {
+    const text = extractTextFromTranscript(transcript.transcript);
+    if (text) {
+      return text;
+    }
+  }
+
+  if (transcript.delta) {
+    const text = extractTextFromDelta(transcript.delta);
+    if (text) {
+      return text;
+    }
+  }
+
+  const fallback = collectTextFromStructure(transcript, new Set(), true);
+  return fallback.trim() ? fallback : '';
+}
 
 
 const TEXT_KEY_PATTERN = /(?:text|transcript|content|value|word|caption|utterance|delta|string|display|normalized)/i;
@@ -755,6 +994,7 @@ class STTService {
     const isoLanguage = language ? language.split('-')[0] : undefined;
     const fileStream = createReadStream(filePath);
 
+    let aggregatedText = '';
     let finalText = '';
     let doneSent = false;
 
@@ -766,37 +1006,77 @@ class STTService {
         ...(isoLanguage ? { language: isoLanguage } : {}),
       });
 
-      for await (const event of stream) {
-        const type = event?.type;
+      if (typeof stream?.[Symbol.asyncIterator] !== 'function') {
+        const fallbackText =
+          extractTextFromEvent(stream) || (typeof stream?.text === 'string' ? stream.text : '');
+        const trimmedFallback = fallbackText.trim();
 
-        if (!type) {
-          continue;
-        }
-
-        if (TEXT_DELTA_EVENT_TYPES.has(type)) {
-          const deltaText = extractTextFromEvent(event);
-
-          if (deltaText) {
-            finalText += deltaText;
-            this.writeStreamEvent(res, 'delta', { text: deltaText });
+        if (trimmedFallback) {
+          const { next, delta } = appendTranscriptSegment('', trimmedFallback);
+          aggregatedText = next;
+          finalText = next;
+          if (delta) {
+            this.writeStreamEvent(res, 'delta', { text: delta });
           }
-
-          continue;
-        }
-
-        if (TEXT_DONE_EVENT_TYPES.has(type)) {
-          const resolvedText = extractTextFromEvent(event);
-
-          if (resolvedText) {
-            finalText = resolvedText;
-          }
-
           this.writeStreamEvent(res, 'done', { text: finalText });
           doneSent = true;
+        }
+
+        return { finalText: (finalText || aggregatedText).trim(), doneSent };
+      }
+
+      for await (const event of stream) {
+        if (!event) {
           continue;
         }
 
-        if (TEXT_ERROR_EVENT_TYPES.has(type)) {
+        const descriptors = [];
+        const type = typeof event.type === 'string' ? event.type : undefined;
+        if (type) {
+          descriptors.push(type);
+        }
+
+        const eventName = typeof event.event === 'string' ? event.event : undefined;
+        if (eventName) {
+          descriptors.push(eventName);
+        }
+
+        const status = typeof event.status === 'string' ? event.status : undefined;
+        if (status) {
+          descriptors.push(status);
+        }
+
+        const responseType =
+          typeof event.response?.type === 'string' ? event.response.type : undefined;
+        if (responseType) {
+          descriptors.push(responseType);
+        }
+
+        const responseStatus =
+          typeof event.response?.status === 'string' ? event.response.status : undefined;
+        if (responseStatus) {
+          descriptors.push(responseStatus);
+        }
+
+        const deltaType = typeof event.delta?.type === 'string' ? event.delta.type : undefined;
+        if (deltaType) {
+          descriptors.push(deltaType);
+        }
+
+        const deltaStatus =
+          typeof event.delta?.status === 'string' ? event.delta.status : undefined;
+        if (deltaStatus) {
+          descriptors.push(deltaStatus);
+        }
+
+        const isErrorEvent =
+          descriptors.some(
+            (value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value),
+          ) ||
+          Boolean(event?.error) ||
+          Boolean(event?.response?.error);
+
+        if (isErrorEvent) {
           const message =
             event?.error?.message ||
             event?.response?.error?.message ||
@@ -804,12 +1084,76 @@ class STTService {
 
           throw new Error(message);
         }
+
+        const text = extractTextFromEvent(event);
+        const hasText = Boolean(text);
+
+        const finalIndicators = [
+          event?.is_final,
+          event?.isFinal,
+          event?.final,
+          event?.completed,
+          event?.done,
+          event?.delta?.is_final,
+          event?.delta?.final,
+          event?.delta?.done,
+          event?.segment?.is_final,
+          event?.segment?.final,
+          event?.item?.is_final,
+          event?.response?.completed,
+          event?.response?.done,
+        ];
+
+        const isDoneEvent =
+          descriptors.some(
+            (value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value),
+          ) ||
+          finalIndicators.some((value) => value === true);
+
+        const isDeltaEvent =
+          descriptors.some(
+            (value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value),
+          ) ||
+          event?.delta != null ||
+          event?.deltas != null ||
+          event?.partial === true ||
+          event?.is_final === false ||
+          event?.segment?.is_final === false ||
+          event?.delta?.is_final === false ||
+          event?.delta?.final === false ||
+          event?.delta?.done === false;
+
+        if (hasText) {
+          const { next, delta } = appendTranscriptSegment(aggregatedText, text);
+          aggregatedText = next;
+          finalText = aggregatedText;
+
+          if (delta && (isDeltaEvent || !isDoneEvent)) {
+            this.writeStreamEvent(res, 'delta', { text: delta });
+          }
+
+          if (isDoneEvent) {
+            this.writeStreamEvent(res, 'done', { text: finalText.trim() });
+            doneSent = true;
+            continue;
+          }
+
+          continue;
+        }
+
+        if (isDoneEvent) {
+          finalText = aggregatedText;
+          this.writeStreamEvent(res, 'done', { text: finalText.trim() });
+          doneSent = true;
+        }
       }
     } finally {
       fileStream.close?.();
     }
 
-    return { finalText: finalText.trim(), doneSent };
+    const resolvedFinalText = (finalText || aggregatedText).trim();
+
+    return { finalText: resolvedFinalText, doneSent };
   }
 
   /**
