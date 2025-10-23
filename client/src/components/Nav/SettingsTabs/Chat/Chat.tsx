@@ -1,9 +1,6 @@
 import { memo } from 'react';
 import FontSizeSelector from './FontSizeSelector';
 import ChatDirection from './ChatDirection';
-import ConversationSettings from './ConversationSettings';
-import CommandsSection from './CommandsSection';
-import ForkSettings from './ForkSettings';
 import ToggleSwitch from '../ToggleSwitch';
 import store from '~/store';
 
@@ -39,9 +36,6 @@ function Chat() {
         <ChatDirection />
       </div>
       <div className="flex flex-col gap-3">
-        <ConversationSettings />
-        <CommandsSection />
-        <ForkSettings />
         <div className="bg-surface-secondary/40 space-y-3 rounded-xl border border-border-medium p-4">
           {toggleSwitchConfigs.map((config) => (
             <ToggleSwitch

@@ -1,7 +1,7 @@
 import { useState, memo } from 'react';
 import { useRecoilState } from 'recoil';
 import * as Select from '@ariakit/react/select';
-import { CircleHelp, FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut } from 'lucide-react';
 import { GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import FilesView from '~/components/Chat/Input/Files/FilesView';
@@ -14,7 +14,6 @@ function AccountSettings() {
   const localize = useLocalize();
   const { user, isAuthenticated, logout } = useAuthContext();
   const { data: startupConfig } = useGetStartupConfig();
-  const helpUrl = startupConfig?.helpAndFaqURL;
   const balanceQuery = useGetUserBalance({
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
   });
@@ -69,20 +68,6 @@ function AccountSettings() {
           <FileText className="icon-md" aria-hidden="true" />
           {localize('com_nav_my_files')}
         </Select.SelectItem>
-        {helpUrl && (
-          <Select.SelectItem
-            value="help"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.open(helpUrl, '_blank', 'noopener');
-              }
-            }}
-            className="select-item text-sm"
-          >
-            <CircleHelp className="icon-md" aria-hidden="true" />
-            {localize('com_nav_help_faq')}
-          </Select.SelectItem>
-        )}
         <Select.SelectItem
           value=""
           onClick={() => setShowSettings(true)}
