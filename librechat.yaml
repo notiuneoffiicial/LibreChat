@@ -145,7 +145,7 @@ memory:
       You're able to create custom keys and store information with regards to them with reference to the 'notable threshold' system added in the memory functions code,
       don't shy away from doing so, Save concise, reusable facts such as projects, brand names, tools, tech stack, accounts, preferences, recurring goals, roles, locations, and timeframes. 
     model_parameters:
-      temperature: 0.6
+      temperature: 0.8
       max_tokens: 4096
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
