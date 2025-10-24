@@ -364,7 +364,6 @@
   "com_nav_font_size_sm": "Lille",
   "com_nav_font_size_xl": "Ekstra stor",
   "com_nav_font_size_xs": "Ekstra lille",
-  "com_nav_help_faq": "Hjælp og ofte stillede spørgsmål",
   "com_nav_hide_panel": "Skjul højre side-sidepanel",
   "com_nav_info_code_artifacts": "Aktiverer visning af eksperimentelle kodeartefakter ved siden af chatten",
   "com_nav_info_code_artifacts_agent": "Aktiverer brugen af kodeartefakter for denne agent. Som standard tilføjes yderligere instruktioner specifikke for brugen af artefakter, medmindre \"Brugerdefineret prompttilstand\" er aktiveret.",
