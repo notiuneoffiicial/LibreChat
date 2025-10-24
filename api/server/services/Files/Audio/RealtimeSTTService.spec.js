@@ -80,11 +80,7 @@ describe('RealtimeSTTService', () => {
       'https://example.com/v1/realtime/sessions',
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          codec: 'pcm16',
-          sample_rate: 16000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
       },
       {
         headers: {
@@ -135,11 +131,7 @@ describe('RealtimeSTTService', () => {
       DEFAULT_SESSION_ENDPOINT,
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          codec: 'pcm16',
-          sample_rate: 24000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
       },
       expect.any(Object),
     );
@@ -188,11 +180,7 @@ describe('RealtimeSTTService', () => {
       DEFAULT_SESSION_ENDPOINT,
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          codec: 'pcm16',
-          sample_rate: 24000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
       },
       expect.any(Object),
     );
@@ -244,12 +232,8 @@ describe('RealtimeSTTService', () => {
     expect(httpClient.post).toHaveBeenCalledWith(
       DEFAULT_SESSION_ENDPOINT,
       {
-        model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          codec: 'pcm16',
-          sample_rate: 24000,
-          channels: 1,
-        },
+        model: 'gpt-4o-mini-transcribe',
+        input_audio_format: 'pcm16',
       },
       expect.any(Object),
     );
