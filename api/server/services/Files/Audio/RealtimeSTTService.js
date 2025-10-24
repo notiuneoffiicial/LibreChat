@@ -100,28 +100,19 @@ class RealtimeSTTService {
     const inputFormat = this.normalizeInputFormat(realtimeConfig.inputAudioFormat);
 
     if (inputFormat) {
-      const { encoding, sampleRate, channels } = inputFormat;
-      const formatPayload = {
-        type: 'input_audio_format',
-      };
+      const { encoding } = inputFormat;
 
-      if (encoding != null) {
-        if (typeof encoding === 'string') {
-          formatPayload.format = encoding;
-        } else if (typeof encoding === 'object') {
-          Object.assign(formatPayload, encoding);
-        }
+      if (typeof encoding === 'string' && encoding.trim().length > 0) {
+        payload.input_audio_format = encoding;
+      } else if (
+        typeof encoding === 'object' &&
+        typeof encoding.codec === 'string' &&
+        encoding.codec.trim().length > 0
+      ) {
+        payload.input_audio_format = encoding.codec;
+      } else {
+        payload.input_audio_format = 'pcm16';
       }
-
-      if (sampleRate != null) {
-        formatPayload.sample_rate = sampleRate;
-      }
-
-      if (channels != null) {
-        formatPayload.channels = channels;
-      }
-
-      payload.input_audio_format = formatPayload;
     }
 
     return payload;
