@@ -481,6 +481,7 @@ const useSpeechToTextRealtime = (
       return;
     }
 
+    cleanup();
     resetState();
     setIsLoading(true);
 
