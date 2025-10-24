@@ -46,8 +46,10 @@ const DEFAULT_PCM_ENCODING = 'pcm16';
 // OpenAI realtime transcription expects PCM16 audio at 24 kHz.
 const DEFAULT_SAMPLE_RATE = 24000;
 const DEFAULT_AUDIO_CHANNELS = 1;
-const REALTIME_CHUNK_SIZE = 48 * 1024;
+// The realtime transcription docs recommend ~15kB PCM frames (~0.32s @ 24kHz mono).
+const REALTIME_CHUNK_SIZE = 15360;
 const REALTIME_CONNECT_TIMEOUT_MS = 15000;
+const REALTIME_COMMIT_TIMEOUT_MS = 4000;
 
 const TEXT_DELTA_EVENT_TYPES = new Set([
   'transcript.text.delta',
@@ -229,7 +231,7 @@ async function convertToPCM16(filePath, { sampleRate, channels, ffmpegPath }) {
         return;
       }
 
-      resolve(Buffer.concat(chunks));
+      resolve({ buffer: Buffer.concat(chunks), sampleRate: rate, channels: audioChannels });
     });
   });
 }
@@ -579,7 +581,11 @@ class STTService {
     }
 
     const ffmpegPath = resolveFfmpegPath(sttSchema);
-    const pcmBuffer = await convertToPCM16(filePath, {
+    const {
+      buffer: pcmBuffer,
+      sampleRate: resolvedSampleRate,
+      channels: resolvedChannels,
+    } = await convertToPCM16(filePath, {
       sampleRate: inputFormat?.sampleRate,
       channels: inputFormat?.channels,
       ffmpegPath,
@@ -592,6 +598,10 @@ class STTService {
       const wsClient = new OpenAIRealtimeWS({ model: sttSchema.model }, openai);
       const socket = wsClient.socket;
       let cleanup = () => {};
+      let commitReceived = false;
+      let shouldRequestResponse = false;
+      let responseDispatched = false;
+      let commitTimeout;
 
       const finish = (result) => {
         if (settled) {
@@ -617,6 +627,16 @@ class STTService {
 
       const handleEvent = (event) => {
         try {
+          if (event?.type === 'input_audio_buffer.committed') {
+            commitReceived = true;
+            if (commitTimeout) {
+              clearTimeout(commitTimeout);
+              commitTimeout = undefined;
+            }
+            dispatchResponse();
+            return;
+          }
+
           this.processStreamingEvent(res, event, state);
           if (state.doneSent) {
             const resolvedFinalText = (state.finalText || state.aggregatedText).trim();
@@ -624,6 +644,39 @@ class STTService {
           }
         } catch (error) {
           fail(error);
+        }
+      };
+
+      const dispatchResponse = () => {
+        if (responseDispatched || !shouldRequestResponse || !commitReceived) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      let connectTimeout = setTimeout(() => {
+        fail(new Error('Timed out connecting to realtime transcription service'));
+      }, REALTIME_CONNECT_TIMEOUT_MS);
+
+        responseDispatched = true;
+
+        try {
+          wsClient.send({
+            type: 'response.create',
+            response: {
+              modalities: ['text'],
+              instructions: 'Transcribe the provided audio into text.',
+              conversation: 'none',
+              metadata: {
+                sample_rate_hz: String(resolvedSampleRate),
+                channels: String(resolvedChannels),
+              },
+            },
+          });
+        } catch (error) {
+          fail(error instanceof Error ? error : new Error('Failed to request realtime transcription response'));
         }
       };
 
@@ -642,12 +695,18 @@ class STTService {
           clearTimeout(connectTimeout);
           connectTimeout = undefined;
         }
+        if (commitTimeout) {
+          clearTimeout(commitTimeout);
+          commitTimeout = undefined;
+        }
 
         try {
           wsClient.send({
             type: 'session.update',
             session: {
               modalities: ['text'],
+              instructions: 'You transcribe incoming audio into text.',
+              turn_detection: null,
             },
           });
 
@@ -660,7 +719,6 @@ class STTService {
                 model: sttSchema.model,
                 ...(isoLanguage ? { language: isoLanguage } : {}),
               },
-              turn_detection: null,
             },
           });
 
@@ -673,14 +731,14 @@ class STTService {
           }
 
           wsClient.send({ type: 'input_audio_buffer.commit' });
-
-          wsClient.send({
-            type: 'response.create',
-            response: {
-              modalities: ['text'],
-              instructions: 'Transcribe the provided audio into text.',
-            },
-          });
+          shouldRequestResponse = true;
+          dispatchResponse();
+          commitTimeout = setTimeout(() => {
+            if (!commitReceived) {
+              commitReceived = true;
+              dispatchResponse();
+            }
+          }, REALTIME_COMMIT_TIMEOUT_MS);
         } catch (error) {
           fail(error instanceof Error ? error : new Error('Failed to send audio to realtime service'));
         }
@@ -695,6 +753,10 @@ class STTService {
         if (connectTimeout) {
           clearTimeout(connectTimeout);
           connectTimeout = undefined;
+        }
+        if (commitTimeout) {
+          clearTimeout(commitTimeout);
+          commitTimeout = undefined;
         }
         wsClient.off('event', handleEvent);
         wsClient.off('error', handleError);
