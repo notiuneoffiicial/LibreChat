@@ -3,17 +3,13 @@ const fs = require('fs').promises;
 const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
 const FormData = require('form-data');
-const { Readable } = require('stream');
 const OpenAI = require('openai');
 const { OpenAIRealtimeWS } = require('openai/beta/realtime/ws');
 const { logger } = require('@librechat/data-schemas');
 const { genAzureEndpoint } = require('@librechat/api');
 const { extractEnvVariable, STTProviders } = require('librechat-data-provider');
 const { getAppConfig } = require('~/server/services/Config');
-const {
-  appendTranscriptSegment,
-  extractTextFromEvent,
-} = require('./transcriptUtils');
+const { appendTranscriptSegment, extractTextFromEvent } = require('./transcriptUtils');
 /**
  * Maps MIME types to their corresponding file extensions for audio files.
  * @type {Object}
@@ -87,7 +83,6 @@ const TEXT_ERROR_EVENT_TYPES = new Set([
 const DELTA_TYPE_PATTERN = /\b(delta|partial|segment|update)\b/i;
 const DONE_TYPE_PATTERN = /\b(done|complete|final|finish|stop|completed)\b/i;
 const ERROR_TYPE_PATTERN = /\b(error|fail|cancel|abort)\b/i;
-
 
 /**
  * Gets the file extension from the MIME type.
@@ -174,8 +169,10 @@ function resolveFfmpegPath(sttSchema) {
 }
 
 async function convertToPCM16(filePath, { sampleRate, channels, ffmpegPath }) {
-  const rate = Number.isFinite(sampleRate) && sampleRate > 0 ? Math.floor(sampleRate) : DEFAULT_SAMPLE_RATE;
-  const audioChannels = Number.isFinite(channels) && channels > 0 ? Math.floor(channels) : DEFAULT_AUDIO_CHANNELS;
+  const rate =
+    Number.isFinite(sampleRate) && sampleRate > 0 ? Math.floor(sampleRate) : DEFAULT_SAMPLE_RATE;
+  const audioChannels =
+    Number.isFinite(channels) && channels > 0 ? Math.floor(channels) : DEFAULT_AUDIO_CHANNELS;
   const binary = ffmpegPath || 'ffmpeg';
 
   return new Promise((resolve, reject) => {
@@ -225,7 +222,8 @@ async function convertToPCM16(filePath, { sampleRate, channels, ffmpegPath }) {
       if (code !== 0) {
         reject(
           new Error(
-            stderr.trim() || 'ffmpeg exited with a non-zero status while converting audio to PCM16.',
+            stderr.trim() ||
+              'ffmpeg exited with a non-zero status while converting audio to PCM16.',
           ),
         );
         return;
@@ -253,12 +251,7 @@ function removeSocketListener(socket, event, listener) {
  * @class
  */
 class STTService {
-  constructor() {
-    this.providerStrategies = {
-      [STTProviders.OPENAI]: this.openAIProvider,
-      [STTProviders.AZURE_OPENAI]: this.azureOpenAIProvider,
-    };
-  }
+  constructor() {}
 
   setupStreamResponse(res) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -385,7 +378,9 @@ class STTService {
     }
 
     const isErrorEvent =
-      descriptors.some((value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value)) ||
+      descriptors.some(
+        (value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value),
+      ) ||
       Boolean(event?.error) ||
       Boolean(event?.response?.error);
 
@@ -418,11 +413,14 @@ class STTService {
     ];
 
     const isDoneEvent =
-      descriptors.some((value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value)) ||
-      finalIndicators.some((value) => value === true);
+      descriptors.some(
+        (value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value),
+      ) || finalIndicators.some((value) => value === true);
 
     const isDeltaEvent =
-      descriptors.some((value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value)) ||
+      descriptors.some(
+        (value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value),
+      ) ||
       event?.delta != null ||
       event?.deltas != null ||
       event?.partial === true ||
@@ -458,43 +456,20 @@ class STTService {
     }
   }
 
-  /**
-   * Prepares the request for the OpenAI STT provider.
-   * @param {Object} sttSchema - The STT schema for OpenAI.
-   * @param {Stream} audioReadStream - The audio data to be transcribed.
-   * @param {Object} audioFile - The audio file object (unused in OpenAI provider).
-   * @param {string} language - The language code for the transcription.
-   * @returns {Array} An array containing the URL, data, and headers for the request.
-   */
-  openAIProvider(sttSchema, audioReadStream, audioFile, language) {
-    const url = sttSchema?.url || 'https://api.openai.com/v1/audio/transcriptions';
-    const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
-
-    const data = {
-      file: audioReadStream,
-      model: sttSchema.model,
-    };
-
-    if (language) {
-      /** Converted locale code (e.g., "en-US") to ISO-639-1 format (e.g., "en") */
-      const isoLanguage = language.split('-')[0];
-      data.language = isoLanguage;
+  resolveOpenAIModel(sttSchema) {
+    if (!sttSchema?.model || typeof sttSchema.model !== 'string') {
+      return '';
     }
 
-    const headers = {
-      'Content-Type': 'multipart/form-data',
-      ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
-    };
-    [headers].forEach(this.removeUndefined);
-
-    return [url, data, headers];
+    const resolved = extractEnvVariable(sttSchema.model);
+    return resolved || sttSchema.model;
   }
 
-  async openAIStreamProvider(res, sttSchema, { filePath, language }) {
+  createOpenAIClient(sttSchema, missingKeyMessage = 'OpenAI API key is not configured for STT') {
     const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
 
     if (!apiKey) {
-      throw new Error('OpenAI API key is not configured for STT streaming');
+      throw new Error(missingKeyMessage);
     }
 
     const clientOptions = { apiKey };
@@ -507,8 +482,15 @@ class STTService {
       clientOptions.organization = extractEnvVariable(sttSchema.organization);
     }
 
-    const openai = new OpenAI(clientOptions);
+    return new OpenAI(clientOptions);
+  }
 
+  async openAIStreamProvider(res, sttSchema, { filePath, language }) {
+    const openai = this.createOpenAIClient(
+      sttSchema,
+      'OpenAI API key is not configured for STT streaming',
+    );
+    const model = this.resolveOpenAIModel(sttSchema);
     const isoLanguage = language ? language.split('-')[0] : undefined;
     const fileStream = createReadStream(filePath);
     const state = { aggregatedText: '', finalText: '', doneSent: false, hasStreamOutput: false };
@@ -516,7 +498,7 @@ class STTService {
     try {
       const stream = await openai.audio.transcriptions.create({
         file: fileStream,
-        model: sttSchema.model,
+        model,
         stream: true,
         ...(isoLanguage ? { language: isoLanguage } : {}),
       });
@@ -557,23 +539,11 @@ class STTService {
   }
 
   async openAIRealtimeStreamProvider(res, sttSchema, { filePath, language }) {
-    const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
-
-    if (!apiKey) {
-      throw new Error('OpenAI API key is not configured for realtime STT streaming');
-    }
-
-    const clientOptions = { apiKey };
-
-    if (sttSchema?.url) {
-      clientOptions.baseURL = sttSchema.url;
-    }
-
-    if (sttSchema?.organization) {
-      clientOptions.organization = extractEnvVariable(sttSchema.organization);
-    }
-
-    const openai = new OpenAI(clientOptions);
+    const openai = this.createOpenAIClient(
+      sttSchema,
+      'OpenAI API key is not configured for realtime STT streaming',
+    );
+    const model = this.resolveOpenAIModel(sttSchema);
     const isoLanguage = language ? language.split('-')[0] : undefined;
     const inputFormat = sttSchema?.inputAudioFormat ?? {};
     const encoding =
@@ -605,13 +575,17 @@ class STTService {
       throw err;
     }
 
-    const { buffer: pcmBuffer, sampleRate: resolvedSampleRate, channels: resolvedChannels } = conversion;
+    const {
+      buffer: pcmBuffer,
+      sampleRate: resolvedSampleRate,
+      channels: resolvedChannels,
+    } = conversion;
 
     const state = { aggregatedText: '', finalText: '', doneSent: false, hasStreamOutput: false };
 
     return new Promise((resolve, reject) => {
       let settled = false;
-      const wsClient = new OpenAIRealtimeWS({ model: sttSchema.model }, openai);
+      const wsClient = new OpenAIRealtimeWS({ model }, openai);
       const socket = wsClient.socket;
       let cleanup = () => {};
       let commitReceived = false;
@@ -734,7 +708,7 @@ class STTService {
               modalities: ['text'],
               input_audio_format: encoding,
               input_audio_transcription: {
-                model: sttSchema.model,
+                model,
                 ...(isoLanguage ? { language: isoLanguage } : {}),
               },
             },
@@ -758,7 +732,9 @@ class STTService {
             }
           }, REALTIME_COMMIT_TIMEOUT_MS);
         } catch (error) {
-          fail(error instanceof Error ? error : new Error('Failed to send audio to realtime service'));
+          fail(
+            error instanceof Error ? error : new Error('Failed to send audio to realtime service'),
+          );
         }
       };
 
@@ -805,15 +781,83 @@ class STTService {
   }
 
   /**
-   * Prepares the request for the Azure OpenAI STT provider.
-   * @param {Object} sttSchema - The STT schema for Azure OpenAI.
-   * @param {Buffer} audioBuffer - The audio data to be transcribed.
-   * @param {Object} audioFile - The audio file object containing originalname, mimetype, and size.
-   * @param {string} language - The language code for the transcription.
-   * @returns {Array} An array containing the URL, data, and headers for the request.
-   * @throws {Error} If the audio file size exceeds 25MB or the audio file format is not accepted.
+   * Sends a non-streaming transcription request to the OpenAI API.
+   * @param {Object} sttSchema - The STT schema for OpenAI.
+   * @param {Object} requestData - The request payload for OpenAI.
+   * @param {Buffer} requestData.audioBuffer - The audio bytes captured from the upload.
+   * @param {Object} requestData.audioFile - Metadata describing the uploaded file.
+   * @param {string} requestData.language - The requested language code (locale or ISO-639-1).
+   * @param {string} requestData.filePath - The path to the temporary audio file on disk.
+   * @returns {Promise<string>} Resolves with the transcribed text when successful.
    */
-  azureOpenAIProvider(sttSchema, audioBuffer, audioFile, language) {
+  async openAIRestRequest(sttSchema, { audioBuffer, audioFile, language, filePath }) {
+    const openai = this.createOpenAIClient(sttSchema);
+    const model = this.resolveOpenAIModel(sttSchema);
+    const isoLanguage = language ? language.split('-')[0] : undefined;
+
+    const resolvedPath = filePath || audioFile?.path;
+    let stream;
+    let fileResource;
+
+    if (resolvedPath) {
+      stream = createReadStream(resolvedPath);
+      fileResource = stream;
+    } else if (audioBuffer) {
+      fileResource = audioBuffer;
+    } else {
+      throw new Error('Missing audio data for transcription request');
+    }
+
+    try {
+      const response = await openai.audio.transcriptions.create({
+        file: fileResource,
+        model,
+        ...(isoLanguage ? { language: isoLanguage } : {}),
+      });
+
+      const candidates = [];
+      if (typeof response?.text === 'string') {
+        candidates.push(response.text);
+      }
+
+      const extracted = extractTextFromEvent(response);
+      if (extracted) {
+        candidates.push(extracted);
+      }
+
+      if (Array.isArray(response?.segments)) {
+        candidates.push(
+          response.segments
+            .map((segment) => (typeof segment?.text === 'string' ? segment.text : ''))
+            .join(' '),
+        );
+      }
+
+      const resolvedText = candidates
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find((value) => value.length > 0);
+
+      if (resolvedText) {
+        return resolvedText;
+      }
+
+      throw new Error('Missing data in response from the STT API');
+    } finally {
+      stream?.close?.();
+    }
+  }
+
+  /**
+   * Prepares the multipart request payload for the Azure OpenAI STT provider.
+   * @param {Object} sttSchema - The STT schema for Azure OpenAI.
+   * @param {Object} requestData - The request payload forwarded to Azure.
+   * @param {Buffer} requestData.audioBuffer - The audio bytes captured from the upload.
+   * @param {Object} requestData.audioFile - Metadata describing the uploaded file.
+   * @param {string} requestData.language - The requested language code (locale or ISO-639-1).
+   * @returns {Array} Tuple containing the URL, form-data payload, and headers for Axios.
+   * @throws {Error} If the audio file fails validation prior to submission.
+   */
+  azureOpenAIProvider(sttSchema, { audioBuffer, audioFile, language }) {
     const url = `${genAzureEndpoint({
       azureOpenAIApiInstanceName: extractEnvVariable(sttSchema?.instanceName),
       azureOpenAIApiDeploymentName: extractEnvVariable(sttSchema?.deploymentName),
@@ -821,20 +865,28 @@ class STTService {
 
     const apiKey = sttSchema.apiKey ? extractEnvVariable(sttSchema.apiKey) : '';
 
+    if (!audioBuffer) {
+      throw new Error('Missing audio data for Azure OpenAI transcription');
+    }
+
     if (audioBuffer.byteLength > 25 * 1024 * 1024) {
       throw new Error('The audio file size exceeds the limit of 25MB');
     }
 
     const acceptedFormats = ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'];
-    const fileFormat = audioFile.mimetype.split('/')[1];
+    const { originalname = `audio.${getFileExtensionFromMime(audioFile?.mimetype)}` } =
+      audioFile ?? {};
+    const mimeSubtype = audioFile?.mimetype?.split('/')[1] ?? '';
+    const fileFormat = mimeSubtype.split(';')[0];
     if (!acceptedFormats.includes(fileFormat)) {
       throw new Error(`The audio file format ${fileFormat} is not accepted`);
     }
 
     const formData = new FormData();
     formData.append('file', audioBuffer, {
-      filename: audioFile.originalname,
-      contentType: audioFile.mimetype,
+      filename: originalname,
+      contentType: audioFile?.mimetype,
+      knownLength: audioBuffer.byteLength,
     });
 
     if (language) {
@@ -860,46 +912,45 @@ class STTService {
    * @param {Object} sttSchema - The STT schema for the provider.
    * @param {Object} requestData - The data required for the STT request.
    * @param {Buffer} requestData.audioBuffer - The audio data to be transcribed.
-   * @param {Object} requestData.audioFile - The audio file object containing originalname, mimetype, and size.
+   * @param {Object} requestData.audioFile - The audio file object containing originalname, mimetype, size, and path.
    * @param {string} requestData.language - The language code for the transcription.
+   * @param {string} requestData.filePath - The temporary file path for the uploaded audio.
    * @returns {Promise<string>} A promise that resolves to the transcribed text.
    * @throws {Error} If the provider is invalid, the response status is not 200, or the response data is missing.
    */
-  async sttRequest(provider, sttSchema, { audioBuffer, audioFile, language }) {
-    const strategy = this.providerStrategies[provider];
-    if (!strategy) {
-      throw new Error('Invalid provider');
+  async sttRequest(provider, sttSchema, requestData) {
+    if (provider === STTProviders.OPENAI) {
+      return this.openAIRestRequest(sttSchema, requestData);
     }
 
-    const fileExtension = getFileExtensionFromMime(audioFile.mimetype);
+    if (provider === STTProviders.AZURE_OPENAI) {
+      const [url, data, headers] = this.azureOpenAIProvider(sttSchema, requestData);
 
-    const audioReadStream = Readable.from(audioBuffer);
-    audioReadStream.path = `audio.${fileExtension}`;
+      try {
+        const response = await axios.post(url, data, {
+          headers,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        });
 
-    const [url, data, headers] = strategy.call(
-      this,
-      sttSchema,
-      audioReadStream,
-      audioFile,
-      language,
-    );
+        if (response.status !== 200) {
+          throw new Error('Invalid response from the STT API');
+        }
 
-    try {
-      const response = await axios.post(url, data, { headers });
+        const text = typeof response.data?.text === 'string' ? response.data.text.trim() : '';
 
-      if (response.status !== 200) {
-        throw new Error('Invalid response from the STT API');
-      }
+        if (text) {
+          return text;
+        }
 
-      if (!response.data || !response.data.text) {
         throw new Error('Missing data in response from the STT API');
+      } catch (error) {
+        logger.error(`STT request failed for provider ${provider}:`, error);
+        throw error;
       }
-
-      return response.data.text.trim();
-    } catch (error) {
-      logger.error(`STT request failed for provider ${provider}:`, error);
-      throw error;
     }
+
+    throw new Error(`Invalid provider: ${provider}`);
   }
 
   async streamRequest(res, provider, sttSchema, { filePath, language }) {
@@ -968,14 +1019,21 @@ class STTService {
         return;
       }
 
-      const audioBuffer = await fs.readFile(req.file.path);
+      const filePath = req.file.path;
+      const audioBuffer = await fs.readFile(filePath);
       const audioFile = {
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
+        path: filePath,
       };
 
-      const text = await this.sttRequest(provider, sttSchema, { audioBuffer, audioFile, language });
+      const text = await this.sttRequest(provider, sttSchema, {
+        audioBuffer,
+        audioFile,
+        language,
+        filePath,
+      });
       res.json({ text });
     } catch (error) {
       logger.error('An error occurred while processing the audio:', error);
