@@ -34,7 +34,6 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     mcpServerManager,
     codeApiKeyForm,
     codeInterpreter,
-    searchApiKeyForm,
   } = useBadgeRowContext();
   const { data: startupConfig } = useGetStartupConfig();
 
@@ -44,10 +43,6 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
 
   const { setIsDialogOpen: setIsCodeDialogOpen, menuTriggerRef: codeMenuTriggerRef } =
     codeApiKeyForm;
-  const {
-    setIsDialogOpen: setSearchDialogOpen,
-    menuTriggerRef: searchMenuTriggerRef,
-  } = searchApiKeyForm;
   const {
     isPinned: isCodePinned,
     setIsPinned: setIsCodePinned,
@@ -157,24 +152,6 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
             <span>{localize('com_ui_search')}</span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSearchDialogOpen(true);
-              }}
-              ref={searchMenuTriggerRef}
-              className={cn(
-                'rounded p-1 transition-all duration-200',
-                'hover:bg-surface-secondary hover:shadow-sm',
-                'text-text-secondary hover:text-text-primary',
-              )}
-              aria-label="Configure search"
-            >
-              <div className="h-4 w-4">
-                <Settings className="h-4 w-4" />
-              </div>
-            </button>
             <button
               type="button"
               onClick={(e) => {
