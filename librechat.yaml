@@ -84,7 +84,6 @@ speech:
     openai:
       apiKey: "${OPENAI_API_KEY}"
       model: "whisper-1"
-      stream: false
 
 # ---- Web Search Configuration ----
 webSearch:
