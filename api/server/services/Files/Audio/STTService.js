@@ -440,6 +440,9 @@ class STTService {
       state.finalText = next;
 
       if (delta && !rewrite && (isDeltaEvent || !isDoneEvent)) {
+        if (state) {
+          state.hasStreamOutput = true;
+        }
         this.writeStreamEvent(res, 'delta', { text: delta });
       }
     }
@@ -447,6 +450,9 @@ class STTService {
     if (isDoneEvent && !state.doneSent) {
       const trimmed = (state.finalText || state.aggregatedText).trim();
       state.finalText = trimmed;
+      if (state) {
+        state.hasStreamOutput = true;
+      }
       this.writeStreamEvent(res, 'done', trimmed ? { text: trimmed } : {});
       state.doneSent = true;
     }
@@ -505,7 +511,7 @@ class STTService {
 
     const isoLanguage = language ? language.split('-')[0] : undefined;
     const fileStream = createReadStream(filePath);
-    const state = { aggregatedText: '', finalText: '', doneSent: false };
+    const state = { aggregatedText: '', finalText: '', doneSent: false, hasStreamOutput: false };
 
     try {
       const stream = await openai.audio.transcriptions.create({
@@ -524,6 +530,7 @@ class STTService {
           const { next, delta } = appendTranscriptSegment('', trimmedFallback);
           state.aggregatedText = next;
           state.finalText = trimmedFallback;
+          state.hasStreamOutput = Boolean(delta) || Boolean(trimmedFallback);
           if (delta) {
             this.writeStreamEvent(res, 'delta', { text: delta });
           }
@@ -581,17 +588,26 @@ class STTService {
     }
 
     const ffmpegPath = resolveFfmpegPath(sttSchema);
-    const {
-      buffer: pcmBuffer,
-      sampleRate: resolvedSampleRate,
-      channels: resolvedChannels,
-    } = await convertToPCM16(filePath, {
-      sampleRate: inputFormat?.sampleRate,
-      channels: inputFormat?.channels,
-      ffmpegPath,
-    });
+    let conversion;
 
-    const state = { aggregatedText: '', finalText: '', doneSent: false };
+    try {
+      conversion = await convertToPCM16(filePath, {
+        sampleRate: inputFormat?.sampleRate,
+        channels: inputFormat?.channels,
+        ffmpegPath,
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      err.hasStreamOutput = false;
+      if (err.code == null) {
+        err.code = 'REALTIME_PREPROCESS_FAILED';
+      }
+      throw err;
+    }
+
+    const { buffer: pcmBuffer, sampleRate: resolvedSampleRate, channels: resolvedChannels } = conversion;
+
+    const state = { aggregatedText: '', finalText: '', doneSent: false, hasStreamOutput: false };
 
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -619,7 +635,12 @@ class STTService {
         }
         settled = true;
         cleanup();
-        reject(error instanceof Error ? error : new Error(String(error)));
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (error && typeof error === 'object' && 'code' in error && err.code == null) {
+          err.code = error.code;
+        }
+        err.hasStreamOutput = state.hasStreamOutput;
+        reject(err);
       };
 
       connectTimeout = setTimeout(() => {
@@ -887,7 +908,19 @@ class STTService {
     }
 
     if (shouldUseRealtimeTransport(sttSchema)) {
-      return this.openAIRealtimeStreamProvider(res, sttSchema, { filePath, language });
+      try {
+        return await this.openAIRealtimeStreamProvider(res, sttSchema, { filePath, language });
+      } catch (error) {
+        if (!error?.hasStreamOutput) {
+          logger.warn('Realtime STT unavailable, falling back to HTTP streaming', {
+            message: error?.message,
+            code: error?.code,
+          });
+          return this.openAIStreamProvider(res, sttSchema, { filePath, language });
+        }
+
+        throw error;
+      }
     }
 
     return this.openAIStreamProvider(res, sttSchema, { filePath, language });
