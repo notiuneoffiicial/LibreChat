@@ -578,6 +578,14 @@ class STTService {
       typeof inputFormat?.encoding === 'string'
         ? inputFormat.encoding.toLowerCase()
         : DEFAULT_PCM_ENCODING;
+    const sampleRate =
+      Number.isFinite(inputFormat?.sampleRate) && inputFormat.sampleRate > 0
+        ? Math.floor(inputFormat.sampleRate)
+        : DEFAULT_SAMPLE_RATE;
+    const channels =
+      Number.isFinite(inputFormat?.channels) && inputFormat.channels > 0
+        ? Math.floor(inputFormat.channels)
+        : DEFAULT_AUDIO_CHANNELS;
 
     if (encoding !== DEFAULT_PCM_ENCODING) {
       throw new Error(
@@ -587,8 +595,8 @@ class STTService {
 
     const ffmpegPath = resolveFfmpegPath(sttSchema);
     const pcmBuffer = await convertToPCM16(filePath, {
-      sampleRate: inputFormat?.sampleRate,
-      channels: inputFormat?.channels,
+      sampleRate,
+      channels,
       ffmpegPath,
     });
 
@@ -662,7 +670,11 @@ class STTService {
             type: 'transcription_session.update',
             session: {
               modalities: ['text'],
-              input_audio_format: encoding,
+              input_audio_format: {
+                type: encoding,
+                sample_rate: sampleRate,
+                channels,
+              },
               input_audio_transcription: {
                 model: sttSchema.model,
                 ...(isoLanguage ? { language: isoLanguage } : {}),
