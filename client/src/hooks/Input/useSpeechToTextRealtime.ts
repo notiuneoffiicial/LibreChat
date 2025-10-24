@@ -390,22 +390,16 @@ const useSpeechToTextRealtime = (
 
       socket.onerror = () => {
         cleanup();
+        resetState();
         showToast({ message: 'Realtime speech connection error', status: 'error' });
-        if (mountedRef.current) {
-          setIsListening(false);
-          setIsLoading(false);
-        }
       };
 
       socket.onclose = () => {
         cleanup();
-        if (mountedRef.current) {
-          setIsListening(false);
-          setIsLoading(false);
-        }
+        resetState();
       };
     },
-    [beginRealtimeResponse, cleanup, handleMessageEvent, setupAudioGraph, showToast],
+    [beginRealtimeResponse, cleanup, handleMessageEvent, resetState, setupAudioGraph, showToast],
   );
 
   const connectPeerConnection = useCallback(
