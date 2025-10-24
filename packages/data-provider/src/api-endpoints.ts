@@ -246,7 +246,7 @@ export const speechToText = () => `${speech()}/stt`;
 
 export const textToSpeech = () => `${speech()}/tts`;
 
-export const speechRealtime = () => `${speech()}/realtime`;
+export const speechRealtime = () => `${speech()}/stt/realtime`;
 
 export const speechRealtimeSession = () => `${speechRealtime()}/session`;
 
