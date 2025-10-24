@@ -167,24 +167,29 @@ class STTService {
     const url = sttSchema?.url || 'https://api.openai.com/v1/audio/transcriptions';
     const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
 
-    const data = {
-      file: audioReadStream,
-      model: sttSchema.model,
-    };
+    const formData = new FormData();
+    const filename = audioFile?.originalname || audioReadStream?.path || 'audio.webm';
+    const contentType = audioFile?.mimetype || 'audio/webm';
+
+    formData.append('file', audioReadStream, {
+      filename,
+      contentType,
+    });
+    formData.append('model', sttSchema.model);
 
     if (language) {
       /** Converted locale code (e.g., "en-US") to ISO-639-1 format (e.g., "en") */
       const isoLanguage = language.split('-')[0];
-      data.language = isoLanguage;
+      formData.append('language', isoLanguage);
     }
 
     const headers = {
-      'Content-Type': 'multipart/form-data',
       ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
+      ...formData.getHeaders(),
     };
     [headers].forEach(this.removeUndefined);
 
-    return [url, data, headers];
+    return [url, formData, headers];
   }
 
   /**
@@ -212,6 +217,10 @@ class STTService {
     const fileFormat = audioFile.mimetype.split('/')[1];
     if (!acceptedFormats.includes(fileFormat)) {
       throw new Error(`The audio file format ${fileFormat} is not accepted`);
+    }
+
+    if (!Buffer.isBuffer(audioBuffer)) {
+      throw new TypeError('Azure STT provider expects audio data as a Buffer');
     }
 
     const formData = new FormData();
@@ -259,10 +268,13 @@ class STTService {
     const audioReadStream = Readable.from(audioBuffer);
     audioReadStream.path = `audio.${fileExtension}`;
 
+    const audioInput =
+      provider === STTProviders.OPENAI ? audioReadStream : audioBuffer;
+
     const [url, data, headers] = strategy.call(
       this,
       sttSchema,
-      audioReadStream,
+      audioInput,
       audioFile,
       language,
     );
