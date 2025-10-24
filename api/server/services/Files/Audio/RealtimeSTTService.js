@@ -100,11 +100,15 @@ class RealtimeSTTService {
     const inputFormat = this.normalizeInputFormat(realtimeConfig.inputAudioFormat);
 
     if (inputFormat) {
-      payload.input_audio_format = {
-        encoding: inputFormat.encoding,
-        sample_rate: inputFormat.sampleRate,
-        channels: inputFormat.channels,
-      };
+      payload.input_audio_format = inputFormat.encoding;
+
+      if (inputFormat.sampleRate != null) {
+        payload.input_audio_sample_rate = inputFormat.sampleRate;
+      }
+
+      if (inputFormat.channels != null) {
+        payload.input_audio_channels = inputFormat.channels;
+      }
     }
 
     return payload;

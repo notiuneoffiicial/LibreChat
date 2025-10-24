@@ -80,11 +80,9 @@ describe('RealtimeSTTService', () => {
       'https://example.com/v1/realtime/sessions',
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          encoding: 'pcm16',
-          sample_rate: 16000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
+        input_audio_sample_rate: 16000,
+        input_audio_channels: 1,
       },
       {
         headers: {
@@ -135,11 +133,9 @@ describe('RealtimeSTTService', () => {
       DEFAULT_SESSION_ENDPOINT,
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          encoding: 'pcm16',
-          sample_rate: 24000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
+        input_audio_sample_rate: 24000,
+        input_audio_channels: 1,
       },
       expect.any(Object),
     );
@@ -188,11 +184,9 @@ describe('RealtimeSTTService', () => {
       DEFAULT_SESSION_ENDPOINT,
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          encoding: 'pcm16',
-          sample_rate: 24000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
+        input_audio_sample_rate: 24000,
+        input_audio_channels: 1,
       },
       expect.any(Object),
     );
@@ -245,11 +239,9 @@ describe('RealtimeSTTService', () => {
       DEFAULT_SESSION_ENDPOINT,
       {
         model: 'gpt-4o-realtime-preview',
-        input_audio_format: {
-          encoding: 'pcm16',
-          sample_rate: 24000,
-          channels: 1,
-        },
+        input_audio_format: 'pcm16',
+        input_audio_sample_rate: 24000,
+        input_audio_channels: 1,
       },
       expect.any(Object),
     );
