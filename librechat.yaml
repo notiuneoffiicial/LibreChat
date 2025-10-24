@@ -83,7 +83,7 @@ speech:
   stt:
     openai:
       apiKey: "${OPENAI_API_KEY}"
-      model: "whisper-1"
+      model: "gpt-4o-mini-transcribe"
 
 # ---- Web Search Configuration ----
 webSearch:
