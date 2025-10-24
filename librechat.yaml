@@ -83,16 +83,7 @@ speech:
   stt:
     openai:
       apiKey: "${OPENAI_API_KEY}"
-      model: "gpt-4o-mini-transcribe"
-      stream: true
-      transport: websocket
-      inputAudioFormat:
-        encoding: pcm16
-        sampleRate: 24000
-        channels: 1
-      # ffmpegPath: "/usr/local/bin/ffmpeg"
-  speechTab:
-    conversationMode: false
+      model: "whisper-1"
 
 # ---- Web Search Configuration ----
 webSearch:
