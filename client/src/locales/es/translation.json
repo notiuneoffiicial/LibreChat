@@ -382,7 +382,6 @@
   "com_nav_font_size_sm": "Pequeño",
   "com_nav_font_size_xl": "Extra grande",
   "com_nav_font_size_xs": "Extra pequeño",
-  "com_nav_help_faq": "Ayuda y preguntas frecuentes",
   "com_nav_hide_panel": "Ocultar el panel lateral derecho",
   "com_nav_info_code_artifacts": "Permite mostrar artefactos de código experimentales junto al chat",
   "com_nav_info_code_artifacts_agent": "Habilita el uso de artefactos de código para este agente. De forma predeterminada, instrucciones adicionales específicas para el uso de artefactos son añadidas, a menos que \"Modo personalizado de Prompt\" esté habilitado.",

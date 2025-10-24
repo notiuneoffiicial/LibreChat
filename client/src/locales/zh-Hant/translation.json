@@ -396,7 +396,6 @@
   "com_nav_font_size_sm": "小",
   "com_nav_font_size_xl": "特大",
   "com_nav_font_size_xs": "超小",
-  "com_nav_help_faq": "說明與常見問題",
   "com_nav_hide_panel": "隱藏最右側的面板",
   "com_nav_info_code_artifacts": "啟用在對話旁顯示實驗性程式碼內容",
   "com_nav_info_custom_prompt_mode": "啟用後，系統將不會包含預設的成品提示詞。在此模式下，所有生成成品的指令都需要手動提供。",
