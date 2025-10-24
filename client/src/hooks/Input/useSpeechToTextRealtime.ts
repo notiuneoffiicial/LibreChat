@@ -217,17 +217,18 @@ const useSpeechToTextRealtime = (
       const overrideSpecified = delayOverride !== undefined && delayOverride !== null;
       const delaySource = overrideSpecified ? delayOverride : autoSendText;
       const shouldAutoSend =
-        autoSendOnSuccess || (speechToTextEnabled && (delaySource ?? -1) > -1);
+        autoSendOnSuccess || (speechToTextEnabled && ((delaySource ?? -1) > -1));
 
       if (!shouldAutoSend) {
         return;
       }
 
-      const delaySeconds = overrideSpecified
-        ? delayOverride ?? 0
-        : autoSendText > -1
-          ? autoSendText
-          : 0;
+      let delaySeconds = 0;
+      if (overrideSpecified) {
+        delaySeconds = (delayOverride ?? 0);
+      } else if (autoSendText > -1) {
+        delaySeconds = autoSendText;
+      }
 
       const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
 
@@ -257,12 +258,16 @@ const useSpeechToTextRealtime = (
         return;
       }
 
-      const event = data as { type?: string; delta?: string; output?: { text?: string }; text?: string } &
-        Record<string, unknown>;
+      const event = data as {
+        type?: string;
+        delta?: string;
+        output?: { text?: string };
+        text?: string;
+      } & Record<string, unknown>;
 
       switch (event.type) {
         case 'response.output_text.delta': {
-          const delta = typeof event.delta === 'string' ? event.delta : event.text ?? '';
+          const delta = typeof event.delta === 'string' ? event.delta : (event.text ?? '');
           transcriptsRef.current = `${transcriptsRef.current}${delta}`;
           setText(transcriptsRef.current);
           break;
@@ -488,7 +493,7 @@ const useSpeechToTextRealtime = (
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       streamRef.current = stream;
-    } catch (error) {
+    } catch (_error) {
       setIsLoading(false);
       showToast({ message: 'Microphone permission denied', status: 'error' });
       return;

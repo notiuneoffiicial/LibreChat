@@ -19,9 +19,7 @@ const EngineSTTDropdown: React.FC<EngineSTTDropdownProps> = ({ external, realtim
 
   const endpointOptions = [
     { value: 'browser', label: localize('com_nav_browser') },
-    ...(realtimeAvailable
-      ? [{ value: 'realtime', label: normalizedRealtimeLabel }]
-      : []),
+    ...(realtimeAvailable ? [{ value: 'realtime', label: normalizedRealtimeLabel }] : []),
     ...(external ? [{ value: 'external', label: localize('com_nav_external') }] : []),
   ];
 
