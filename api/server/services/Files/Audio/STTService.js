@@ -602,6 +602,7 @@ class STTService {
       let shouldRequestResponse = false;
       let responseDispatched = false;
       let commitTimeout;
+      let connectTimeout;
 
       const finish = (result) => {
         if (settled) {
@@ -621,7 +622,7 @@ class STTService {
         reject(error instanceof Error ? error : new Error(String(error)));
       };
 
-      let connectTimeout = setTimeout(() => {
+      connectTimeout = setTimeout(() => {
         fail(new Error('Timed out connecting to realtime transcription service'));
       }, REALTIME_CONNECT_TIMEOUT_MS);
 
