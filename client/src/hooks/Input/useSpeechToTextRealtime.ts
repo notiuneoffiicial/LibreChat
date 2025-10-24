@@ -128,13 +128,21 @@ const useSpeechToTextRealtime = (
   }, []);
 
   const closeWebSocket = useCallback(() => {
-    if (wsRef.current) {
-      try {
-        wsRef.current.close();
-      } catch (error) {
-        logger.warn?.('Failed to close realtime websocket cleanly', error);
-      }
-      wsRef.current = null;
+    const socket = wsRef.current;
+    if (!socket) {
+      return;
+    }
+
+    wsRef.current = null;
+
+    if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
+      return;
+    }
+
+    try {
+      socket.close();
+    } catch (error) {
+      logger.warn?.('Failed to close realtime websocket cleanly', error);
     }
   }, []);
 
@@ -376,17 +384,23 @@ const useSpeechToTextRealtime = (
       socket.onmessage = (event) => handleMessageEvent(event as MessageEvent<string>);
 
       socket.onerror = () => {
+        cleanup();
         showToast({ message: 'Realtime speech connection error', status: 'error' });
+        if (mountedRef.current) {
+          setIsListening(false);
+          setIsLoading(false);
+        }
       };
 
       socket.onclose = () => {
+        cleanup();
         if (mountedRef.current) {
           setIsListening(false);
           setIsLoading(false);
         }
       };
     },
-    [beginRealtimeResponse, handleMessageEvent, setupAudioGraph, showToast],
+    [beginRealtimeResponse, cleanup, handleMessageEvent, setupAudioGraph, showToast],
   );
 
   const connectPeerConnection = useCallback(
