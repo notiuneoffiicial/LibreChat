@@ -3,10 +3,7 @@ import { SetterOrUpdater, useSetRecoilState } from 'recoil';
 import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-query';
 import { logger } from '~/utils';
 import store from '~/store';
-import {
-  DEFAULT_REALTIME_STT_OPTIONS,
-  type RealtimeSTTOptions,
-} from '~/store/settings';
+import { DEFAULT_REALTIME_STT_OPTIONS, type RealtimeSTTOptions } from '~/store/settings';
 
 type RealtimeSettingsUpdate = Partial<RealtimeSTTOptions> & {
   inputAudioFormat?: Partial<RealtimeSTTOptions['inputAudioFormat']>;
