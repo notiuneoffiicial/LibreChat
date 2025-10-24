@@ -81,8 +81,7 @@ describe('RealtimeSTTService', () => {
       {
         model: 'gpt-4o-realtime-preview',
         input_audio_format: {
-          type: 'input_audio_format',
-          format: 'pcm16',
+          codec: 'pcm16',
           sample_rate: 16000,
           channels: 1,
         },
@@ -137,8 +136,7 @@ describe('RealtimeSTTService', () => {
       {
         model: 'gpt-4o-realtime-preview',
         input_audio_format: {
-          type: 'input_audio_format',
-          format: 'pcm16',
+          codec: 'pcm16',
           sample_rate: 24000,
           channels: 1,
         },
@@ -191,8 +189,7 @@ describe('RealtimeSTTService', () => {
       {
         model: 'gpt-4o-realtime-preview',
         input_audio_format: {
-          type: 'input_audio_format',
-          format: 'pcm16',
+          codec: 'pcm16',
           sample_rate: 24000,
           channels: 1,
         },
@@ -249,8 +246,7 @@ describe('RealtimeSTTService', () => {
       {
         model: 'gpt-4o-realtime-preview',
         input_audio_format: {
-          type: 'input_audio_format',
-          format: 'pcm16',
+          codec: 'pcm16',
           sample_rate: 24000,
           channels: 1,
         },
