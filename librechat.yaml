@@ -84,6 +84,17 @@ speech:
     openai:
       apiKey: "${OPENAI_API_KEY}"
       model: "gpt-4o-mini-transcribe"
+    # realtime:
+    #   apiKey: "${OPENAI_API_KEY}"
+    #   model: "gpt-4o-realtime-preview"
+    #   transport: websocket  # websocket | webrtc
+    #   stream: true
+    #   inputAudioFormat:
+    #     encoding: pcm16
+    #     sampleRate: 24000
+    #     channels: 1
+    #   # url: 'wss://api.openai.com/v1/realtime'
+    #   # ffmpegPath: '/usr/local/bin/ffmpeg'
 
 # ---- Web Search Configuration ----
 webSearch:

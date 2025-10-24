@@ -10,6 +10,43 @@ import { loadMemoryConfig } from './memory';
 import { loadEndpoints } from './endpoints';
 import { loadOCRConfig } from './ocr';
 
+const mergeSpeechConfig = (
+  defaults?: TCustomConfig['speech'],
+  overrides?: TCustomConfig['speech'],
+): TCustomConfig['speech'] | undefined => {
+  if (!defaults && !overrides) {
+    return undefined;
+  }
+
+  const merged = {
+    ...(defaults ?? {}),
+    ...(overrides ?? {}),
+  } as TCustomConfig['speech'];
+
+  if (defaults?.stt || overrides?.stt) {
+    merged.stt = {
+      ...(defaults?.stt ?? {}),
+      ...(overrides?.stt ?? {}),
+    };
+  }
+
+  if (defaults?.tts || overrides?.tts) {
+    merged.tts = {
+      ...(defaults?.tts ?? {}),
+      ...(overrides?.tts ?? {}),
+    };
+  }
+
+  if (defaults?.speechTab || overrides?.speechTab) {
+    merged.speechTab = {
+      ...(defaults?.speechTab ?? {}),
+      ...(overrides?.speechTab ?? {}),
+    };
+  }
+
+  return merged;
+};
+
 export type Paths = {
   root: string;
   uploads: string;
@@ -64,7 +101,7 @@ export const AppService = async (params?: {
   const registration = config.registration ?? configDefaults.registration;
   const interfaceConfig = await loadDefaultInterface({ config, configDefaults });
   const turnstileConfig = loadTurnstileConfig(config, configDefaults);
-  const speech = config.speech;
+  const speech = mergeSpeechConfig(configDefaults.speech, config.speech);
 
   const defaultConfig = {
     ocr,
