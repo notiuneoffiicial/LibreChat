@@ -652,14 +652,6 @@ class STTService {
         if (responseDispatched || !shouldRequestResponse || !commitReceived) {
           return;
         }
-        settled = true;
-        cleanup();
-        reject(error instanceof Error ? error : new Error(String(error)));
-      };
-
-      let connectTimeout = setTimeout(() => {
-        fail(new Error('Timed out connecting to realtime transcription service'));
-      }, REALTIME_CONNECT_TIMEOUT_MS);
 
         responseDispatched = true;
 
@@ -677,7 +669,11 @@ class STTService {
             },
           });
         } catch (error) {
-          fail(error instanceof Error ? error : new Error('Failed to request realtime transcription response'));
+          fail(
+            error instanceof Error
+              ? error
+              : new Error('Failed to request realtime transcription response'),
+          );
         }
       };
 
