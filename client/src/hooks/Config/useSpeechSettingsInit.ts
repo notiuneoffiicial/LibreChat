@@ -4,6 +4,22 @@ import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-que
 import { logger } from '~/utils';
 import store from '~/store';
 
+type RealtimeSettings = {
+  model?: string;
+  transport: 'websocket' | 'webrtc';
+  stream: boolean;
+  inputAudioFormat: {
+    encoding: string;
+    sampleRate: number;
+    channels: number;
+  };
+  ffmpegPath?: string;
+};
+
+type RealtimeSettingsUpdate = Partial<RealtimeSettings> & {
+  inputAudioFormat?: Partial<RealtimeSettings['inputAudioFormat']>;
+};
+
 /**
  * Initializes speech-related Recoil values from the server-side custom
  * configuration on first load (only when the user is authenticated)
@@ -87,6 +103,20 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
       const setter = setters[key as keyof typeof setters];
       if (setter) {
         logger.log(`Setting default speech setting: ${key} = ${value}`);
+        if (key === 'realtime' && typeof value === 'object' && value !== null) {
+          const realtimeValue = value as RealtimeSettingsUpdate;
+
+          setter((previous: RealtimeSettings) => ({
+            ...previous,
+            ...realtimeValue,
+            inputAudioFormat: {
+              ...previous.inputAudioFormat,
+              ...(realtimeValue.inputAudioFormat ?? {}),
+            },
+          }));
+          return;
+        }
+
         setter(value as any);
       }
     });
