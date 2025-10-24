@@ -88,7 +88,7 @@ speech:
       transport: websocket
       inputAudioFormat:
         encoding: pcm16
-        sampleRate: 16000
+        sampleRate: 24000
         channels: 1
       # ffmpegPath: "/usr/local/bin/ffmpeg"
   speechTab:

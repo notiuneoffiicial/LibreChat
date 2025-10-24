@@ -43,6 +43,7 @@ const MIME_TO_EXTENSION_MAP = {
 
 const REALTIME_MODEL_PATTERN = /gpt-4o(?:-mini)?-transcribe/i;
 const DEFAULT_PCM_ENCODING = 'pcm16';
+// OpenAI realtime transcription expects PCM16 audio at 24 kHz.
 const DEFAULT_SAMPLE_RATE = 24000;
 const DEFAULT_AUDIO_CHANNELS = 1;
 const REALTIME_CHUNK_SIZE = 48 * 1024;
@@ -171,9 +172,7 @@ function resolveFfmpegPath(sttSchema) {
 }
 
 async function convertToPCM16(filePath, { sampleRate, channels, ffmpegPath }) {
-  const rate =
-    Number.isFinite(sampleRate) && sampleRate > 0 ? Math.floor(sampleRate) : DEFAULT_SAMPLE_RATE;
-
+  const rate = Number.isFinite(sampleRate) && sampleRate > 0 ? Math.floor(sampleRate) : DEFAULT_SAMPLE_RATE;
   const audioChannels = Number.isFinite(channels) && channels > 0 ? Math.floor(channels) : DEFAULT_AUDIO_CHANNELS;
   const binary = ffmpegPath || 'ffmpeg';
 
@@ -384,9 +383,7 @@ class STTService {
     }
 
     const isErrorEvent =
-      descriptors.some(
-        (value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value),
-      ) ||
+      descriptors.some((value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value)) ||
       Boolean(event?.error) ||
       Boolean(event?.response?.error);
 
@@ -419,15 +416,11 @@ class STTService {
     ];
 
     const isDoneEvent =
-      descriptors.some(
-        (value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value),
-      ) ||
+      descriptors.some((value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value)) ||
       finalIndicators.some((value) => value === true);
 
     const isDeltaEvent =
-      descriptors.some(
-        (value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value),
-      ) ||
+      descriptors.some((value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value)) ||
       event?.delta != null ||
       event?.deltas != null ||
       event?.partial === true ||
@@ -578,14 +571,6 @@ class STTService {
       typeof inputFormat?.encoding === 'string'
         ? inputFormat.encoding.toLowerCase()
         : DEFAULT_PCM_ENCODING;
-    const sampleRate =
-      Number.isFinite(inputFormat?.sampleRate) && inputFormat.sampleRate > 0
-        ? Math.floor(inputFormat.sampleRate)
-        : DEFAULT_SAMPLE_RATE;
-    const channels =
-      Number.isFinite(inputFormat?.channels) && inputFormat.channels > 0
-        ? Math.floor(inputFormat.channels)
-        : DEFAULT_AUDIO_CHANNELS;
 
     if (encoding !== DEFAULT_PCM_ENCODING) {
       throw new Error(
@@ -595,8 +580,8 @@ class STTService {
 
     const ffmpegPath = resolveFfmpegPath(sttSchema);
     const pcmBuffer = await convertToPCM16(filePath, {
-      sampleRate,
-      channels,
+      sampleRate: inputFormat?.sampleRate,
+      channels: inputFormat?.channels,
       ffmpegPath,
     });
 
@@ -670,11 +655,7 @@ class STTService {
             type: 'transcription_session.update',
             session: {
               modalities: ['text'],
-              input_audio_format: {
-                type: encoding,
-                sample_rate: sampleRate,
-                channels,
-              },
+              input_audio_format: encoding,
               input_audio_transcription: {
                 model: sttSchema.model,
                 ...(isoLanguage ? { language: isoLanguage } : {}),
@@ -701,11 +682,7 @@ class STTService {
             },
           });
         } catch (error) {
-          fail(
-            error instanceof Error
-              ? error
-              : new Error('Failed to send audio to realtime service'),
-          );
+          fail(error instanceof Error ? error : new Error('Failed to send audio to realtime service'));
         }
       };
 
