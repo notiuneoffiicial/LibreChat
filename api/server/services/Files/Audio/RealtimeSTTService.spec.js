@@ -80,8 +80,6 @@ describe('RealtimeSTTService', () => {
       'https://example.com/v1/realtime/sessions',
       {
         model: 'gpt-4o-realtime-preview',
-        transport: 'webrtc',
-        stream: false,
         input_audio_format: {
           encoding: 'pcm16',
           sample_rate: 16000,

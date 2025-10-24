@@ -97,14 +97,6 @@ class RealtimeSTTService {
       model: realtimeConfig.model,
     };
 
-    if (realtimeConfig.transport) {
-      payload.transport = realtimeConfig.transport;
-    }
-
-    if (typeof realtimeConfig.stream === 'boolean') {
-      payload.stream = realtimeConfig.stream;
-    }
-
     const inputFormat = this.normalizeInputFormat(realtimeConfig.inputAudioFormat);
 
     if (inputFormat) {
