@@ -25,6 +25,7 @@ const useSpeechToTextExternal = (
   const [isRequestBeingMade, setIsRequestBeingMade] = useState(false);
   const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
   const audioMimeTypeRef = useRef<string>(audioMimeType);
+  const shouldAbortRecordingRef = useRef(false);
   const { autoSendOnSuccess = false, enableHotkeys = true } = options ?? {};
 
   const [autoSendText] = useRecoilState(store.autoSendText);
@@ -174,8 +175,17 @@ const useSpeechToTextExternal = (
       return;
     }
 
+    shouldAbortRecordingRef.current = false;
+
     if (!audioStream.current) {
       await getMicrophonePermission();
+    }
+
+    if (shouldAbortRecordingRef.current) {
+      stopMediaTracks();
+      cleanupRecorder();
+      setIsListening(false);
+      return;
     }
 
     if (audioStream.current) {
@@ -207,6 +217,7 @@ const useSpeechToTextExternal = (
   };
 
   const stopRecording = () => {
+    shouldAbortRecordingRef.current = true;
     const recorder = mediaRecorderRef.current;
 
     if (recorder && recorder.state === 'recording') {
