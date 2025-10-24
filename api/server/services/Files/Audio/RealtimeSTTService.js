@@ -45,11 +45,27 @@ class RealtimeSTTService {
       return DEFAULT_SESSION_ENDPOINT;
     }
 
-    let normalized = baseUrl.trim().replace(/\/$/, '');
+    let normalized = baseUrl.trim();
 
     if (/^ws/i.test(normalized)) {
       normalized = normalized.replace(/^ws/i, 'http');
     }
+
+    try {
+      const parsed = new URL(normalized);
+      parsed.search = '';
+      parsed.hash = '';
+
+      if (!/\/sessions$/i.test(parsed.pathname)) {
+        parsed.pathname = `${parsed.pathname.replace(/\/$/, '')}/sessions`;
+      }
+
+      return parsed.toString();
+    } catch (error) {
+      logger.warn?.('Failed to normalize realtime session URL with URL parser', error);
+    }
+
+    normalized = normalized.replace(/[?#].*$/, '').replace(/\/$/, '');
 
     if (!/\/sessions$/i.test(normalized)) {
       normalized = `${normalized}/sessions`;
@@ -146,7 +162,9 @@ class RealtimeSTTService {
 
       const status = error?.response?.status ?? 502;
       const message =
-        error?.response?.data?.error?.message || error?.message || 'Failed to create realtime session';
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to create realtime session';
       throw new RealtimeSTTError(message, status);
     }
   }

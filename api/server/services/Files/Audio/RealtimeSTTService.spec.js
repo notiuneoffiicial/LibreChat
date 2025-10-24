@@ -27,7 +27,11 @@ jest.mock('~/server/services/Config', () => ({
   getAppConfig: jest.fn(),
 }));
 
-const { RealtimeSTTService, RealtimeSTTError, DEFAULT_SESSION_ENDPOINT } = require('./RealtimeSTTService');
+const {
+  RealtimeSTTService,
+  RealtimeSTTError,
+  DEFAULT_SESSION_ENDPOINT,
+} = require('./RealtimeSTTService');
 const { getAppConfig } = require('~/server/services/Config');
 
 describe('RealtimeSTTService', () => {
@@ -192,5 +196,16 @@ describe('RealtimeSTTService', () => {
       },
       expect.any(Object),
     );
+  });
+
+  describe('resolveSessionEndpoint', () => {
+    it('strips query strings and appends sessions suffix', () => {
+      const service = new RealtimeSTTService();
+      const endpoint = service.resolveSessionEndpoint({
+        url: 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview',
+      });
+
+      expect(endpoint).toBe('https://api.openai.com/v1/realtime/sessions');
+    });
   });
 });
