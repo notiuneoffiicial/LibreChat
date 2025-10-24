@@ -133,6 +133,32 @@ export type SpeechToTextResponse = {
 
 export type VoiceResponse = string[];
 
+export type RealtimeSessionClientSecret = {
+  value: string;
+  expires_at?: string;
+  [key: string]: unknown;
+};
+
+export type RealtimeSession = {
+  id: string;
+  client_secret: RealtimeSessionClientSecret;
+  expires_at?: string;
+  [key: string]: unknown;
+};
+
+export type RealtimeSessionDescriptor = {
+  url: string;
+  transport: 'websocket' | 'webrtc';
+  stream: boolean;
+  inputAudioFormat: {
+    encoding: string;
+    sampleRate: number;
+    channels: number;
+  };
+  model: string;
+  session: RealtimeSession;
+};
+
 export type UploadMutationOptions = {
   onSuccess?: (data: TFileUpload, variables: FormData, context?: unknown) => void;
   onMutate?: (variables: FormData) => void | Promise<unknown>;
