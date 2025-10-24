@@ -361,7 +361,6 @@
   "com_nav_font_size_sm": "Petita",
   "com_nav_font_size_xl": "Molt gran",
   "com_nav_font_size_xs": "Molt petita",
-  "com_nav_help_faq": "Ajuda i PMF",
   "com_nav_hide_panel": "Amaga el panell lateral dret",
   "com_nav_info_code_artifacts": "Habilita la visualització d'artifacts de codi experimentals al costat del xat",
   "com_nav_info_code_artifacts_agent": "Habilita l'ús d'artifacts de codi per aquest agent. Per defecte, s'afegeixen instruccions addicionals específiques per a l'ús d'artifacts, tret que el \"Mode de prompt personalitzat\" estigui activat.",
