@@ -159,7 +159,7 @@ describe('RealtimeSTTService', () => {
 
     await expect(service.createSessionDescriptor({ user: { role: 'user' } })).rejects.toMatchObject({
       message: 'Realtime STT is not configured',
-      status: 404,
+        status: 404,
     });
   });
 
