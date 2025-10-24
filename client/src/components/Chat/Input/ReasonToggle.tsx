@@ -1,73 +1,17 @@
-import { useCallback, useMemo } from 'react';
+import { memo } from 'react';
 import { Brain } from 'lucide-react';
 import { CheckboxButton } from '@librechat/client';
-import { useChatContext, useAssistantsMapContext } from '~/Providers';
-import { useGetStartupConfig, useGetEndpointsQuery } from '~/data-provider';
-import useSelectMention from '~/hooks/Input/useSelectMention';
+import { useBadgeRowContext } from '~/Providers';
 
-type ToggleArgs = {
-  value: boolean | string;
-};
+function ReasonToggle() {
+  const { reason } = useBadgeRowContext();
+  const { toggleState: isReasoning, debouncedChange, isPinned, isAvailable } = reason;
 
-const REASONER_MODEL = 'deepseek-reasoner';
-const CHAT_MODEL = 'deepseek-chat';
+  if (!isAvailable) {
+    return null;
+  }
 
-export default function ReasonToggle() {
-  const { conversation, newConversation, isSubmitting } = useChatContext();
-  const assistantsMap = useAssistantsMapContext();
-  const { data: startupConfig } = useGetStartupConfig();
-  const { data: endpointsConfig = {} } = useGetEndpointsQuery();
-
-  const modelSpecs = useMemo(() => startupConfig?.modelSpecs?.list ?? [], [startupConfig]);
-
-  const reasonSpec = useMemo(
-    () => modelSpecs.find((spec) => spec.preset?.model === REASONER_MODEL),
-    [modelSpecs],
-  );
-
-  const chatSpec = useMemo(
-    () => modelSpecs.find((spec) => spec.preset?.model === CHAT_MODEL),
-    [modelSpecs],
-  );
-
-  const { onSelectSpec } = useSelectMention({
-    modelSpecs,
-    assistantsMap,
-    endpointsConfig,
-    newConversation,
-    returnHandlers: true,
-  });
-
-  const isReasoning = useMemo(() => {
-    const currentModel = conversation?.model ?? '';
-    if (currentModel) {
-      return currentModel === REASONER_MODEL;
-    }
-
-    return conversation?.spec != null && conversation.spec === reasonSpec?.name;
-  }, [conversation?.model, conversation?.spec, reasonSpec?.name]);
-
-  const handleToggle = useCallback(
-    ({ value }: ToggleArgs) => {
-      if (typeof value !== 'boolean') {
-        return;
-      }
-
-      if (!onSelectSpec || !reasonSpec || !chatSpec || isSubmitting) {
-        return;
-      }
-
-      if ((value && isReasoning) || (!value && !isReasoning)) {
-        return;
-      }
-
-      const targetSpec = value ? reasonSpec : chatSpec;
-      onSelectSpec(targetSpec);
-    },
-    [onSelectSpec, reasonSpec, chatSpec, isSubmitting, isReasoning],
-  );
-
-  if (!reasonSpec || !chatSpec) {
+  if (!isReasoning && !isPinned) {
     return null;
   }
 
@@ -75,10 +19,12 @@ export default function ReasonToggle() {
     <CheckboxButton
       className="max-w-fit"
       checked={isReasoning}
-      setValue={handleToggle}
+      setValue={debouncedChange}
       label="Reason"
       isCheckedClassName="border-purple-500/40 bg-purple-500/10 hover:bg-purple-600/10"
       icon={<Brain className="icon-md" />}
     />
   );
 }
+
+export default memo(ReasonToggle);
