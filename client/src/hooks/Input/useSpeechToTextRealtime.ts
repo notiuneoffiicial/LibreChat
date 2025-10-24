@@ -217,7 +217,7 @@ const useSpeechToTextRealtime = (
       const overrideSpecified = delayOverride !== undefined && delayOverride !== null;
       const delaySource = overrideSpecified ? delayOverride : autoSendText;
       const shouldAutoSend =
-        autoSendOnSuccess || (speechToTextEnabled && ((delaySource ?? -1) > -1));
+        autoSendOnSuccess || (speechToTextEnabled && (delaySource ?? -1) > -1);
 
       if (!shouldAutoSend) {
         return;
@@ -225,7 +225,7 @@ const useSpeechToTextRealtime = (
 
       let delaySeconds = 0;
       if (overrideSpecified) {
-        delaySeconds = (delayOverride ?? 0);
+        delaySeconds = delayOverride ?? 0;
       } else if (autoSendText > -1) {
         delaySeconds = autoSendText;
       }
