@@ -145,12 +145,21 @@ registration:
 #       url: ''
 #       apiKey: '${STT_API_KEY}'
 #       model: 'gpt-4o-mini-transcribe'
+#     # azureOpenAI:
+#     #   instanceName: ''
+#     #   apiKey: '${AZURE_STT_KEY}'
+#     #   deploymentName: ''
+#     #   apiVersion: '2024-02-01'
+#     realtime:
+#       apiKey: '${OPENAI_API_KEY}'
+#       model: 'gpt-4o-realtime-preview'
+#       transport: websocket  # websocket | webrtc
 #       stream: true
-#       transport: websocket
 #       inputAudioFormat:
 #         encoding: pcm16
 #         sampleRate: 24000
 #         channels: 1
+#       # url: 'wss://api.openai.com/v1/realtime'
 #       # Optional: set a custom ffmpeg binary path if ffmpeg is not on PATH
 #       # ffmpegPath: '/usr/local/bin/ffmpeg'
 

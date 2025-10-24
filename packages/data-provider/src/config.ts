@@ -410,9 +410,28 @@ const sttAzureOpenAISchema = z.object({
   apiVersion: z.string(),
 });
 
+const realtimeTransportSchema = z.enum(['websocket', 'webrtc']);
+
+const realtimeInputAudioFormatSchema = z.object({
+  encoding: z.string().optional(),
+  sampleRate: z.number().int().positive().optional(),
+  channels: z.number().int().positive().optional(),
+});
+
+const sttRealtimeSchema = z.object({
+  url: z.string().optional(),
+  apiKey: z.string(),
+  model: z.string(),
+  transport: realtimeTransportSchema.default('websocket'),
+  stream: z.boolean().default(true),
+  inputAudioFormat: realtimeInputAudioFormatSchema.optional(),
+  ffmpegPath: z.string().optional(),
+});
+
 const sttSchema = z.object({
   openai: sttOpenaiSchema.optional(),
   azureOpenAI: sttAzureOpenAISchema.optional(),
+  realtime: sttRealtimeSchema.optional(),
 });
 
 const speechTab = z
@@ -1545,6 +1564,10 @@ export enum STTProviders {
    * Provider for Microsoft Azure STT
    */
   AZURE_OPENAI = 'azureOpenAI',
+  /**
+   * Provider for OpenAI Realtime STT
+   */
+  REALTIME = 'realtime',
 }
 
 export enum TTSProviders {

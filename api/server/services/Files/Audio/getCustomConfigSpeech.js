@@ -33,6 +33,35 @@ async function getCustomConfigSpeech(req, res) {
     };
 
     if (!appConfig.speech?.speechTab) {
+      const realtimeConfig = appConfig.speech?.stt?.realtime;
+
+      if (realtimeConfig) {
+        const {
+          model,
+          transport,
+          stream,
+          inputAudioFormat,
+          ffmpegPath,
+        } = realtimeConfig;
+
+        const inputFormat = {
+          encoding: inputAudioFormat?.encoding ?? 'pcm16',
+          sampleRate: inputAudioFormat?.sampleRate ?? 24000,
+          channels: inputAudioFormat?.channels ?? 1,
+        };
+
+        settings = {
+          ...settings,
+          realtime: {
+            model,
+            transport: transport ?? 'websocket',
+            stream: stream ?? true,
+            inputAudioFormat: inputFormat,
+            ...(ffmpegPath ? { ffmpegPath } : {}),
+          },
+        };
+      }
+
       return res.status(200).send(settings);
     }
 
@@ -52,6 +81,24 @@ async function getCustomConfigSpeech(req, res) {
           settings[key] = speechTab.speechToText[key];
         }
       }
+    }
+
+    const realtimeConfig = appConfig.speech?.stt?.realtime;
+
+    if (realtimeConfig) {
+      const { model, transport, stream, inputAudioFormat, ffmpegPath } = realtimeConfig;
+
+      settings.realtime = {
+        model,
+        transport: transport ?? 'websocket',
+        stream: stream ?? true,
+        inputAudioFormat: {
+          encoding: inputAudioFormat?.encoding ?? 'pcm16',
+          sampleRate: inputAudioFormat?.sampleRate ?? 24000,
+          channels: inputAudioFormat?.channels ?? 1,
+        },
+        ...(ffmpegPath ? { ffmpegPath } : {}),
+      };
     }
 
     if (speechTab.textToSpeech) {
