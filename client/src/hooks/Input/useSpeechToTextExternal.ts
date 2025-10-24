@@ -7,13 +7,6 @@ import store from '~/store';
 
 import type { SpeechToTextOptions } from './types';
 
-type STTStreamEvent =
-  | { event: 'delta'; text?: string }
-  | { event: 'done'; text?: string }
-  | { event: 'error'; message?: string };
-
-const INTERIM_THROTTLE_MS = 750;
-
 const useSpeechToTextExternal = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
@@ -22,449 +15,283 @@ const useSpeechToTextExternal = (
   const { showToast } = useToastContext();
   const { speechToTextEndpoint } = useGetAudioSettings();
   const isExternalSTTEnabled = speechToTextEndpoint === 'external';
-  const audioStream = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const dataHandlerRef = useRef<((event: BlobEvent) => void) | null>(null);
-  const stopListenerRef = useRef<(() => void) | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const interimControllerRef = useRef<AbortController | null>(null);
-  const interimTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const totalSizeRef = useRef(0);
-  const lastSentSizeRef = useRef(0);
-  const isRequestBeingMadeRef = useRef(false);
 
-  const [permission, setPermission] = useState(false);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioMimeTypeRef = useRef<string>(getBestSupportedMimeType());
+  const autoSendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [permission, setPermission] = useState<boolean | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [isRequestBeingMade, setIsRequestBeingMade] = useState(false);
-  const [audioMimeType, setAudioMimeType] = useState<string>(() => getBestSupportedMimeType());
-  const audioMimeTypeRef = useRef<string>(audioMimeType);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const { autoSendOnSuccess = false, enableHotkeys = true, autoSendDelayOverride } = options ?? {};
+  const [isLoading, setIsLoading] = useState(false);
 
   const [autoSendText] = useRecoilState(store.autoSendText);
   const [languageSTT] = useRecoilState<string>(store.languageSTT);
   const [speechToText] = useRecoilState<boolean>(store.speechToText);
 
-  const updateRequestBeingMade = useCallback(
-    (value: boolean) => {
-      isRequestBeingMadeRef.current = value;
-      setIsRequestBeingMade(value);
-    },
-    [setIsRequestBeingMade],
-  );
+  const {
+    autoSendOnSuccess = false,
+    enableHotkeys = true,
+    autoSendDelayOverride,
+  } = options ?? {};
 
-  const stopMediaTracks = useCallback(() => {
-    if (audioStream.current) {
-      audioStream.current.getTracks().forEach((track) => track.stop());
-      audioStream.current = null;
+  const clearAutoSendTimeout = useCallback(() => {
+    if (autoSendTimeoutRef.current) {
+      clearTimeout(autoSendTimeoutRef.current);
+      autoSendTimeoutRef.current = null;
     }
   }, []);
 
-  const cleanupRecorder = useCallback(() => {
-    const recorder = mediaRecorderRef.current;
-
-    if (!recorder) {
+  const stopMediaTracks = useCallback(() => {
+    if (!audioStreamRef.current) {
       return;
     }
 
-    if (dataHandlerRef.current) {
-      recorder.removeEventListener('dataavailable', dataHandlerRef.current);
-      dataHandlerRef.current = null;
+    audioStreamRef.current.getTracks().forEach((track) => track.stop());
+    audioStreamRef.current = null;
+  }, []);
+
+  const cleanupRecorder = useCallback(() => {
+    if (!mediaRecorderRef.current) {
+      return;
     }
 
-    if (stopListenerRef.current) {
-      recorder.removeEventListener('stop', stopListenerRef.current);
-      stopListenerRef.current = null;
-    }
+    mediaRecorderRef.current.ondataavailable = null;
+    mediaRecorderRef.current.onstop = null;
     mediaRecorderRef.current = null;
   }, []);
 
-  const getMicrophonePermission = useCallback(async () => {
+  const requestStream = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      showToast({
+        message: 'Microphone access is not supported in this environment',
+        status: 'error',
+      });
+      return null;
+    }
+
     try {
-      const streamData = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: false,
       });
       setPermission(true);
-      audioStream.current = streamData ?? null;
-    } catch {
-      setPermission(false);
-    }
-  }, []);
-
-  const processStreamEvent = useCallback(
-    (event: STTStreamEvent, state: { aggregated: string; finalText: string }) => {
-      if (event.event === 'delta') {
-        if (event.text) {
-          state.aggregated += event.text;
-          setText(state.aggregated);
-        }
-        return state;
-      }
-
-      if (event.event === 'done') {
-        if (typeof event.text === 'string') {
-          state.aggregated = event.text;
-        }
-        state.finalText = state.aggregated;
-        setText(state.aggregated);
-        return state;
-      }
-
-      if (event.event === 'error') {
-        throw new Error(event.message || 'An error occurred while streaming the transcription');
-      }
-
-      return state;
-    },
-    [setText],
-  );
-
-  const streamTranscription = useCallback(
-    async (formData: FormData, signal: AbortSignal) => {
-      const headers: HeadersInit = {};
-      const authHeader = axios.defaults.headers.common?.Authorization;
-      const acceptLanguageHeader = axios.defaults.headers.common?.['Accept-Language'];
-
-      if (authHeader) {
-        headers.Authorization = authHeader;
-      }
-
-      if (acceptLanguageHeader) {
-        headers['Accept-Language'] = acceptLanguageHeader;
-      }
-
-      const response = await fetch('/api/speech/stt?stream=true', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        signal,
-        headers,
-      });
-
-      if (!response.ok) {
-        throw new Error(`STT request failed with status ${response.status}`);
-      }
-
-      if (!response.body) {
-        throw new Error('STT stream response had no body');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      const state = { aggregated: '', finalText: '' };
-      let buffer = '';
-
-      const handlePayload = (raw: string) => {
-        let payload: STTStreamEvent;
-
-        try {
-          payload = JSON.parse(raw) as STTStreamEvent;
-        } catch (error) {
-          console.error('Failed to parse STT stream chunk', raw, error);
-          return;
-        }
-
-        try {
-          processStreamEvent(payload, state);
-        } catch (error) {
-          throw error instanceof Error ? error : new Error(String(error));
-        }
-      };
-
-      const flushBuffer = (chunk: string, flush = false) => {
-        buffer += chunk;
-        let newlineIndex = buffer.indexOf('\n');
-
-        while (newlineIndex !== -1) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line) {
-            handlePayload(line);
-          }
-
-          newlineIndex = buffer.indexOf('\n');
-        }
-
-        if (!flush) {
-          return;
-        }
-
-        const trimmed = buffer.trim();
-        buffer = '';
-
-        if (!trimmed) {
-          return;
-        }
-
-        handlePayload(trimmed);
-      };
-
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) {
-            flushBuffer(decoder.decode(), true);
-            break;
-          }
-
-          flushBuffer(decoder.decode(value, { stream: true }));
-        }
-      } finally {
-        reader.releaseLock();
-      }
-
-      return (state.finalText || state.aggregated).trim();
-    },
-    [processStreamEvent],
-  );
-
-  const sendInterimTranscription = useCallback(async () => {
-    if (
-      !audioChunksRef.current.length ||
-      !speechToText ||
-      !isListening ||
-      isRequestBeingMadeRef.current
-    ) {
-      return;
-    }
-
-    const totalSize = totalSizeRef.current;
-    if (totalSize === 0 || totalSize === lastSentSizeRef.current) {
-      return;
-    }
-
-    lastSentSizeRef.current = totalSize;
-
-    try {
-      interimControllerRef.current?.abort();
-      const controller = new AbortController();
-      interimControllerRef.current = controller;
-
-      const mimeType = audioMimeTypeRef.current;
-      const fileExtension = getFileExtension(mimeType);
-      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-
-      const formData = new FormData();
-      formData.append('audio', audioBlob, `audio.${fileExtension}`);
-      if (languageSTT) {
-        formData.append('language', languageSTT);
-      }
-
-      const interimText = await streamTranscription(formData, controller.signal);
-      const trimmed = interimText.trim();
-      if (trimmed) {
-        setText(trimmed);
-      }
+      return stream;
     } catch (error) {
-      if ((error as DOMException)?.name === 'AbortError') {
+      console.error('Microphone permission denied', error);
+      setPermission(false);
+      showToast({
+        message: 'Microphone permission not granted',
+        status: 'error',
+      });
+      return null;
+    }
+  }, [showToast]);
+
+  const handleTranscriptionSuccess = useCallback(
+    (transcript: string) => {
+      setText(transcript);
+
+      const trimmed = transcript.trim();
+      if (!trimmed) {
         return;
       }
-      console.error('Interim transcription error:', error);
-    }
-  }, [isListening, languageSTT, setText, speechToText, streamTranscription]);
 
-  const scheduleInterimTranscription = useCallback(() => {
-    if (
-      !speechToText ||
-      !isListening ||
-      isRequestBeingMadeRef.current ||
-      interimTimeoutRef.current != null
-    ) {
-      return;
-    }
+      clearAutoSendTimeout();
 
-    interimTimeoutRef.current = setTimeout(() => {
-      interimTimeoutRef.current = null;
-      void sendInterimTranscription();
-    }, INTERIM_THROTTLE_MS);
-  }, [isListening, sendInterimTranscription, speechToText]);
+      const effectiveDelaySeconds = autoSendDelayOverride ?? autoSendText;
+      const hasConfiguredDelay = effectiveDelaySeconds > -1;
+      const shouldAutoSend = autoSendOnSuccess || (speechToText && hasConfiguredDelay);
 
-  const processAudioStream = useCallback(
-    async (formData: FormData) => {
-      updateRequestBeingMade(true);
-      setIsStreaming(true);
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
+      if (!shouldAutoSend) {
+        return;
+      }
+
+      const delaySeconds = hasConfiguredDelay ? effectiveDelaySeconds : 0;
+      const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
+
+      const sendTranscription = () => {
+        onTranscriptionComplete(trimmed);
+      };
+
+      if (delay > 0) {
+        autoSendTimeoutRef.current = setTimeout(sendTranscription, delay);
+      } else {
+        sendTranscription();
+      }
+    },
+    [
+      autoSendDelayOverride,
+      autoSendOnSuccess,
+      autoSendText,
+      clearAutoSendTimeout,
+      onTranscriptionComplete,
+      setText,
+      speechToText,
+    ],
+  );
+
+  const sendTranscription = useCallback(
+    async (audioBlob: Blob) => {
+      setIsLoading(true);
 
       try {
-        const finalText = await streamTranscription(formData, controller.signal);
-        const trimmedText = finalText.trim();
+        const formData = new FormData();
+        const mimeType = audioMimeTypeRef.current;
+        const fileExtension = getFileExtension(mimeType);
 
-        if (!trimmedText) {
-          return;
+        formData.append('audio', audioBlob, `audio.${fileExtension}`);
+        if (languageSTT) {
+          formData.append('language', languageSTT);
         }
 
-        const effectiveDelaySeconds = autoSendDelayOverride ?? autoSendText;
-        const hasConfiguredDelay = effectiveDelaySeconds > -1;
-        const shouldAutoSend = autoSendOnSuccess || (speechToText && hasConfiguredDelay);
+        const { data } = await axios.post<{ text?: string }>('/api/speech/stt', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true,
+        });
 
-        if (!shouldAutoSend) {
-          return;
-        }
-
-        const delaySeconds = hasConfiguredDelay ? effectiveDelaySeconds : 0;
-        const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
-
-        if (delay > 0) {
-          setTimeout(() => {
-            onTranscriptionComplete(trimmedText);
-          }, delay);
+        if (data?.text) {
+          handleTranscriptionSuccess(data.text);
         } else {
-          onTranscriptionComplete(trimmedText);
+          showToast({
+            message: 'No transcription was returned',
+            status: 'warning',
+          });
         }
       } catch (error) {
-        if ((error as DOMException)?.name === 'AbortError') {
-          return;
-        }
-
+        console.error('Error processing audio for transcription', error);
         const message =
           error instanceof Error && error.message
             ? error.message
-            : 'An error occurred while processing the audio, maybe the audio was too short';
+            : 'An error occurred while processing the audio';
 
         showToast({
           message,
           status: 'error',
         });
       } finally {
-        abortControllerRef.current = null;
-        setIsStreaming(false);
-        updateRequestBeingMade(false);
-        interimControllerRef.current?.abort();
-        lastSentSizeRef.current = 0;
-        totalSizeRef.current = 0;
+        setIsLoading(false);
       }
     },
-    [
-      autoSendOnSuccess,
-      autoSendDelayOverride,
-      autoSendText,
-      onTranscriptionComplete,
-      showToast,
-      speechToText,
-      streamTranscription,
-      updateRequestBeingMade,
-    ],
+    [handleTranscriptionSuccess, languageSTT, showToast],
   );
 
-  const handleStop = useCallback(() => {
-    const mimeType = audioMimeTypeRef.current;
-
-    if (audioChunksRef.current.length > 0) {
-      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-      const fileExtension = getFileExtension(mimeType);
-
-      audioChunksRef.current = [];
-
-      if (interimTimeoutRef.current) {
-        clearTimeout(interimTimeoutRef.current);
-        interimTimeoutRef.current = null;
-      }
-      interimControllerRef.current?.abort();
-      lastSentSizeRef.current = 0;
-
-      const formData = new FormData();
-      formData.append('audio', audioBlob, `audio.${fileExtension}`);
-      if (languageSTT) {
-        formData.append('language', languageSTT);
-      }
-      setIsRequestBeingMade(true);
-      cleanupRecorder();
-      void processAudioStream(formData);
-    } else {
-      showToast({ message: 'The audio was too short', status: 'warning' });
-      cleanupRecorder();
-      updateRequestBeingMade(false);
-      if (interimTimeoutRef.current) {
-        clearTimeout(interimTimeoutRef.current);
-        interimTimeoutRef.current = null;
-      }
-      interimControllerRef.current?.abort();
-      lastSentSizeRef.current = 0;
-      totalSizeRef.current = 0;
-    }
-
+  const processRecording = useCallback(async () => {
+    cleanupRecorder();
     stopMediaTracks();
-  }, [
-    cleanupRecorder,
-    languageSTT,
-    processAudioStream,
-    showToast,
-    stopMediaTracks,
-    updateRequestBeingMade,
-  ]);
+    setIsListening(false);
 
-  const handleStopRef = useRef(handleStop);
-  handleStopRef.current = handleStop;
+    const chunks = audioChunksRef.current;
+    audioChunksRef.current = [];
 
-  const startRecording = useCallback(async () => {
-    if (isRequestBeingMade) {
-      showToast({ message: 'A request is already being made. Please wait.', status: 'warning' });
+    if (!chunks.length) {
+      showToast({ message: 'The audio was too short', status: 'warning' });
       return;
     }
 
-    if (!audioStream.current) {
-      await getMicrophonePermission();
+    const mimeType = audioMimeTypeRef.current;
+    const audioBlob = new Blob(chunks, { type: mimeType });
+
+    if (audioBlob.size === 0) {
+      showToast({ message: 'The audio was too short', status: 'warning' });
+      return;
     }
 
-    if (audioStream.current) {
-      try {
-        audioChunksRef.current = [];
-        const bestMimeType = getBestSupportedMimeType();
-        audioMimeTypeRef.current = bestMimeType;
-        setAudioMimeType(bestMimeType);
+    clearAutoSendTimeout();
+    await sendTranscription(audioBlob);
+  }, [
+    cleanupRecorder,
+    clearAutoSendTimeout,
+    sendTranscription,
+    showToast,
+    stopMediaTracks,
+  ]);
 
-        audioChunksRef.current = [];
-        totalSizeRef.current = 0;
-        lastSentSizeRef.current = 0;
-
-        const recorder = new MediaRecorder(audioStream.current, {
-          mimeType: bestMimeType,
-        });
-        const handleDataAvailable = (event: BlobEvent) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-            totalSizeRef.current += event.data.size;
-            scheduleInterimTranscription();
-          }
-        };
-
-        dataHandlerRef.current = handleDataAvailable;
-        recorder.addEventListener('dataavailable', handleDataAvailable);
-        const stopListener = () => handleStopRef.current();
-        stopListenerRef.current = stopListener;
-        recorder.addEventListener('stop', stopListener);
-        recorder.start(250);
-        mediaRecorderRef.current = recorder;
-        setIsListening(true);
-      } catch (error) {
-        showToast({ message: `Error starting recording: ${error}`, status: 'error' });
-      }
-    } else {
-      showToast({ message: 'Microphone permission not granted', status: 'error' });
+  const startRecording = useCallback(async () => {
+    if (!isExternalSTTEnabled) {
+      return;
     }
-  }, [getMicrophonePermission, isRequestBeingMade, scheduleInterimTranscription, showToast]);
+
+    if (
+      typeof window === 'undefined' ||
+      typeof window.MediaRecorder === 'undefined' ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      showToast({
+        message: 'MediaRecorder is not supported in this browser',
+        status: 'error',
+      });
+      return;
+    }
+
+    if (isListening || isLoading) {
+      showToast({ message: 'A recording is already in progress', status: 'warning' });
+      return;
+    }
+
+    const stream = await requestStream();
+    if (!stream) {
+      return;
+    }
+
+    audioStreamRef.current = stream;
+    audioChunksRef.current = [];
+
+    const mimeType = getBestSupportedMimeType();
+    audioMimeTypeRef.current = mimeType;
+
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        void processRecording();
+      };
+
+      recorder.start();
+      setIsListening(true);
+    } catch (error) {
+      console.error('Error starting MediaRecorder', error);
+      showToast({
+        message: 'Unable to start recording',
+        status: 'error',
+      });
+      cleanupRecorder();
+      stopMediaTracks();
+    }
+  }, [
+    cleanupRecorder,
+    isExternalSTTEnabled,
+    isListening,
+    isLoading,
+    processRecording,
+    requestStream,
+    showToast,
+    stopMediaTracks,
+  ]);
 
   const stopRecording = useCallback(() => {
+    if (!isListening) {
+      return;
+    }
+
     const recorder = mediaRecorderRef.current;
 
-    if (recorder && recorder.state === 'recording') {
+    if (recorder && recorder.state !== 'inactive') {
       recorder.stop();
     } else {
       cleanupRecorder();
+      stopMediaTracks();
+      setIsListening(false);
     }
-
-    stopMediaTracks();
-    setIsListening(false);
-    if (interimTimeoutRef.current) {
-      clearTimeout(interimTimeoutRef.current);
-      interimTimeoutRef.current = null;
-    }
-    interimControllerRef.current?.abort();
-  }, [cleanupRecorder, stopMediaTracks]);
+  }, [cleanupRecorder, isListening, stopMediaTracks]);
 
   const externalStartRecording = useCallback(() => {
     if (isListening) {
@@ -480,15 +307,16 @@ const useSpeechToTextExternal = (
   }, [stopRecording]);
 
   const handleKeyDown = useCallback(
-    async (e: KeyboardEvent) => {
-      if (e.shiftKey && e.altKey && e.code === 'KeyL' && isExternalSTTEnabled) {
-        if (!window.MediaRecorder) {
-          showToast({ message: 'MediaRecorder is not supported in this browser', status: 'error' });
-          return;
-        }
+    (e: KeyboardEvent) => {
+      if (!isExternalSTTEnabled || !enableHotkeys) {
+        return;
+      }
 
+      if (e.shiftKey && e.altKey && e.code === 'KeyL') {
         if (permission === false) {
-          await getMicrophonePermission();
+          void requestStream();
+          e.preventDefault();
+          return;
         }
 
         if (isListening) {
@@ -501,18 +329,18 @@ const useSpeechToTextExternal = (
       }
     },
     [
-      getMicrophonePermission,
+      enableHotkeys,
       isExternalSTTEnabled,
       isListening,
       permission,
-      showToast,
+      requestStream,
       startRecording,
       stopRecording,
     ],
   );
 
   useEffect(() => {
-    if (!enableHotkeys) {
+    if (!enableHotkeys || !isExternalSTTEnabled) {
       return undefined;
     }
 
@@ -521,25 +349,21 @@ const useSpeechToTextExternal = (
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [enableHotkeys, handleKeyDown]);
+  }, [enableHotkeys, handleKeyDown, isExternalSTTEnabled]);
 
   useEffect(() => {
     return () => {
+      clearAutoSendTimeout();
       cleanupRecorder();
       stopMediaTracks();
-      abortControllerRef.current?.abort();
-      interimControllerRef.current?.abort();
-      if (interimTimeoutRef.current) {
-        clearTimeout(interimTimeoutRef.current);
-      }
     };
-  }, [cleanupRecorder, stopMediaTracks]);
+  }, [cleanupRecorder, clearAutoSendTimeout, stopMediaTracks]);
 
   return {
     isListening,
     externalStopRecording,
     externalStartRecording,
-    isLoading: isStreaming,
+    isLoading,
   };
 };
 
@@ -561,9 +385,11 @@ function getBestSupportedMimeType() {
 
   if (typeof navigator !== 'undefined') {
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.indexOf('safari') !== -1 && ua.indexOf('chrome') === -1) {
+    if (ua.includes('safari') && !ua.includes('chrome')) {
       return 'audio/mp4';
-    } else if (ua.indexOf('firefox') !== -1) {
+    }
+
+    if (ua.includes('firefox')) {
       return 'audio/ogg';
     }
   }
@@ -574,11 +400,16 @@ function getBestSupportedMimeType() {
 function getFileExtension(mimeType: string) {
   if (mimeType.includes('mp4')) {
     return 'm4a';
-  } else if (mimeType.includes('ogg')) {
+  }
+
+  if (mimeType.includes('ogg')) {
     return 'ogg';
-  } else if (mimeType.includes('wav')) {
+  }
+
+  if (mimeType.includes('wav')) {
     return 'wav';
   }
+
   return 'webm';
 }
 
