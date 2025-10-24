@@ -101,13 +101,11 @@ class RealtimeSTTService {
 
     if (inputFormat) {
       const { encoding, sampleRate, channels } = inputFormat;
-      const formatPayload = {
-        type: 'input_audio_format',
-      };
+      const formatPayload = {};
 
       if (encoding != null) {
         if (typeof encoding === 'string') {
-          formatPayload.format = encoding;
+          formatPayload.codec = encoding;
         } else if (typeof encoding === 'object') {
           Object.assign(formatPayload, encoding);
         }
