@@ -1666,6 +1666,8 @@ export enum LocalStorageKeys {
   PIN_WEB_SEARCH_ = 'PIN_WEB_SEARCH_',
   /** Pin state for Code Interpreter per conversation ID */
   PIN_CODE_INTERPRETER_ = 'PIN_CODE_INTERPRETER_',
+  /** Pin state for Reason toggle */
+  REASON_TOGGLE_PINNED = 'REASON_TOGGLE_PINNED',
 }
 
 export enum ForkOptions {

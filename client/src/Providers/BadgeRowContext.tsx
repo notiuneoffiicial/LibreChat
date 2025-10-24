@@ -9,6 +9,7 @@ import {
   useCodeApiKeyForm,
   useToolToggle,
 } from '~/hooks';
+import useReasonToggle from '~/hooks/Input/useReasonToggle';
 import { getTimestampedValue, setTimestamp } from '~/utils/timestamps';
 import { ephemeralAgentByConvoId } from '~/store';
 
@@ -21,6 +22,7 @@ interface BadgeRowContextType {
   codeInterpreter: ReturnType<typeof useToolToggle>;
   codeApiKeyForm: ReturnType<typeof useCodeApiKeyForm>;
   searchApiKeyForm: ReturnType<typeof useSearchApiKeyForm>;
+  reason: ReturnType<typeof useReasonToggle>;
   mcpServerManager: ReturnType<typeof useMCPServerManager>;
 }
 
@@ -112,8 +114,8 @@ export default function BadgeRowProvider({
        */
       const finalValues = {
         [Tools.execute_code]: initialValues[Tools.execute_code] ?? false,
-        [Tools.web_search]: initialValues[Tools.web_search] ?? false,
-        [Tools.file_search]: initialValues[Tools.file_search] ?? false,
+        [Tools.web_search]: initialValues[Tools.web_search] ?? true,
+        [Tools.file_search]: initialValues[Tools.file_search] ?? true,
         [AgentCapabilities.artifacts]: initialValues[AgentCapabilities.artifacts] ?? false,
       };
 
@@ -186,6 +188,8 @@ export default function BadgeRowProvider({
     isAuthenticated: true,
   });
 
+  const reason = useReasonToggle();
+
   const mcpServerManager = useMCPServerManager({ conversationId });
 
   const value: BadgeRowContextType = {
@@ -197,6 +201,7 @@ export default function BadgeRowProvider({
     codeApiKeyForm,
     codeInterpreter,
     searchApiKeyForm,
+    reason,
     mcpServerManager,
   };
 
