@@ -1,9 +1,11 @@
 const axios = require('axios');
 const fs = require('fs').promises;
 const { createReadStream } = require('fs');
+const { spawn } = require('child_process');
 const FormData = require('form-data');
 const { Readable } = require('stream');
 const OpenAI = require('openai');
+const { OpenAIRealtimeWS } = require('openai/beta/realtime/ws');
 const { logger } = require('@librechat/data-schemas');
 const { genAzureEndpoint } = require('@librechat/api');
 const { extractEnvVariable, STTProviders } = require('librechat-data-provider');
@@ -38,6 +40,16 @@ const MIME_TO_EXTENSION_MAP = {
   'audio/flac': 'flac',
   'audio/x-flac': 'flac',
 };
+
+const REALTIME_MODEL_PATTERN = /gpt-4o(?:-mini)?-transcribe/i;
+const DEFAULT_PCM_ENCODING = 'pcm16';
+// OpenAI realtime transcription expects PCM16 audio at 24 kHz.
+const DEFAULT_SAMPLE_RATE = 24000;
+const DEFAULT_AUDIO_CHANNELS = 1;
+// The realtime transcription docs recommend ~15kB PCM frames (~0.32s @ 24kHz mono).
+const REALTIME_CHUNK_SIZE = 15360;
+const REALTIME_CONNECT_TIMEOUT_MS = 15000;
+const REALTIME_COMMIT_TIMEOUT_MS = 4000;
 
 const TEXT_DELTA_EVENT_TYPES = new Set([
   'transcript.text.delta',
@@ -120,6 +132,120 @@ function getFileExtensionFromMime(mimeType) {
   }
 
   return 'webm'; // Default fallback
+}
+
+function normalizeTransport(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().toLowerCase();
+}
+
+function shouldUseRealtimeTransport(sttSchema) {
+  if (!sttSchema) {
+    return false;
+  }
+
+  const transportValue =
+    typeof sttSchema.transport === 'string'
+      ? extractEnvVariable(sttSchema.transport) || sttSchema.transport
+      : sttSchema.transport;
+  const transport = normalizeTransport(transportValue);
+  if (transport === 'websocket') {
+    return true;
+  }
+
+  if (transport === 'rest') {
+    return false;
+  }
+
+  const modelValue =
+    typeof sttSchema.model === 'string'
+      ? extractEnvVariable(sttSchema.model) || sttSchema.model
+      : '';
+  const model = modelValue.toLowerCase();
+  return REALTIME_MODEL_PATTERN.test(model);
+}
+
+function resolveFfmpegPath(sttSchema) {
+  const configured = sttSchema?.ffmpegPath ? extractEnvVariable(sttSchema.ffmpegPath) : '';
+  return process.env.FFMPEG_PATH || configured || 'ffmpeg';
+}
+
+async function convertToPCM16(filePath, { sampleRate, channels, ffmpegPath }) {
+  const rate = Number.isFinite(sampleRate) && sampleRate > 0 ? Math.floor(sampleRate) : DEFAULT_SAMPLE_RATE;
+  const audioChannels = Number.isFinite(channels) && channels > 0 ? Math.floor(channels) : DEFAULT_AUDIO_CHANNELS;
+  const binary = ffmpegPath || 'ffmpeg';
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      filePath,
+      '-f',
+      's16le',
+      '-acodec',
+      'pcm_s16le',
+      '-ac',
+      String(audioChannels),
+      '-ar',
+      String(rate),
+      '-',
+    ];
+
+    const chunks = [];
+    let stderr = '';
+
+    const ffmpeg = spawn(binary, args);
+
+    ffmpeg.stdout.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+
+    ffmpeg.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    ffmpeg.on('error', (error) => {
+      if (error?.code === 'ENOENT') {
+        reject(
+          new Error(
+            'Failed to start ffmpeg process. Install ffmpeg or configure speech.stt.openai.ffmpegPath / FFMPEG_PATH.',
+          ),
+        );
+        return;
+      }
+      reject(error);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            stderr.trim() || 'ffmpeg exited with a non-zero status while converting audio to PCM16.',
+          ),
+        );
+        return;
+      }
+
+      resolve({ buffer: Buffer.concat(chunks), sampleRate: rate, channels: audioChannels });
+    });
+  });
+}
+
+function removeSocketListener(socket, event, listener) {
+  if (!socket || typeof listener !== 'function') {
+    return;
+  }
+
+  if (typeof socket.off === 'function') {
+    socket.off(event, listener);
+  } else if (typeof socket.removeListener === 'function') {
+    socket.removeListener(event, listener);
+  }
 }
 
 /**
@@ -216,6 +342,116 @@ class STTService {
     });
   }
 
+  processStreamingEvent(res, event, state) {
+    if (!event) {
+      return;
+    }
+
+    const descriptors = [];
+    const type = typeof event.type === 'string' ? event.type : undefined;
+    if (type) {
+      descriptors.push(type);
+    }
+
+    const eventName = typeof event.event === 'string' ? event.event : undefined;
+    if (eventName) {
+      descriptors.push(eventName);
+    }
+
+    const status = typeof event.status === 'string' ? event.status : undefined;
+    if (status) {
+      descriptors.push(status);
+    }
+
+    const responseType = typeof event.response?.type === 'string' ? event.response.type : undefined;
+    if (responseType) {
+      descriptors.push(responseType);
+    }
+
+    const responseStatus =
+      typeof event.response?.status === 'string' ? event.response.status : undefined;
+    if (responseStatus) {
+      descriptors.push(responseStatus);
+    }
+
+    const deltaType = typeof event.delta?.type === 'string' ? event.delta.type : undefined;
+    if (deltaType) {
+      descriptors.push(deltaType);
+    }
+
+    const deltaStatus = typeof event.delta?.status === 'string' ? event.delta.status : undefined;
+    if (deltaStatus) {
+      descriptors.push(deltaStatus);
+    }
+
+    const isErrorEvent =
+      descriptors.some((value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value)) ||
+      Boolean(event?.error) ||
+      Boolean(event?.response?.error);
+
+    if (isErrorEvent) {
+      const message =
+        event?.error?.message ||
+        event?.response?.error?.message ||
+        'An error occurred while streaming the transcription';
+
+      throw new Error(message);
+    }
+
+    const text = extractTextFromEvent(event);
+    const hasText = Boolean(text);
+
+    const finalIndicators = [
+      event?.is_final,
+      event?.isFinal,
+      event?.final,
+      event?.completed,
+      event?.done,
+      event?.delta?.is_final,
+      event?.delta?.final,
+      event?.delta?.done,
+      event?.segment?.is_final,
+      event?.segment?.final,
+      event?.item?.is_final,
+      event?.response?.completed,
+      event?.response?.done,
+    ];
+
+    const isDoneEvent =
+      descriptors.some((value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value)) ||
+      finalIndicators.some((value) => value === true);
+
+    const isDeltaEvent =
+      descriptors.some((value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value)) ||
+      event?.delta != null ||
+      event?.deltas != null ||
+      event?.partial === true ||
+      event?.is_final === false ||
+      event?.segment?.is_final === false ||
+      event?.delta?.is_final === false ||
+      event?.delta?.final === false ||
+      event?.delta?.done === false;
+
+    if (hasText) {
+      const { next, delta, rewrite } = appendTranscriptSegment(state.aggregatedText, text, {
+        allowRewrite: isDoneEvent,
+      });
+      state.aggregatedText = next;
+      state.finalText = next;
+
+      if (delta && !rewrite && (isDeltaEvent || !isDoneEvent)) {
+        this.writeStreamEvent(res, 'delta', { text: delta });
+      }
+    }
+
+    if (isDoneEvent && !state.doneSent) {
+      const trimmed = (state.finalText || state.aggregatedText).trim();
+      state.finalText = trimmed;
+      this.writeStreamEvent(res, 'done', trimmed ? { text: trimmed } : {});
+      state.doneSent = true;
+    }
+  }
+
   /**
    * Prepares the request for the OpenAI STT provider.
    * @param {Object} sttSchema - The STT schema for OpenAI.
@@ -269,10 +505,7 @@ class STTService {
 
     const isoLanguage = language ? language.split('-')[0] : undefined;
     const fileStream = createReadStream(filePath);
-
-    let aggregatedText = '';
-    let finalText = '';
-    let doneSent = false;
+    const state = { aggregatedText: '', finalText: '', doneSent: false };
 
     try {
       const stream = await openai.audio.transcriptions.create({
@@ -289,149 +522,260 @@ class STTService {
 
         if (trimmedFallback) {
           const { next, delta } = appendTranscriptSegment('', trimmedFallback);
-          aggregatedText = next;
-          finalText = next;
+          state.aggregatedText = next;
+          state.finalText = trimmedFallback;
           if (delta) {
             this.writeStreamEvent(res, 'delta', { text: delta });
           }
-          this.writeStreamEvent(res, 'done', { text: finalText });
-          doneSent = true;
+          this.writeStreamEvent(res, 'done', { text: trimmedFallback });
+          state.doneSent = true;
         }
 
-        return { finalText: (finalText || aggregatedText).trim(), doneSent };
+        return {
+          finalText: (state.finalText || state.aggregatedText).trim(),
+          doneSent: state.doneSent,
+        };
       }
 
       for await (const event of stream) {
-        if (!event) {
-          continue;
-        }
-
-        const descriptors = [];
-        const type = typeof event.type === 'string' ? event.type : undefined;
-        if (type) {
-          descriptors.push(type);
-        }
-
-        const eventName = typeof event.event === 'string' ? event.event : undefined;
-        if (eventName) {
-          descriptors.push(eventName);
-        }
-
-        const status = typeof event.status === 'string' ? event.status : undefined;
-        if (status) {
-          descriptors.push(status);
-        }
-
-        const responseType =
-          typeof event.response?.type === 'string' ? event.response.type : undefined;
-        if (responseType) {
-          descriptors.push(responseType);
-        }
-
-        const responseStatus =
-          typeof event.response?.status === 'string' ? event.response.status : undefined;
-        if (responseStatus) {
-          descriptors.push(responseStatus);
-        }
-
-        const deltaType = typeof event.delta?.type === 'string' ? event.delta.type : undefined;
-        if (deltaType) {
-          descriptors.push(deltaType);
-        }
-
-        const deltaStatus =
-          typeof event.delta?.status === 'string' ? event.delta.status : undefined;
-        if (deltaStatus) {
-          descriptors.push(deltaStatus);
-        }
-
-        const isErrorEvent =
-          descriptors.some(
-            (value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value),
-          ) ||
-          Boolean(event?.error) ||
-          Boolean(event?.response?.error);
-
-        if (isErrorEvent) {
-          const message =
-            event?.error?.message ||
-            event?.response?.error?.message ||
-            'An error occurred while streaming the transcription';
-
-          throw new Error(message);
-        }
-
-        const text = extractTextFromEvent(event);
-        const hasText = Boolean(text);
-
-        const finalIndicators = [
-          event?.is_final,
-          event?.isFinal,
-          event?.final,
-          event?.completed,
-          event?.done,
-          event?.delta?.is_final,
-          event?.delta?.final,
-          event?.delta?.done,
-          event?.segment?.is_final,
-          event?.segment?.final,
-          event?.item?.is_final,
-          event?.response?.completed,
-          event?.response?.done,
-        ];
-
-        const isDoneEvent =
-          descriptors.some(
-            (value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value),
-          ) ||
-          finalIndicators.some((value) => value === true);
-
-        const isDeltaEvent =
-          descriptors.some(
-            (value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value),
-          ) ||
-          event?.delta != null ||
-          event?.deltas != null ||
-          event?.partial === true ||
-          event?.is_final === false ||
-          event?.segment?.is_final === false ||
-          event?.delta?.is_final === false ||
-          event?.delta?.final === false ||
-          event?.delta?.done === false;
-
-          if (hasText) {
-            const { next, delta, rewrite } = appendTranscriptSegment(aggregatedText, text, {
-              allowRewrite: isDoneEvent,
-            });
-            aggregatedText = next;
-            finalText = aggregatedText;
-
-          if (delta && !rewrite && (isDeltaEvent || !isDoneEvent)) {
-              this.writeStreamEvent(res, 'delta', { text: delta });
-            }
-
-            if (isDoneEvent) {
-              this.writeStreamEvent(res, 'done', { text: finalText.trim() });
-              doneSent = true;
-              continue;
-            }
-
-            continue;
-          }
-
-          if (isDoneEvent) {
-            finalText = aggregatedText;
-            this.writeStreamEvent(res, 'done', { text: finalText.trim() });
-            doneSent = true;
-          }
+        this.processStreamingEvent(res, event, state);
       }
     } finally {
       fileStream.close?.();
     }
 
-    const resolvedFinalText = (finalText || aggregatedText).trim();
+    const resolvedFinalText = (state.finalText || state.aggregatedText).trim();
 
-    return { finalText: resolvedFinalText, doneSent };
+    return { finalText: resolvedFinalText, doneSent: state.doneSent };
+  }
+
+  async openAIRealtimeStreamProvider(res, sttSchema, { filePath, language }) {
+    const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
+
+    if (!apiKey) {
+      throw new Error('OpenAI API key is not configured for realtime STT streaming');
+    }
+
+    const clientOptions = { apiKey };
+
+    if (sttSchema?.url) {
+      clientOptions.baseURL = sttSchema.url;
+    }
+
+    if (sttSchema?.organization) {
+      clientOptions.organization = extractEnvVariable(sttSchema.organization);
+    }
+
+    const openai = new OpenAI(clientOptions);
+    const isoLanguage = language ? language.split('-')[0] : undefined;
+    const inputFormat = sttSchema?.inputAudioFormat ?? {};
+    const encoding =
+      typeof inputFormat?.encoding === 'string'
+        ? inputFormat.encoding.toLowerCase()
+        : DEFAULT_PCM_ENCODING;
+
+    if (encoding !== DEFAULT_PCM_ENCODING) {
+      throw new Error(
+        `Unsupported realtime input encoding "${encoding}". Only ${DEFAULT_PCM_ENCODING} is supported.`,
+      );
+    }
+
+    const ffmpegPath = resolveFfmpegPath(sttSchema);
+    const {
+      buffer: pcmBuffer,
+      sampleRate: resolvedSampleRate,
+      channels: resolvedChannels,
+    } = await convertToPCM16(filePath, {
+      sampleRate: inputFormat?.sampleRate,
+      channels: inputFormat?.channels,
+      ffmpegPath,
+    });
+
+    const state = { aggregatedText: '', finalText: '', doneSent: false };
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const wsClient = new OpenAIRealtimeWS({ model: sttSchema.model }, openai);
+      const socket = wsClient.socket;
+      let cleanup = () => {};
+      let commitReceived = false;
+      let shouldRequestResponse = false;
+      let responseDispatched = false;
+      let commitTimeout;
+
+      const finish = (result) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      const fail = (error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      let connectTimeout = setTimeout(() => {
+        fail(new Error('Timed out connecting to realtime transcription service'));
+      }, REALTIME_CONNECT_TIMEOUT_MS);
+
+      const handleEvent = (event) => {
+        try {
+          if (event?.type === 'input_audio_buffer.committed') {
+            commitReceived = true;
+            if (commitTimeout) {
+              clearTimeout(commitTimeout);
+              commitTimeout = undefined;
+            }
+            dispatchResponse();
+            return;
+          }
+
+          this.processStreamingEvent(res, event, state);
+          if (state.doneSent) {
+            const resolvedFinalText = (state.finalText || state.aggregatedText).trim();
+            finish({ finalText: resolvedFinalText, doneSent: true });
+          }
+        } catch (error) {
+          fail(error);
+        }
+      };
+
+      const dispatchResponse = () => {
+        if (responseDispatched || !shouldRequestResponse || !commitReceived) {
+          return;
+        }
+
+        responseDispatched = true;
+
+        try {
+          wsClient.send({
+            type: 'response.create',
+            response: {
+              modalities: ['text'],
+              instructions: 'Transcribe the provided audio into text.',
+              conversation: 'none',
+              metadata: {
+                sample_rate_hz: String(resolvedSampleRate),
+                channels: String(resolvedChannels),
+              },
+            },
+          });
+        } catch (error) {
+          fail(error instanceof Error ? error : new Error('Failed to request realtime transcription response'));
+        }
+      };
+
+      const handleError = (error) => {
+        fail(error instanceof Error ? error : new Error('Realtime transcription error'));
+      };
+
+      const handleClose = () => {
+        if (!settled) {
+          fail(new Error('Realtime transcription connection closed before completion'));
+        }
+      };
+
+      const sendAudio = () => {
+        if (connectTimeout) {
+          clearTimeout(connectTimeout);
+          connectTimeout = undefined;
+        }
+        if (commitTimeout) {
+          clearTimeout(commitTimeout);
+          commitTimeout = undefined;
+        }
+
+        try {
+          wsClient.send({
+            type: 'session.update',
+            session: {
+              modalities: ['text'],
+              instructions: 'You transcribe incoming audio into text.',
+              turn_detection: null,
+            },
+          });
+
+          wsClient.send({
+            type: 'transcription_session.update',
+            session: {
+              modalities: ['text'],
+              input_audio_format: encoding,
+              input_audio_transcription: {
+                model: sttSchema.model,
+                ...(isoLanguage ? { language: isoLanguage } : {}),
+              },
+            },
+          });
+
+          for (let offset = 0; offset < pcmBuffer.length; offset += REALTIME_CHUNK_SIZE) {
+            const chunk = pcmBuffer.subarray(offset, offset + REALTIME_CHUNK_SIZE);
+            wsClient.send({
+              type: 'input_audio_buffer.append',
+              audio: chunk.toString('base64'),
+            });
+          }
+
+          wsClient.send({ type: 'input_audio_buffer.commit' });
+          shouldRequestResponse = true;
+          dispatchResponse();
+          commitTimeout = setTimeout(() => {
+            if (!commitReceived) {
+              commitReceived = true;
+              dispatchResponse();
+            }
+          }, REALTIME_COMMIT_TIMEOUT_MS);
+        } catch (error) {
+          fail(error instanceof Error ? error : new Error('Failed to send audio to realtime service'));
+        }
+      };
+
+      const handleOpen = () => {
+        removeSocketListener(socket, 'open', handleOpen);
+        sendAudio();
+      };
+
+      cleanup = () => {
+        if (connectTimeout) {
+          clearTimeout(connectTimeout);
+          connectTimeout = undefined;
+        }
+        if (commitTimeout) {
+          clearTimeout(commitTimeout);
+          commitTimeout = undefined;
+        }
+        wsClient.off('event', handleEvent);
+        wsClient.off('error', handleError);
+        removeSocketListener(socket, 'open', handleOpen);
+        removeSocketListener(socket, 'close', handleClose);
+        try {
+          wsClient.close();
+        } catch (error) {
+          logger.debug('Failed to close realtime transcription socket gracefully', error);
+        }
+      };
+
+      wsClient.on('event', handleEvent);
+      wsClient.on('error', handleError);
+
+      if (socket) {
+        socket.on('close', handleClose);
+        const openState = typeof socket.OPEN === 'number' ? socket.OPEN : 1;
+        if (socket.readyState === openState) {
+          handleOpen();
+        } else {
+          socket.on('open', handleOpen);
+        }
+      } else {
+        fail(new Error('Realtime transcription socket unavailable'));
+      }
+    });
   }
 
   /**
@@ -535,6 +879,10 @@ class STTService {
   async streamRequest(res, provider, sttSchema, { filePath, language }) {
     if (provider !== STTProviders.OPENAI) {
       throw new Error(`Streaming STT is not supported for provider ${provider}`);
+    }
+
+    if (shouldUseRealtimeTransport(sttSchema)) {
+      return this.openAIRealtimeStreamProvider(res, sttSchema, { filePath, language });
     }
 
     return this.openAIStreamProvider(res, sttSchema, { filePath, language });

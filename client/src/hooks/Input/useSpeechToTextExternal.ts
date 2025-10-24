@@ -156,6 +156,23 @@ const useSpeechToTextExternal = (
       const state = { aggregated: '', finalText: '' };
       let buffer = '';
 
+      const handlePayload = (raw: string) => {
+        let payload: STTStreamEvent;
+
+        try {
+          payload = JSON.parse(raw) as STTStreamEvent;
+        } catch (error) {
+          console.error('Failed to parse STT stream chunk', raw, error);
+          return;
+        }
+
+        try {
+          processStreamEvent(payload, state);
+        } catch (error) {
+          throw error instanceof Error ? error : new Error(String(error));
+        }
+      };
+
       const flushBuffer = (chunk: string, flush = false) => {
         buffer += chunk;
         let newlineIndex = buffer.indexOf('\n');
@@ -165,12 +182,7 @@ const useSpeechToTextExternal = (
           buffer = buffer.slice(newlineIndex + 1);
 
           if (line) {
-            try {
-              const payload = JSON.parse(line) as STTStreamEvent;
-              processStreamEvent(payload, state);
-            } catch (error) {
-              console.error('Failed to parse STT stream chunk', line, error);
-            }
+            handlePayload(line);
           }
 
           newlineIndex = buffer.indexOf('\n');
@@ -187,12 +199,7 @@ const useSpeechToTextExternal = (
           return;
         }
 
-        try {
-          const payload = JSON.parse(trimmed) as STTStreamEvent;
-          processStreamEvent(payload, state);
-        } catch (error) {
-          console.error('Failed to parse STT stream chunk', trimmed, error);
-        }
+        handlePayload(trimmed);
       };
 
       try {
@@ -313,8 +320,13 @@ const useSpeechToTextExternal = (
           return;
         }
 
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : 'An error occurred while processing the audio, maybe the audio was too short';
+
         showToast({
-          message: 'An error occurred while processing the audio, maybe the audio was too short',
+          message,
           status: 'error',
         });
       } finally {
