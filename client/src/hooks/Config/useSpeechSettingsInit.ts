@@ -27,6 +27,11 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
     languageTTS: useSetRecoilState(store.languageTTS),
     automaticPlayback: useSetRecoilState(store.automaticPlayback),
     playbackRate: useSetRecoilState(store.playbackRate),
+    realtime: useSetRecoilState(store.realtimeSTTOptions),
+  }).current;
+
+  const storageKeyOverrides = useRef<Record<string, string>>({
+    realtime: 'realtimeSTTOptions',
   }).current;
 
   useEffect(() => {
@@ -75,7 +80,9 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
     Object.entries(data).forEach(([key, value]) => {
       if (key === 'sttExternal' || key === 'ttsExternal') return;
 
-      if (localStorage.getItem(key) !== null) return;
+      const storageKey = storageKeyOverrides[key] ?? key;
+
+      if (localStorage.getItem(storageKey) !== null) return;
 
       const setter = setters[key as keyof typeof setters];
       if (setter) {

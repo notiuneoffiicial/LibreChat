@@ -1,3 +1,5 @@
+import type { RealtimeSessionDescriptor } from 'librechat-data-provider';
+
 export interface SpeechToTextOptions {
   /**
    * Forces the hook to call the completion handler once audio processing
@@ -19,4 +21,25 @@ export interface SpeechToTextOptions {
    * automatic submission delay entirely.
    */
   autoSendDelayOverride?: number | null;
+  /**
+   * Allows tests or advanced consumers to provide a custom function for
+   * creating realtime session descriptors instead of using the default
+   * mutation hook.
+   */
+  realtimeSessionFetcher?: () => Promise<RealtimeSessionDescriptor>;
+  /**
+   * Factory override for creating WebSocket connections, primarily used for
+   * testing environments that lack a native implementation.
+   */
+  websocketFactory?: (url: string, protocols?: string | string[]) => WebSocket;
+  /**
+   * Factory override for constructing peer connections when the realtime
+   * engine requests WebRTC transport.
+   */
+  peerConnectionFactory?: () => RTCPeerConnection;
+  /**
+   * Factory override for creating audio contexts, enabling deterministic
+   * testing of audio capture pipelines.
+   */
+  audioContextFactory?: (options?: AudioContextOptions) => AudioContext;
 }

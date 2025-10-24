@@ -34,6 +34,7 @@ function Speech() {
 
   const [sttExternal, setSttExternal] = useState(false);
   const [ttsExternal, setTtsExternal] = useState(false);
+  const [realtimeAvailable, setRealtimeAvailable] = useState(false);
   const [advancedMode, setAdvancedMode] = useRecoilState(store.advancedMode);
   const [autoTranscribeAudio, setAutoTranscribeAudio] = useRecoilState(store.autoTranscribeAudio);
   const [speechToText, setSpeechToText] = useRecoilState(store.speechToText);
@@ -119,6 +120,7 @@ function Speech() {
 
   useEffect(() => {
     if (data && data.message !== 'not_found') {
+      setRealtimeAvailable(Boolean(data.realtime));
       Object.entries(data).forEach(([key, value]) => {
         // Only apply config values as defaults if no user preference exists in localStorage
         const existingValue = localStorage.getItem(key);
@@ -195,7 +197,7 @@ function Speech() {
         <div className="flex flex-col gap-3 text-sm text-text-primary">
           <SpeechToTextSwitch />
 
-          <EngineSTTDropdown external={sttExternal} />
+          <EngineSTTDropdown external={sttExternal} realtimeAvailable={realtimeAvailable} />
 
           <LanguageSTTDropdown />
           <div className="pb-2">
