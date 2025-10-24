@@ -1018,29 +1018,45 @@ ${convo}
       return intermediateReply?.join('') ?? '';
     }
 
-    let thinkMatch;
-    let remainingText;
     let reasoningText = '';
+    let reasoningBlock = '';
+    let remainingText = this.streamHandler.tokens.join('');
 
     if (this.streamHandler.reasoningTokens.length > 0) {
       reasoningText = this.streamHandler.reasoningTokens.join('');
-      thinkMatch = reasoningText.match(/<think>([\s\S]*?)<\/think>/)?.[1]?.trim();
-      if (thinkMatch != null && thinkMatch) {
-        const reasoningTokens = `:::thinking\n${thinkMatch}\n:::\n`;
-        remainingText = reasoningText.split(/<\/think>/)?.[1]?.trim() || '';
-        return `${reasoningTokens}${remainingText}${this.streamHandler.tokens.join('')}`;
-      } else if (thinkMatch === '') {
-        remainingText = reasoningText.split(/<\/think>/)?.[1]?.trim() || '';
-        return `${remainingText}${this.streamHandler.tokens.join('')}`;
+      const thinkMatch = reasoningText.match(/<think>([\s\S]*?)<\/think>/);
+
+      if (thinkMatch?.[1] != null) {
+        const extracted = thinkMatch[1].trim();
+        if (extracted) {
+          reasoningBlock = `:::thinking\n${extracted}\n:::\n`;
+        }
+
+        const matchIndex = thinkMatch.index ?? 0;
+        const postThink = reasoningText.slice(matchIndex + thinkMatch[0].length).trimStart();
+        remainingText = `${postThink}${remainingText}`;
+      } else if (reasoningText.trim().length > 0) {
+        reasoningBlock = `:::thinking\n${reasoningText
+          .replace('<think>', '')
+          .replace('</think>', '')
+          .trim()}\n:::\n`;
       }
     }
 
-    const reasoningTokens =
-      reasoningText.length > 0
-        ? `:::thinking\n${reasoningText.replace('<think>', '').replace('</think>', '').trim()}\n:::\n`
-        : '';
+    if (!reasoningBlock) {
+      const fallbackMatch = remainingText.match(/<think>([\s\S]*?)<\/think>/);
+      if (fallbackMatch?.[1] != null) {
+        const extracted = fallbackMatch[1].trim();
+        if (extracted) {
+          reasoningBlock = `:::thinking\n${extracted}\n:::\n`;
+        }
 
-    return `${reasoningTokens}${this.streamHandler.tokens.join('')}`;
+        const fullMatch = fallbackMatch[0];
+        remainingText = remainingText.replace(fullMatch, '').trimStart();
+      }
+    }
+
+    return `${reasoningBlock}${remainingText}`;
   }
 
   getMessageMapMethod() {
@@ -1048,13 +1064,22 @@ ${convo}
      * @param {TMessage} msg
      */
     return (msg) => {
-      if (msg.text != null && msg.text && msg.text.startsWith(':::thinking')) {
-        const reasoningMatch = msg.text.match(/:::thinking([\s\S]*?):::/);
-        if (reasoningMatch) {
-          msg.reasoning = reasoningMatch[1].trim();
-        }
+      if (msg.text != null && msg.text) {
+        if (msg.text.startsWith(':::thinking')) {
+          const reasoningMatch = msg.text.match(/:::thinking([\s\S]*?):::/);
+          if (reasoningMatch) {
+            msg.reasoning = reasoningMatch[1].trim();
+          }
 
-        msg.text = msg.text.replace(/:::thinking.*?:::/gs, '').trim();
+          msg.text = msg.text.replace(/:::thinking.*?:::/gs, '').trim();
+        } else if (msg.text.includes('<think>')) {
+          const reasoningMatch = msg.text.match(/<think>([\s\S]*?)<\/think>/);
+          if (reasoningMatch?.[1] != null) {
+            msg.reasoning = reasoningMatch[1].trim();
+          }
+
+          msg.text = msg.text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        }
       } else if (msg.content != null) {
         msg.text = parseTextParts(msg.content, true);
         delete msg.content;
