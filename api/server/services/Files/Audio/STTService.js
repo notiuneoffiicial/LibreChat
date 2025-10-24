@@ -173,6 +173,7 @@ function resolveFfmpegPath(sttSchema) {
 async function convertToPCM16(filePath, { sampleRate, channels, ffmpegPath }) {
   const rate =
     Number.isFinite(sampleRate) && sampleRate > 0 ? Math.floor(sampleRate) : DEFAULT_SAMPLE_RATE;
+
   const audioChannels = Number.isFinite(channels) && channels > 0 ? Math.floor(channels) : DEFAULT_AUDIO_CHANNELS;
   const binary = ffmpegPath || 'ffmpeg';
 
