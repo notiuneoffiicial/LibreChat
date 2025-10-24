@@ -40,7 +40,7 @@ const useSpeechToText = (
     stopRecording: stopSpeechRecordingRealtime,
   } = useSpeechToTextRealtime(setText, onTranscriptionComplete, options);
 
-  const pickSpeechValue = <T,>(realtimeValue: T, externalValue: T, browserValue: T): T => {
+  const pickSpeechValue = <T>(realtimeValue: T, externalValue: T, browserValue: T): T => {
     if (realtimeSpeechToText) {
       return realtimeValue;
     }
