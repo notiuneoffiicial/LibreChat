@@ -159,7 +159,7 @@ class STTService {
    * Prepares the request for the OpenAI STT provider.
    * @param {Object} sttSchema - The STT schema for OpenAI.
    * @param {Stream} audioReadStream - The audio data to be transcribed.
-   * @param {Object} audioFile - The audio file object (unused in OpenAI provider).
+   * @param {Object} audioFile - The audio file object containing originalname and mimetype.
    * @param {string} language - The language code for the transcription.
    * @returns {Array} An array containing the URL, data, and headers for the request.
    */
@@ -167,24 +167,25 @@ class STTService {
     const url = sttSchema?.url || 'https://api.openai.com/v1/audio/transcriptions';
     const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
 
-    const data = {
-      file: audioReadStream,
-      model: sttSchema.model,
-    };
+    const formData = new FormData();
+    formData.append('file', audioReadStream, {
+      filename: audioFile?.originalname || audioReadStream?.path || 'audio.webm',
+      contentType: audioFile?.mimetype || 'audio/webm',
+    });
+    formData.append('model', sttSchema.model);
 
     if (language) {
       /** Converted locale code (e.g., "en-US") to ISO-639-1 format (e.g., "en") */
       const isoLanguage = language.split('-')[0];
-      data.language = isoLanguage;
+      formData.append('language', isoLanguage);
     }
 
     const headers = {
-      'Content-Type': 'multipart/form-data',
       ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
     };
     [headers].forEach(this.removeUndefined);
 
-    return [url, data, headers];
+    return [url, formData, { ...headers, ...formData.getHeaders() }];
   }
 
   /**
@@ -259,10 +260,13 @@ class STTService {
     const audioReadStream = Readable.from(audioBuffer);
     audioReadStream.path = `audio.${fileExtension}`;
 
+    const providerInput =
+      provider === STTProviders.AZURE_OPENAI ? audioBuffer : audioReadStream;
+
     const [url, data, headers] = strategy.call(
       this,
       sttSchema,
-      audioReadStream,
+      providerInput,
       audioFile,
       language,
     );
