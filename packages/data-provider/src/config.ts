@@ -397,24 +397,11 @@ const ttsSchema = z.object({
   localai: ttsLocalaiSchema.optional(),
 });
 
-const sttOpenaiSchema = z
-  .object({
-    url: z.string().optional(),
-    apiKey: z.string(),
-    model: z.string(),
-    stream: z.boolean().optional(),
-    organization: z.string().optional(),
-    transport: z.enum(['rest', 'websocket']).optional(),
-    ffmpegPath: z.string().optional(),
-    inputAudioFormat: z
-      .object({
-        encoding: z.enum(['pcm16', 'g711_ulaw', 'g711_alaw']).optional(),
-        sampleRate: z.number().int().positive().optional(),
-        channels: z.number().int().positive().optional(),
-      })
-      .optional(),
-  })
-  .passthrough();
+const sttOpenaiSchema = z.object({
+  url: z.string().optional(),
+  apiKey: z.string(),
+  model: z.string(),
+});
 
 const sttAzureOpenAISchema = z.object({
   instanceName: z.string(),
