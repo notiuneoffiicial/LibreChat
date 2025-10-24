@@ -3,6 +3,7 @@ jest.mock(
   () => ({
     logger: {
       error: jest.fn(),
+      warn: jest.fn(),
     },
   }),
   { virtual: true },
@@ -33,6 +34,7 @@ const {
   DEFAULT_SESSION_ENDPOINT,
 } = require('./RealtimeSTTService');
 const { getAppConfig } = require('~/server/services/Config');
+const { logger } = require('@librechat/data-schemas');
 
 describe('RealtimeSTTService', () => {
   const ORIGINAL_ENV = { ...process.env };
@@ -184,6 +186,63 @@ describe('RealtimeSTTService', () => {
     const service = new RealtimeSTTService({ httpClient });
 
     await expect(service.createSessionDescriptor(req)).rejects.toBeInstanceOf(RealtimeSTTError);
+    expect(httpClient.post).toHaveBeenCalledWith(
+      DEFAULT_SESSION_ENDPOINT,
+      {
+        model: 'gpt-4o-realtime-preview',
+        input_audio_format: {
+          encoding: 'pcm16',
+          sample_rate: 24000,
+          channels: 1,
+        },
+      },
+      expect.any(Object),
+    );
+  });
+
+  it('logs sanitized error details without leaking authorization headers', async () => {
+    process.env.REALTIME_KEY = 'test-key';
+    const axiosError = new Error('Request failed with status code 401');
+    axiosError.response = {
+      status: 401,
+      data: {
+        error: {
+          message: 'Unauthorized',
+        },
+      },
+    };
+    axiosError.code = 'ERR_UNAUTHORIZED';
+    axiosError.config = {
+      headers: {
+        Authorization: 'Bearer secret-token',
+      },
+    };
+
+    const httpClient = {
+      post: jest.fn().mockRejectedValue(axiosError),
+    };
+
+    const req = {
+      config: {
+        speech: {
+          stt: {
+            realtime: {
+              apiKey: '${REALTIME_KEY}',
+              model: 'gpt-4o-realtime-preview',
+            },
+          },
+        },
+      },
+    };
+
+    const service = new RealtimeSTTService({ httpClient });
+
+    await expect(service.createSessionDescriptor(req)).rejects.toBeInstanceOf(RealtimeSTTError);
+    expect(logger.error).toHaveBeenCalledWith('Failed to create realtime STT session', {
+      status: 401,
+      message: 'Unauthorized',
+      code: 'ERR_UNAUTHORIZED',
+    });
     expect(httpClient.post).toHaveBeenCalledWith(
       DEFAULT_SESSION_ENDPOINT,
       {

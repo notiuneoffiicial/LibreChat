@@ -155,16 +155,23 @@ class RealtimeSTTService {
         session,
       };
     } catch (error) {
-      logger.error('Failed to create realtime STT session', error);
-      if (error instanceof RealtimeSTTError) {
-        throw error;
-      }
-
-      const status = error?.response?.status ?? 502;
+      const status = error?.response?.status ?? error?.status ?? 502;
       const message =
         error?.response?.data?.error?.message ||
         error?.message ||
         'Failed to create realtime session';
+      const safeContext = {
+        status,
+        message,
+        code: error?.code,
+      };
+
+      logger.error?.('Failed to create realtime STT session', safeContext);
+
+      if (error instanceof RealtimeSTTError) {
+        throw error;
+      }
+
       throw new RealtimeSTTError(message, status);
     }
   }
