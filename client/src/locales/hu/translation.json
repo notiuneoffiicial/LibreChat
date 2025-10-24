@@ -338,7 +338,6 @@
   "com_nav_font_size_sm": "Kicsi",
   "com_nav_font_size_xl": "Extra nagy",
   "com_nav_font_size_xs": "Extra kicsi",
-  "com_nav_help_faq": "Segítség és GYIK",
   "com_nav_hide_panel": "Legjobb oldalsó panel elrejtése",
   "com_nav_info_code_artifacts": "Engedélyezi a kísérleti kód műtermékek megjelenítését a csevegés mellett",
   "com_nav_info_code_artifacts_agent": "Engedélyezi a kód műtermékek használatát ehhez az ügynökhöz. Alapértelmezés szerint a műtermékek használatára vonatkozó további utasítások hozzáadódnak, kivéve, ha az „Egyéni prompt mód” engedélyezve van.",

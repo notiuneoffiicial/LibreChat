@@ -43,7 +43,7 @@ const MIME_TO_EXTENSION_MAP = {
 
 const REALTIME_MODEL_PATTERN = /gpt-4o(?:-mini)?-transcribe/i;
 const DEFAULT_PCM_ENCODING = 'pcm16';
-const DEFAULT_SAMPLE_RATE = 16000;
+const DEFAULT_SAMPLE_RATE = 24000;
 const DEFAULT_AUDIO_CHANNELS = 1;
 const REALTIME_CHUNK_SIZE = 48 * 1024;
 const REALTIME_CONNECT_TIMEOUT_MS = 15000;
@@ -384,7 +384,9 @@ class STTService {
     }
 
     const isErrorEvent =
-      descriptors.some((value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value)) ||
+      descriptors.some(
+        (value) => TEXT_ERROR_EVENT_TYPES.has(value) || ERROR_TYPE_PATTERN.test(value),
+      ) ||
       Boolean(event?.error) ||
       Boolean(event?.response?.error);
 
@@ -417,11 +419,15 @@ class STTService {
     ];
 
     const isDoneEvent =
-      descriptors.some((value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value)) ||
+      descriptors.some(
+        (value) => TEXT_DONE_EVENT_TYPES.has(value) || DONE_TYPE_PATTERN.test(value),
+      ) ||
       finalIndicators.some((value) => value === true);
 
     const isDeltaEvent =
-      descriptors.some((value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value)) ||
+      descriptors.some(
+        (value) => TEXT_DELTA_EVENT_TYPES.has(value) || DELTA_TYPE_PATTERN.test(value),
+      ) ||
       event?.delta != null ||
       event?.deltas != null ||
       event?.partial === true ||
@@ -683,7 +689,11 @@ class STTService {
             },
           });
         } catch (error) {
-          fail(error instanceof Error ? error : new Error('Failed to send audio to realtime service'));
+          fail(
+            error instanceof Error
+              ? error
+              : new Error('Failed to send audio to realtime service'),
+          );
         }
       };
 

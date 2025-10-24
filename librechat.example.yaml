@@ -149,7 +149,7 @@ registration:
 #       transport: websocket
 #       inputAudioFormat:
 #         encoding: pcm16
-#         sampleRate: 16000
+#         sampleRate: 24000
 #         channels: 1
 #       # Optional: set a custom ffmpeg binary path if ffmpeg is not on PATH
 #       # ffmpegPath: '/usr/local/bin/ffmpeg'

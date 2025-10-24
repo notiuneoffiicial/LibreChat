@@ -311,7 +311,6 @@
   "com_nav_font_size_sm": "Pieni",
   "com_nav_font_size_xl": "Ekstrasuuri",
   "com_nav_font_size_xs": "Ekstrapieni",
-  "com_nav_help_faq": "Ohjeet & FAQ",
   "com_nav_hide_panel": "Piilota oikeanpuoleinen sivupaneeli",
   "com_nav_info_enter_to_send": "Jos tämä on päällä, Enter-näppäimen painaminen lähettää viestin. Kun asetus on pois päältä, Enter lisää rivinvaihdon, ja viestin lähettämiseksi on painettava CTRL + ENTER.",
   "com_nav_info_fork_change_default": "'Vain näkyvät viestit' sisältää vain suoran polun valittuun viestiin. 'Sisällytä sivupolut' lisää polun varrella olevat sivupolut. 'Lisää kaikki tänne/täältä' sisällyttää kaikki kytköksissä olevat viestit ja sivupolut.",

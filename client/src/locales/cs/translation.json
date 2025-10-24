@@ -262,7 +262,6 @@
   "com_nav_font_size_sm": "Malá",
   "com_nav_font_size_xl": "Extra velká",
   "com_nav_font_size_xs": "Extra malá",
-  "com_nav_help_faq": "Nápověda a FAQ",
   "com_nav_hide_panel": "Skrýt pravý panel",
   "com_nav_info_code_artifacts": "Povoluje zobrazování experimentálních kódových artefaktů vedle chatu",
   "com_nav_info_code_artifacts_agent": "Povoluje použití kódových artefaktů pro tohoto agenta. Ve výchozím nastavení jsou přidány další instrukce specifické pro použití artefaktů, pokud není povolen režim \"Vlastní výzva\".",
