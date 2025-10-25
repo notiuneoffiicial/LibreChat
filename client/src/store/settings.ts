@@ -3,7 +3,7 @@ import { SettingsViews, LocalStorageKeys } from 'librechat-data-provider';
 import { atomWithLocalStorage } from '~/store/utils';
 import type { TOptionSettings } from '~/common';
 
-type RealtimeSTTOptions = {
+export type RealtimeSTTOptions = {
   model?: string;
   transport: 'websocket' | 'webrtc';
   stream: boolean;
@@ -15,7 +15,7 @@ type RealtimeSTTOptions = {
   ffmpegPath?: string;
 };
 
-const defaultRealtimeOptions: RealtimeSTTOptions = {
+export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
   model: '',
   transport: 'websocket',
   stream: true,
@@ -84,7 +84,7 @@ const localStorageAtoms = {
   autoSendText: atomWithLocalStorage('autoSendText', -1),
   realtimeSTTOptions: atomWithLocalStorage<RealtimeSTTOptions>(
     'realtimeSTTOptions',
-    defaultRealtimeOptions,
+    DEFAULT_REALTIME_STT_OPTIONS,
   ),
 
   textToSpeech: atomWithLocalStorage('textToSpeech', true),
