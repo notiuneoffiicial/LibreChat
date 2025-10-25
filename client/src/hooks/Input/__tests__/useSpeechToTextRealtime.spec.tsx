@@ -50,8 +50,40 @@ class MockWebSocket {
   }
 }
 
+class MockRTCDataChannel {
+  label: string;
+  readyState: 'connecting' | 'open' | 'closing' | 'closed' = 'connecting';
+  onopen?: () => void;
+  onmessage?: (event: MockSocketEvent) => void;
+  onclose?: () => void;
+  sent: string[] = [];
+
+  constructor(label: string) {
+    this.label = label;
+  }
+
+  send(payload: string) {
+    this.sent.push(payload);
+  }
+
+  close() {
+    this.readyState = 'closed';
+    this.onclose?.();
+  }
+
+  open() {
+    this.readyState = 'open';
+    this.onopen?.();
+  }
+
+  emit(event: object) {
+    this.onmessage?.({ data: JSON.stringify(event) });
+  }
+}
+
 describe('useSpeechToTextRealtime', () => {
   const originalWebSocket = global.WebSocket;
+  const originalFetch = global.fetch;
   const mockSession = {
     url: 'wss://api.openai.com/v1/realtime',
     transport: 'websocket' as const,
@@ -74,6 +106,12 @@ describe('useSpeechToTextRealtime', () => {
 
   afterAll(() => {
     global.WebSocket = originalWebSocket;
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete (global as unknown as { fetch?: typeof fetch }).fetch;
+    }
   });
 
   beforeEach(() => {
@@ -174,6 +212,120 @@ describe('useSpeechToTextRealtime', () => {
     expect(sessionFetcher).toHaveBeenCalled();
     expect(setText).toHaveBeenCalledWith('hello');
     expect(onComplete).toHaveBeenCalledWith('hello');
+
+    act(() => {
+      result.current.stopRecording();
+    });
+  });
+
+  it('defers realtime responses for WebRTC until audio is detected', async () => {
+    const rawTrack = {
+      stop: jest.fn(),
+      onunmute: null as ((event: Event) => void) | null,
+      onmute: null as ((event: Event) => void) | null,
+    };
+    const mockTrack = rawTrack as unknown as MediaStreamTrack;
+    const mockStream: MediaStream = {
+      getTracks: () => [mockTrack],
+      getAudioTracks: () => [mockTrack],
+    } as MediaStream;
+
+    const getUserMedia = jest.fn().mockResolvedValue(mockStream);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia },
+      configurable: true,
+    });
+
+    const mockDataChannel = new MockRTCDataChannel('oai-events');
+
+    class MockPeerConnection {
+      connectionState: 'new' | 'connecting' | 'connected' | 'disconnected' | 'failed' | 'closed' = 'connected';
+      onconnectionstatechange?: () => void;
+
+      createDataChannel = jest.fn(() => mockDataChannel as unknown as RTCDataChannel);
+      createOffer = jest.fn().mockResolvedValue({ type: 'offer', sdp: 'offer-sdp' });
+      setLocalDescription = jest.fn().mockResolvedValue(undefined);
+      setRemoteDescription = jest.fn().mockResolvedValue(undefined);
+      addTrack = jest.fn();
+      close = jest.fn();
+    }
+
+    const mockPeerConnection = new MockPeerConnection();
+    const peerConnectionFactory = jest.fn(() => mockPeerConnection as unknown as RTCPeerConnection);
+
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ text: async () => 'answer-sdp' } as Pick<Response, 'text'>);
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as typeof fetch;
+
+    const webrtcSession = {
+      ...mockSession,
+      url: 'https://api.openai.com/v1/realtime',
+      transport: 'webrtc' as const,
+    };
+
+    const sessionFetcher = jest.fn().mockResolvedValue(webrtcSession);
+    const setText = jest.fn();
+    const onComplete = jest.fn();
+
+    const { result } = renderHook(
+      () =>
+        useSpeechToTextRealtime(setText, onComplete, {
+          realtimeSessionFetcher: sessionFetcher,
+          peerConnectionFactory,
+          autoSendOnSuccess: true,
+        }),
+      {
+        wrapper: ({ children }) => (
+          <RecoilRoot
+            initializeState={({ set }) => {
+              set(store.autoSendText, -1);
+              set(store.speechToText, true);
+              set(store.realtimeSTTOptions, webrtcSession);
+            }}
+          >
+            {children}
+          </RecoilRoot>
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.startRecording();
+    });
+
+    expect(sessionFetcher).toHaveBeenCalled();
+    expect(peerConnectionFactory).toHaveBeenCalled();
+    expect(mockPeerConnection.createOffer).toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
+    expect(mockPeerConnection.addTrack).toHaveBeenCalled();
+
+    await act(async () => {
+      mockDataChannel.open();
+    });
+
+    expect(mockDataChannel.sent).toHaveLength(0);
+
+    await act(async () => {
+      mockDataChannel.emit({ type: 'response.completed' });
+    });
+
+    expect(onComplete).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rawTrack.onunmute?.(new Event('unmute'));
+    });
+
+    expect(mockDataChannel.sent).toHaveLength(1);
+    expect(JSON.parse(mockDataChannel.sent[0])).toMatchObject({ type: 'response.create' });
+
+    await act(async () => {
+      mockDataChannel.emit({ type: 'response.output_text.delta', delta: 'hi' });
+      mockDataChannel.emit({ type: 'response.completed' });
+    });
+
+    expect(setText).toHaveBeenLastCalledWith('hi');
+    expect(onComplete).toHaveBeenCalledWith('hi');
 
     act(() => {
       result.current.stopRecording();

@@ -30,10 +30,8 @@ module.exports = {
     '^test/(.*)$': '<rootDir>/test/$1',
     '^~/(.*)$': '<rootDir>/src/$1',
     '^@librechat/client$': '<rootDir>/../packages/client/src',
-    '^librechat-data-provider$': '<rootDir>/../node_modules/librechat-data-provider/src',
-    '^librechat-data-provider/react-query$':
-      '<rootDir>/../node_modules/librechat-data-provider/src/react-query',
-    '^librechat-data-provider$': '<rootDir>/../node_modules/librechat-data-provider/src',
+    '^librechat-data-provider$': '<rootDir>/../packages/data-provider/src',
+    '^librechat-data-provider/react-query$': '<rootDir>/../packages/data-provider/src/react-query',
   },
   restoreMocks: true,
   testResultsProcessor: 'jest-junit',
