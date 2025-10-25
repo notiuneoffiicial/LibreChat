@@ -86,7 +86,7 @@ speech:
       model: "gpt-4o-mini-transcribe"
     realtime:
        apiKey: "${OPENAI_API_KEY}"
-       model: "gpt-4o-mini-transcribe"
+       model: "gpt-realtime-mini"
        transport: websocket
        stream: true
        url: 'wss://api.openai.com/v1/realtime'
