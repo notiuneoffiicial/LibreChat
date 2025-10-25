@@ -21,6 +21,7 @@ const {
   checkPromptCacheSupport,
   getModelMaxOutputTokens,
   createStreamEventHandlers,
+  memoryInstructions,
 } = require('@librechat/api');
 const {
   truncateText,
@@ -32,7 +33,23 @@ const {
 } = require('./prompts');
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
-const BaseClient = require('./BaseClient');
+const BaseClientModule = require('./BaseClient');
+const BaseClientCandidates = [
+  BaseClientModule,
+  BaseClientModule?.BaseClient,
+  BaseClientModule?.default,
+  BaseClientModule?.default?.BaseClient,
+  BaseClientModule?.BaseClient?.default,
+];
+
+const BaseClient = BaseClientCandidates.find((candidate) => typeof candidate === 'function');
+
+if (!BaseClient) {
+  const keys = BaseClientModule && typeof BaseClientModule === 'object' ? Object.keys(BaseClientModule) : [];
+  throw new TypeError(
+    `BaseClient module did not export a constructor${keys.length ? ` (received keys: ${keys.join(', ')})` : ''}`,
+  );
+}
 
 const HUMAN_PROMPT = '\n\nHuman:';
 const AI_PROMPT = '\n\nAssistant:';
@@ -534,6 +551,18 @@ class AnthropicClient extends BaseClient {
       promptPrefix = `${identityPrefix}${promptPrefix}`;
     }
 
+    const memorySummary = await this.ensureMemoryContext({
+      conversationId: this.conversationId,
+      responseMessageId: this.responseMessageId,
+    });
+
+    if (memorySummary) {
+      const memoryPrompt = `${memoryInstructions}\n\n# Existing memory about the user:\n${memorySummary}`;
+      promptPrefix = promptPrefix
+        ? `${promptPrefix.trim()}\n\n${memoryPrompt}`
+        : memoryPrompt;
+    }
+
     // Prompt AI to respond, empty if last message was from AI
     let isEdited = lastAuthor === this.assistantLabel;
     const promptSuffix = isEdited ? '' : `${promptPrefix}${this.assistantLabel}\n`;
@@ -664,6 +693,7 @@ class AnthropicClient extends BaseClient {
     ) {
       await buildMessagesPayload();
       processTokens();
+      this.startMemoryProcessing(messagesInWindow);
       return {
         prompt: messagesPayload,
         context: messagesInWindow,
@@ -682,6 +712,8 @@ class AnthropicClient extends BaseClient {
     }
 
     let prompt = `${promptBody}${promptSuffix}`;
+
+    this.startMemoryProcessing(messagesInWindow);
 
     return { prompt, context, promptTokens: currentTokenCount, tokenCountMap };
   }

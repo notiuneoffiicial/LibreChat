@@ -11,6 +11,7 @@ const {
   genAzureChatCompletion,
   getModelMaxOutputTokens,
   createStreamEventHandlers,
+  memoryInstructions,
 } = require('@librechat/api');
 const {
   Constants,
@@ -471,10 +472,24 @@ class OpenAIClient extends BaseClient {
       model: this.modelOptions.model,
     });
 
-    if (systemContent) {
+    const memorySummary = await this.ensureMemoryContext({
+      conversationId: this.conversationId,
+      responseMessageId: this.responseMessageId,
+    });
+
+    let finalSystemContent = systemContent;
+
+    if (memorySummary) {
+      const memoryPrompt = `${memoryInstructions}\n\n# Existing memory about the user:\n${memorySummary}`;
+      finalSystemContent = finalSystemContent
+        ? `${finalSystemContent}\n\n${memoryPrompt}`
+        : memoryPrompt;
+    }
+
+    if (finalSystemContent) {
       instructions = {
         role: 'system',
-        content: systemContent,
+        content: finalSystemContent,
       };
 
       if (this.contextStrategy) {
@@ -530,6 +545,8 @@ class OpenAIClient extends BaseClient {
     if (promptTokens >= 0 && typeof opts?.getReqData === 'function') {
       opts.getReqData({ promptTokens });
     }
+
+    this.startMemoryProcessing(payload);
 
     return result;
   }

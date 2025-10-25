@@ -469,24 +469,28 @@ function applyPreset(body, preset, specName) {
   }
 }
 
-function hasRequiredSpecs(specList) {
-  const specNames = new Set(specList.map((spec) => spec.name));
-  for (const required of Object.values(INTENT_TO_SPEC)) {
-    if (!specNames.has(required)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 function applyAutoRouting(req) {
   const appConfig = req.config;
   const specList = appConfig?.modelSpecs?.list;
-  if (!Array.isArray(specList) || specList.length === 0 || !hasRequiredSpecs(specList)) {
-    logger.warn('[AutoRouter] Spec list missing required presets', {
-      specNames: specList?.map?.((spec) => spec?.name),
+  if (!Array.isArray(specList) || specList.length === 0) {
+    logger.warn('[AutoRouter] Spec list missing or empty');
+    return null;
+  }
+
+  const availableSpecs = new Set(specList.map((spec) => spec?.name).filter(Boolean));
+  const defaultSpecName = INTENT_TO_SPEC[DEFAULT_INTENT];
+
+  if (!availableSpecs.has(defaultSpecName)) {
+    logger.warn('[AutoRouter] Default spec missing from list', {
+      defaultSpecName,
+      specNames: Array.from(availableSpecs),
     });
     return null;
+  }
+
+  const missingSpecs = Object.values(INTENT_TO_SPEC).filter((specName) => !availableSpecs.has(specName));
+  if (missingSpecs.length > 0) {
+    logger.warn('[AutoRouter] Spec list missing intents', { missingSpecs });
   }
 
   const { body } = req;
@@ -558,9 +562,20 @@ function applyAutoRouting(req) {
 
   const finalIntent = gaugeState.intent ?? DEFAULT_INTENT;
   const targetSpecName = INTENT_TO_SPEC[finalIntent] ?? INTENT_TO_SPEC[DEFAULT_INTENT];
-  const targetSpec = specList.find((spec) => spec.name === targetSpecName);
+  let targetSpec = specList.find((spec) => spec.name === targetSpecName);
 
   if (!targetSpec) {
+    logger.warn('[AutoRouter] Target spec unavailable, falling back to default', {
+      requestedSpec: targetSpecName,
+      defaultSpec: defaultSpecName,
+    });
+    targetSpec = specList.find((spec) => spec.name === defaultSpecName);
+  }
+
+  if (!targetSpec) {
+    logger.error('[AutoRouter] Default spec missing during fallback', {
+      defaultSpec: defaultSpecName,
+    });
     return null;
   }
 
