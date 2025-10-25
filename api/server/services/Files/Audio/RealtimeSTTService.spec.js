@@ -232,7 +232,7 @@ describe('RealtimeSTTService', () => {
     expect(httpClient.post).toHaveBeenCalledWith(
       DEFAULT_SESSION_ENDPOINT,
       {
-        model: 'gpt-4o-mini-transcribe',
+        model: 'gpt-4o-realtime-preview',
         input_audio_format: 'pcm16',
       },
       expect.any(Object),

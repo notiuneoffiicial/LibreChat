@@ -121,9 +121,17 @@ class STTService {
       );
     }
 
-    const providers = Object.entries(sttSchema).filter(
-      ([, value]) => Object.keys(value).length > 0,
-    );
+    const providers = Object.entries(sttSchema).filter(([provider, value]) => {
+      const strategyExists = Object.prototype.hasOwnProperty.call(
+        this.providerStrategies,
+        provider,
+      );
+      if (!strategyExists) {
+        return false;
+      }
+
+      return Object.keys(value).length > 0;
+    });
 
     if (providers.length !== 1) {
       throw new Error(
