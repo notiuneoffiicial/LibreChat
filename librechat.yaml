@@ -87,14 +87,9 @@ speech:
     realtime:
        apiKey: "${OPENAI_API_KEY}"
        model: "gpt-realtime-mini"
-       transport: websocket
+       transport: webrtc
        stream: true
-       url: 'wss://api.openai.com/v1/realtime'
-       inputAudioFormat:
-         encoding: pcm16
-         sampleRate: 24000
-         channels: 1
-         ffmpegPath: '/usr/local/bin/ffmpeg'
+       url: 'https://api.openai.com/v1/realtime'
 
 # ---- Web Search Configuration ----
 webSearch:
