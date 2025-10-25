@@ -605,6 +605,10 @@ export const speechToText = (data: FormData): Promise<f.SpeechToTextResponse> =>
   return request.postMultiPart(endpoints.speechToText(), data);
 };
 
+export const createRealtimeSpeechSession = (): Promise<f.RealtimeSessionDescriptor> => {
+  return request.post(endpoints.speechRealtimeSession(), {});
+};
+
 export const textToSpeech = (data: FormData): Promise<ArrayBuffer> => {
   return request.postTTS(endpoints.textToSpeechManual(), data);
 };

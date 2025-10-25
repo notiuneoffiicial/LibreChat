@@ -6,6 +6,9 @@ import { globalAudioId } from '~/common';
 import { cn } from '~/utils';
 
 const isExternalSTT = (speechToTextEndpoint: string) => speechToTextEndpoint === 'external';
+const isRealtimeSTT = (speechToTextEndpoint: string) => speechToTextEndpoint === 'realtime';
+const shouldAppendExistingText = (speechToTextEndpoint: string) =>
+  isExternalSTT(speechToTextEndpoint) || isRealtimeSTT(speechToTextEndpoint);
 export default function AudioRecorder({
   disabled,
   ask,
@@ -43,7 +46,7 @@ export default function AudioRecorder({
         }
         /** For external STT, append existing text to the transcription */
         const finalText =
-          isExternalSTT(speechToTextEndpoint) && existingTextRef.current
+          shouldAppendExistingText(speechToTextEndpoint) && existingTextRef.current
             ? `${existingTextRef.current} ${text}`
             : text;
         ask({ text: finalText });
@@ -57,11 +60,9 @@ export default function AudioRecorder({
   const setText = useCallback(
     (text: string) => {
       let newText = text;
-      if (isExternalSTT(speechToTextEndpoint)) {
-        /** For external STT, the text comes as a complete transcription, so append to existing */
+      if (shouldAppendExistingText(speechToTextEndpoint)) {
         newText = existingTextRef.current ? `${existingTextRef.current} ${text}` : text;
       } else {
-        /** For browser STT, the transcript is cumulative, so we only need to prepend the existing text once */
         newText = existingTextRef.current ? `${existingTextRef.current} ${text}` : text;
       }
       setValue('text', newText, {
@@ -88,7 +89,7 @@ export default function AudioRecorder({
   const handleStopRecording = async () => {
     stopRecording();
     /** For browser STT, clear the reference since text was already being updated */
-    if (!isExternalSTT(speechToTextEndpoint)) {
+    if (!shouldAppendExistingText(speechToTextEndpoint)) {
       existingTextRef.current = '';
     }
   };
