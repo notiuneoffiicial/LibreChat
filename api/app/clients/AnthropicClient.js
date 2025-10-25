@@ -34,13 +34,21 @@ const {
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const BaseClientModule = require('./BaseClient');
-const BaseClient =
-  typeof BaseClientModule === 'function'
-    ? BaseClientModule
-    : BaseClientModule?.default ?? BaseClientModule?.BaseClient;
+const BaseClientCandidates = [
+  BaseClientModule,
+  BaseClientModule?.BaseClient,
+  BaseClientModule?.default,
+  BaseClientModule?.default?.BaseClient,
+  BaseClientModule?.BaseClient?.default,
+];
 
-if (typeof BaseClient !== 'function') {
-  throw new TypeError('BaseClient module did not export a constructor');
+const BaseClient = BaseClientCandidates.find((candidate) => typeof candidate === 'function');
+
+if (!BaseClient) {
+  const keys = BaseClientModule && typeof BaseClientModule === 'object' ? Object.keys(BaseClientModule) : [];
+  throw new TypeError(
+    `BaseClient module did not export a constructor${keys.length ? ` (received keys: ${keys.join(', ')})` : ''}`,
+  );
 }
 
 const HUMAN_PROMPT = '\n\nHuman:';
