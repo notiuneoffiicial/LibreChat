@@ -92,6 +92,8 @@ const useSpeechToTextRealtime = (
   const mountedRef = useRef(true);
   const currentDescriptorRef = useRef<RealtimeSessionDescriptor | null>(null);
   const optionsRef = useRef<SpeechToTextOptions | undefined>(options);
+  const responseInitiatedRef = useRef(false);
+  const audioBufferSentRef = useRef(false);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -173,6 +175,8 @@ const useSpeechToTextRealtime = (
     stopMediaStream();
     currentDescriptorRef.current = null;
     isActiveRef.current = false;
+    responseInitiatedRef.current = false;
+    audioBufferSentRef.current = false;
   }, [cleanupAudioGraph, closePeerConnection, closeWebSocket, stopMediaStream]);
 
   const sendJsonMessage = useCallback((payload: Record<string, unknown>) => {
@@ -305,6 +309,17 @@ const useSpeechToTextRealtime = (
     [handleRealtimeEvent],
   );
 
+  const beginRealtimeResponse = useCallback(() => {
+    if (responseInitiatedRef.current) {
+      return;
+    }
+
+    const didSend = sendJsonMessage({ type: 'response.create', response: { modalities: ['text'] } });
+    if (didSend) {
+      responseInitiatedRef.current = true;
+    }
+  }, [sendJsonMessage]);
+
   const setupAudioGraph = useCallback(
     async (descriptor: RealtimeSessionDescriptor) => {
       if (!streamRef.current) {
@@ -341,6 +356,10 @@ const useSpeechToTextRealtime = (
         const didSend = sendJsonMessage({ type: 'input_audio_buffer.append', audio: base64 });
         if (didSend) {
           sendJsonMessage({ type: 'input_audio_buffer.commit' });
+          if (!audioBufferSentRef.current) {
+            audioBufferSentRef.current = true;
+            beginRealtimeResponse();
+          }
         }
       };
 
@@ -355,12 +374,8 @@ const useSpeechToTextRealtime = (
         sink: gain,
       };
     },
-    [sendJsonMessage],
+    [beginRealtimeResponse, sendJsonMessage],
   );
-
-  const beginRealtimeResponse = useCallback(() => {
-    sendJsonMessage({ type: 'response.create', response: { modalities: ['text'] } });
-  }, [sendJsonMessage]);
 
   const connectWebSocket = useCallback(
     async (descriptor: RealtimeSessionDescriptor) => {
@@ -379,7 +394,6 @@ const useSpeechToTextRealtime = (
           logger.error?.('Failed to initialize realtime audio graph', error);
           showToast({ message: 'Failed to access microphone audio', status: 'error' });
         });
-        beginRealtimeResponse();
         if (mountedRef.current) {
           setIsLoading(false);
           setIsListening(true);
@@ -399,7 +413,7 @@ const useSpeechToTextRealtime = (
         resetState();
       };
     },
-    [beginRealtimeResponse, cleanup, handleMessageEvent, resetState, setupAudioGraph, showToast],
+    [cleanup, handleMessageEvent, resetState, setupAudioGraph, showToast],
   );
 
   const connectPeerConnection = useCallback(

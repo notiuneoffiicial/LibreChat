@@ -4,13 +4,13 @@ import { RecoilRoot } from 'recoil';
 import store from '~/store';
 import useSpeechToTextRealtime from '../useSpeechToTextRealtime';
 
-jest.mock('@librechat/client', () => {
-  const actual = jest.requireActual('@librechat/client');
-  return {
-    ...actual,
+jest.mock(
+  '@librechat/client',
+  () => ({
     useToastContext: () => ({ showToast: jest.fn() }),
-  };
-});
+  }),
+  { virtual: true },
+);
 
 jest.mock('~/data-provider', () => ({
   useRealtimeSessionMutation: jest.fn(() => ({ mutateAsync: jest.fn() })),
@@ -102,16 +102,25 @@ describe('useSpeechToTextRealtime', () => {
 
     const websocket = new MockWebSocket('', []);
     const sessionFetcher = jest.fn().mockResolvedValue(mockSession);
+    let audioProcessor: {
+      connect: jest.Mock;
+      disconnect: jest.Mock;
+      onaudioprocess: ((event: { inputBuffer: { getChannelData: (index: number) => Float32Array } }) => void) | null;
+    } | null = null;
+
     const audioContextFactory = jest.fn(() => ({
       createMediaStreamSource: () => ({
         connect: jest.fn(),
         disconnect: jest.fn(),
       }),
-      createScriptProcessor: () => ({
-        connect: jest.fn(),
-        disconnect: jest.fn(),
-        onaudioprocess: null,
-      }),
+      createScriptProcessor: () => {
+        audioProcessor = {
+          connect: jest.fn(),
+          disconnect: jest.fn(),
+          onaudioprocess: null,
+        };
+        return audioProcessor;
+      },
       createGain: () => ({
         gain: { value: 0 },
         connect: jest.fn(),
@@ -153,6 +162,15 @@ describe('useSpeechToTextRealtime', () => {
 
     await act(async () => {
       websocket.open();
+    });
+
+    await act(async () => {
+      const data = new Float32Array([0.25, -0.25]);
+      audioProcessor?.onaudioprocess?.({
+        inputBuffer: {
+          getChannelData: () => data,
+        },
+      });
     });
 
     await act(async () => {
