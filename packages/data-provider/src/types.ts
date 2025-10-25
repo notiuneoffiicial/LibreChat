@@ -622,7 +622,39 @@ export type TGetRandomPromptsRequest = {
   skip: number;
 };
 
-export type TCustomConfigSpeechResponse = { [key: string]: string };
+export type TSpeechRealtimeConfig = {
+  model?: string;
+  transport?: 'websocket' | 'webrtc';
+  stream?: boolean;
+  inputAudioFormat?: {
+    encoding?: string;
+    sampleRate?: number;
+    channels?: number;
+  };
+  ffmpegPath?: string;
+  [key: string]: unknown;
+};
+
+export type TCustomConfigSpeechResponse = {
+  sttExternal?: boolean;
+  ttsExternal?: boolean;
+  conversationMode?: boolean;
+  advancedMode?: boolean;
+  engineSTT?: string;
+  languageSTT?: string;
+  autoTranscribeAudio?: boolean;
+  decibelValue?: number;
+  autoSendText?: number;
+  engineTTS?: string;
+  voice?: string;
+  cloudBrowserVoices?: boolean;
+  languageTTS?: string;
+  automaticPlayback?: boolean;
+  playbackRate?: number | null;
+  cacheTTS?: boolean;
+  realtime?: TSpeechRealtimeConfig;
+  [key: string]: unknown;
+};
 
 export type TUserTermsResponse = {
   termsAccepted: boolean;
