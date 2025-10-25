@@ -91,6 +91,8 @@ const useSpeechToTextRealtime = (
   const isActiveRef = useRef(false);
   const hasRequestedResponseRef = useRef(false);
   const hasCommittedAudioRef = useRef(false);
+  const hasDetectedAudioRef = useRef(false);
+  const pendingResponseRequestRef = useRef(false);
   const mountedRef = useRef(true);
   const currentDescriptorRef = useRef<RealtimeSessionDescriptor | null>(null);
   const optionsRef = useRef<SpeechToTextOptions | undefined>(options);
@@ -124,7 +126,11 @@ const useSpeechToTextRealtime = (
 
   const stopMediaStream = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        track.onmute = null;
+        track.onunmute = null;
+        track.stop();
+      });
       streamRef.current = null;
     }
   }, []);
@@ -169,6 +175,8 @@ const useSpeechToTextRealtime = (
     isActiveRef.current = false;
     hasRequestedResponseRef.current = false;
     hasCommittedAudioRef.current = false;
+    hasDetectedAudioRef.current = false;
+    pendingResponseRequestRef.current = false;
   }, [cleanupAudioGraph, closePeerConnection, closeWebSocket, stopMediaStream]);
 
   const sendJsonMessage = useCallback((payload: Record<string, unknown>) => {
@@ -190,12 +198,21 @@ const useSpeechToTextRealtime = (
 
   const beginRealtimeResponse = useCallback(() => {
     if (hasRequestedResponseRef.current) {
+      pendingResponseRequestRef.current = false;
+      return;
+    }
+
+    if (!hasDetectedAudioRef.current) {
+      pendingResponseRequestRef.current = true;
       return;
     }
 
     const didSend = sendJsonMessage({ type: 'response.create', response: { modalities: ['text'] } });
     if (didSend) {
       hasRequestedResponseRef.current = true;
+      pendingResponseRequestRef.current = false;
+    } else {
+      pendingResponseRequestRef.current = true;
     }
   }, [sendJsonMessage]);
 
@@ -270,6 +287,9 @@ const useSpeechToTextRealtime = (
       switch (event.type) {
         case 'response.output_text.delta': {
           const delta = typeof event.delta === 'string' ? event.delta : event.text ?? '';
+          if (delta && !hasDetectedAudioRef.current) {
+            hasDetectedAudioRef.current = true;
+          }
           transcriptsRef.current = `${transcriptsRef.current}${delta}`;
           setText(transcriptsRef.current);
           break;
@@ -277,6 +297,13 @@ const useSpeechToTextRealtime = (
         case 'response.output_text.done':
         case 'response.completed':
         case 'response.finished': {
+          if (!hasDetectedAudioRef.current) {
+            hasRequestedResponseRef.current = false;
+            if (pendingResponseRequestRef.current) {
+              beginRealtimeResponse();
+            }
+            break;
+          }
           finalizeTranscription(transcriptsRef.current);
           cleanup();
           break;
@@ -292,7 +319,7 @@ const useSpeechToTextRealtime = (
           break;
       }
     },
-    [cleanup, finalizeTranscription, setText, showToast],
+    [beginRealtimeResponse, cleanup, finalizeTranscription, setText, showToast],
   );
 
   const handleMessageEvent = useCallback(
@@ -343,6 +370,7 @@ const useSpeechToTextRealtime = (
         const didSend = sendJsonMessage({ type: 'input_audio_buffer.append', audio: base64 });
         if (didSend) {
           hasCommittedAudioRef.current = true;
+          hasDetectedAudioRef.current = true;
           sendJsonMessage({ type: 'input_audio_buffer.commit' });
           beginRealtimeResponse();
         }
@@ -412,7 +440,9 @@ const useSpeechToTextRealtime = (
       dataChannelRef.current = dataChannel;
       dataChannel.onmessage = (event) => handleMessageEvent(event as MessageEvent<string>);
       dataChannel.onopen = () => {
-        beginRealtimeResponse();
+        if (pendingResponseRequestRef.current || hasDetectedAudioRef.current) {
+          beginRealtimeResponse();
+        }
         if (mountedRef.current) {
           setIsLoading(false);
           setIsListening(true);
@@ -451,6 +481,9 @@ const useSpeechToTextRealtime = (
 
       currentDescriptorRef.current = descriptor;
       isActiveRef.current = true;
+      if (pendingResponseRequestRef.current) {
+        beginRealtimeResponse();
+      }
     },
     [beginRealtimeResponse, cleanup, handleMessageEvent],
   );
@@ -482,6 +515,10 @@ const useSpeechToTextRealtime = (
 
     resetState();
     setIsLoading(true);
+    hasRequestedResponseRef.current = false;
+    hasCommittedAudioRef.current = false;
+    hasDetectedAudioRef.current = false;
+    pendingResponseRequestRef.current = false;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -505,6 +542,19 @@ const useSpeechToTextRealtime = (
         stream: typeof descriptor.stream === 'boolean' ? descriptor.stream : realtimeDefaults.stream,
       };
 
+      currentDescriptorRef.current = resolved;
+
+      if (resolved.transport === 'webrtc') {
+        pendingResponseRequestRef.current = true;
+        streamRef.current?.getAudioTracks().forEach((track) => {
+          track.onunmute = () => {
+            hasDetectedAudioRef.current = true;
+            beginRealtimeResponse();
+            track.onunmute = null;
+          };
+        });
+      }
+
       await establishRealtimeConnection(resolved);
     } catch (error) {
       logger.error?.('Failed to start realtime transcription session', error);
@@ -513,6 +563,7 @@ const useSpeechToTextRealtime = (
       cleanup();
     }
   }, [
+    beginRealtimeResponse,
     cleanup,
     establishRealtimeConnection,
     fetchSessionDescriptor,
@@ -545,6 +596,12 @@ const useSpeechToTextRealtime = (
       if (hasCommittedAudioRef.current || hasRequestedResponseRef.current) {
         sendJsonMessage({ type: 'response.cancel' });
       }
+    }
+
+    if (!hasDetectedAudioRef.current) {
+      cleanup();
+      resetState();
+      return;
     }
 
     finalizeTranscription(transcriptsRef.current);
