@@ -8,8 +8,17 @@ const {
 const { checkAccess, createMemoryProcessor } = require('@librechat/api');
 const { getRoleByName } = require('~/models/Role');
 const { loadAgent } = require('~/models/Agent');
-const { initializeAgent } = require('~/server/services/Endpoints/agents/agent');
 const { getFormattedMemories, deleteMemory, setMemory } = require('~/models');
+
+/** @type {typeof import('~/server/services/Endpoints/agents/agent').initializeAgent | undefined} */
+let _initializeAgent;
+
+const getInitializeAgent = () => {
+  if (!_initializeAgent) {
+    ({ initializeAgent: _initializeAgent } = require('~/server/services/Endpoints/agents/agent'));
+  }
+  return _initializeAgent;
+};
 
 const getAllowedProviders = (appConfig) =>
   new Set(appConfig?.endpoints?.[EModelEndpoint.agents]?.allowedProviders);
@@ -59,6 +68,10 @@ const ensureInitializedAgent = async ({ req, res, agentConfig, memoryConfig }) =
       : EModelEndpoint.agents;
 
   try {
+    const initializeAgent = getInitializeAgent();
+    if (typeof initializeAgent !== 'function') {
+      throw new Error('Failed to load initializeAgent');
+    }
     return await initializeAgent({
       req,
       res,
