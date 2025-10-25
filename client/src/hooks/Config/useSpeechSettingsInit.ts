@@ -3,6 +3,25 @@ import { SetterOrUpdater, useSetRecoilState } from 'recoil';
 import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-query';
 import { logger } from '~/utils';
 import store from '~/store';
+import { DEFAULT_REALTIME_STT_OPTIONS, type RealtimeSTTOptions } from '~/store/settings';
+
+type RealtimeSettingsUpdate = Partial<RealtimeSTTOptions> & {
+  inputAudioFormat?: Partial<RealtimeSTTOptions['inputAudioFormat']>;
+};
+
+const mergeRealtimeDefaults = (
+  previous: RealtimeSTTOptions | undefined,
+  update: RealtimeSettingsUpdate,
+): RealtimeSTTOptions => ({
+  ...DEFAULT_REALTIME_STT_OPTIONS,
+  ...(previous ?? {}),
+  ...update,
+  inputAudioFormat: {
+    ...DEFAULT_REALTIME_STT_OPTIONS.inputAudioFormat,
+    ...(previous?.inputAudioFormat ?? {}),
+    ...(update.inputAudioFormat ?? {}),
+  },
+});
 
 /**
  * Initializes speech-related Recoil values from the server-side custom
@@ -87,6 +106,13 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
       const setter = setters[key as keyof typeof setters];
       if (setter) {
         logger.log(`Setting default speech setting: ${key} = ${value}`);
+        if (key === 'realtime' && typeof value === 'object' && value !== null) {
+          const realtimeValue = value as RealtimeSettingsUpdate;
+
+          setter((previous) => mergeRealtimeDefaults(previous, realtimeValue));
+          return;
+        }
+
         setter(value as any);
       }
     });

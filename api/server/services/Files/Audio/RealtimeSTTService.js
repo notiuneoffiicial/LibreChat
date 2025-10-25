@@ -97,22 +97,22 @@ class RealtimeSTTService {
       model: realtimeConfig.model,
     };
 
-    if (realtimeConfig.transport) {
-      payload.transport = realtimeConfig.transport;
-    }
-
-    if (typeof realtimeConfig.stream === 'boolean') {
-      payload.stream = realtimeConfig.stream;
-    }
-
     const inputFormat = this.normalizeInputFormat(realtimeConfig.inputAudioFormat);
 
     if (inputFormat) {
-      payload.input_audio_format = {
-        encoding: inputFormat.encoding,
-        sample_rate: inputFormat.sampleRate,
-        channels: inputFormat.channels,
-      };
+      const { encoding } = inputFormat;
+
+      if (typeof encoding === 'string' && encoding.trim().length > 0) {
+        payload.input_audio_format = encoding;
+      } else if (
+        typeof encoding === 'object' &&
+        typeof encoding.codec === 'string' &&
+        encoding.codec.trim().length > 0
+      ) {
+        payload.input_audio_format = encoding.codec;
+      } else {
+        payload.input_audio_format = 'pcm16';
+      }
     }
 
     return payload;
