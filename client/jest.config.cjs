@@ -31,6 +31,7 @@ module.exports = {
     '^~/(.*)$': '<rootDir>/src/$1',
     '^librechat-data-provider/react-query$':
       '<rootDir>/../node_modules/librechat-data-provider/src/react-query',
+    '^librechat-data-provider$': '<rootDir>/../node_modules/librechat-data-provider/src',
   },
   restoreMocks: true,
   testResultsProcessor: 'jest-junit',
