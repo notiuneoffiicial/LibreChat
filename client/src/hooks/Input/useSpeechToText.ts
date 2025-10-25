@@ -40,39 +40,27 @@ const useSpeechToText = (
     stopRecording: stopSpeechRecordingRealtime,
   } = useSpeechToTextRealtime(setText, onTranscriptionComplete, options);
 
-  const pickSpeechValue = <T>(realtimeValue: T, externalValue: T, browserValue: T): T => {
-    if (realtimeSpeechToText) {
-      return realtimeValue;
-    }
+  const isListening = realtimeSpeechToText
+    ? speechIsListeningRealtime
+    : externalSpeechToText
+      ? speechIsListeningExternal
+      : speechIsListeningBrowser;
+  const isLoading = realtimeSpeechToText
+    ? speechIsLoadingRealtime
+    : externalSpeechToText
+      ? speechIsLoadingExternal
+      : speechIsLoadingBrowser;
 
-    if (externalSpeechToText) {
-      return externalValue;
-    }
-
-    return browserValue;
-  };
-
-  const isListening = pickSpeechValue(
-    speechIsListeningRealtime,
-    speechIsListeningExternal,
-    speechIsListeningBrowser,
-  );
-  const isLoading = pickSpeechValue(
-    speechIsLoadingRealtime,
-    speechIsLoadingExternal,
-    speechIsLoadingBrowser,
-  );
-
-  const startRecording = pickSpeechValue(
-    startSpeechRecordingRealtime,
-    startSpeechRecordingExternal,
-    startSpeechRecordingBrowser,
-  );
-  const stopRecording = pickSpeechValue(
-    stopSpeechRecordingRealtime,
-    stopSpeechRecordingExternal,
-    stopSpeechRecordingBrowser,
-  );
+  const startRecording = realtimeSpeechToText
+    ? startSpeechRecordingRealtime
+    : externalSpeechToText
+      ? startSpeechRecordingExternal
+      : startSpeechRecordingBrowser;
+  const stopRecording = realtimeSpeechToText
+    ? stopSpeechRecordingRealtime
+    : externalSpeechToText
+      ? stopSpeechRecordingExternal
+      : stopSpeechRecordingBrowser;
 
   return {
     isLoading,

@@ -721,7 +721,12 @@ export const useSpeechToTextMutation = (
 
 export const useRealtimeSessionMutation = (
   options?: t.MutationOptions<t.RealtimeSessionDescriptor, void>,
-): UseMutationResult<t.RealtimeSessionDescriptor, unknown, void, unknown> => {
+): UseMutationResult<
+  t.RealtimeSessionDescriptor,
+  unknown,
+  void,
+  unknown
+> => {
   return useMutation([MutationKeys.realtimeSession], {
     mutationFn: () => dataService.createRealtimeSpeechSession(),
     ...(options || {}),

@@ -4,13 +4,9 @@ import { RecoilRoot } from 'recoil';
 import store from '~/store';
 import useSpeechToTextRealtime from '../useSpeechToTextRealtime';
 
-jest.mock(
-  '@librechat/client',
-  () => ({
-    useToastContext: () => ({ showToast: jest.fn() }),
-  }),
-  { virtual: true },
-);
+jest.mock('@librechat/client', () => ({
+  useToastContext: () => ({ showToast: jest.fn() }),
+}));
 
 jest.mock('~/data-provider', () => ({
   useRealtimeSessionMutation: jest.fn(() => ({ mutateAsync: jest.fn() })),
@@ -102,25 +98,18 @@ describe('useSpeechToTextRealtime', () => {
 
     const websocket = new MockWebSocket('', []);
     const sessionFetcher = jest.fn().mockResolvedValue(mockSession);
-    let audioProcessor: {
-      connect: jest.Mock;
-      disconnect: jest.Mock;
-      onaudioprocess: ((event: { inputBuffer: { getChannelData: (index: number) => Float32Array } }) => void) | null;
-    } | null = null;
+    const processor = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      onaudioprocess: undefined as ((event: any) => void) | undefined,
+    };
 
     const audioContextFactory = jest.fn(() => ({
       createMediaStreamSource: () => ({
         connect: jest.fn(),
         disconnect: jest.fn(),
       }),
-      createScriptProcessor: () => {
-        audioProcessor = {
-          connect: jest.fn(),
-          disconnect: jest.fn(),
-          onaudioprocess: null,
-        };
-        return audioProcessor;
-      },
+      createScriptProcessor: () => processor,
       createGain: () => ({
         gain: { value: 0 },
         connect: jest.fn(),
@@ -165,13 +154,17 @@ describe('useSpeechToTextRealtime', () => {
     });
 
     await act(async () => {
-      const data = new Float32Array([0.25, -0.25]);
-      audioProcessor?.onaudioprocess?.({
+      processor.onaudioprocess?.({
         inputBuffer: {
-          getChannelData: () => data,
+          getChannelData: () => new Float32Array([0.1, -0.1]),
         },
       });
     });
+
+    expect(websocket.sent).toHaveLength(3);
+    expect(JSON.parse(websocket.sent[0])).toMatchObject({ type: 'input_audio_buffer.append' });
+    expect(JSON.parse(websocket.sent[1])).toMatchObject({ type: 'input_audio_buffer.commit' });
+    expect(JSON.parse(websocket.sent[2])).toMatchObject({ type: 'response.create' });
 
     await act(async () => {
       websocket.emit({ type: 'response.output_text.delta', delta: 'hello' });

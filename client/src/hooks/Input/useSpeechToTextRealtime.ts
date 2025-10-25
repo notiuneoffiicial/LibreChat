@@ -89,11 +89,11 @@ const useSpeechToTextRealtime = (
   const transcriptsRef = useRef('');
   const finalizedRef = useRef(false);
   const isActiveRef = useRef(false);
+  const hasRequestedResponseRef = useRef(false);
+  const hasCommittedAudioRef = useRef(false);
   const mountedRef = useRef(true);
   const currentDescriptorRef = useRef<RealtimeSessionDescriptor | null>(null);
   const optionsRef = useRef<SpeechToTextOptions | undefined>(options);
-  const responseInitiatedRef = useRef(false);
-  const audioBufferSentRef = useRef(false);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -130,21 +130,13 @@ const useSpeechToTextRealtime = (
   }, []);
 
   const closeWebSocket = useCallback(() => {
-    const socket = wsRef.current;
-    if (!socket) {
-      return;
-    }
-
-    wsRef.current = null;
-
-    if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
-      return;
-    }
-
-    try {
-      socket.close();
-    } catch (error) {
-      logger.warn?.('Failed to close realtime websocket cleanly', error);
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch (error) {
+        logger.warn?.('Failed to close realtime websocket cleanly', error);
+      }
+      wsRef.current = null;
     }
   }, []);
 
@@ -175,8 +167,8 @@ const useSpeechToTextRealtime = (
     stopMediaStream();
     currentDescriptorRef.current = null;
     isActiveRef.current = false;
-    responseInitiatedRef.current = false;
-    audioBufferSentRef.current = false;
+    hasRequestedResponseRef.current = false;
+    hasCommittedAudioRef.current = false;
   }, [cleanupAudioGraph, closePeerConnection, closeWebSocket, stopMediaStream]);
 
   const sendJsonMessage = useCallback((payload: Record<string, unknown>) => {
@@ -195,6 +187,17 @@ const useSpeechToTextRealtime = (
 
     return false;
   }, []);
+
+  const beginRealtimeResponse = useCallback(() => {
+    if (hasRequestedResponseRef.current) {
+      return;
+    }
+
+    const didSend = sendJsonMessage({ type: 'response.create', response: { modalities: ['text'] } });
+    if (didSend) {
+      hasRequestedResponseRef.current = true;
+    }
+  }, [sendJsonMessage]);
 
   const finalizeTranscription = useCallback(
     (text: string) => {
@@ -227,12 +230,11 @@ const useSpeechToTextRealtime = (
         return;
       }
 
-      let delaySeconds = 0;
-      if (overrideSpecified) {
-        delaySeconds = delayOverride ?? 0;
-      } else if (autoSendText > -1) {
-        delaySeconds = autoSendText;
-      }
+      const delaySeconds = overrideSpecified
+        ? delayOverride ?? 0
+        : autoSendText > -1
+          ? autoSendText
+          : 0;
 
       const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
 
@@ -262,16 +264,12 @@ const useSpeechToTextRealtime = (
         return;
       }
 
-      const event = data as {
-        type?: string;
-        delta?: string;
-        output?: { text?: string };
-        text?: string;
-      } & Record<string, unknown>;
+      const event = data as { type?: string; delta?: string; output?: { text?: string }; text?: string } &
+        Record<string, unknown>;
 
       switch (event.type) {
         case 'response.output_text.delta': {
-          const delta = typeof event.delta === 'string' ? event.delta : (event.text ?? '');
+          const delta = typeof event.delta === 'string' ? event.delta : event.text ?? '';
           transcriptsRef.current = `${transcriptsRef.current}${delta}`;
           setText(transcriptsRef.current);
           break;
@@ -309,17 +307,6 @@ const useSpeechToTextRealtime = (
     [handleRealtimeEvent],
   );
 
-  const beginRealtimeResponse = useCallback(() => {
-    if (responseInitiatedRef.current) {
-      return;
-    }
-
-    const didSend = sendJsonMessage({ type: 'response.create', response: { modalities: ['text'] } });
-    if (didSend) {
-      responseInitiatedRef.current = true;
-    }
-  }, [sendJsonMessage]);
-
   const setupAudioGraph = useCallback(
     async (descriptor: RealtimeSessionDescriptor) => {
       if (!streamRef.current) {
@@ -355,11 +342,9 @@ const useSpeechToTextRealtime = (
         const base64 = encodePCM16(pcm16);
         const didSend = sendJsonMessage({ type: 'input_audio_buffer.append', audio: base64 });
         if (didSend) {
+          hasCommittedAudioRef.current = true;
           sendJsonMessage({ type: 'input_audio_buffer.commit' });
-          if (!audioBufferSentRef.current) {
-            audioBufferSentRef.current = true;
-            beginRealtimeResponse();
-          }
+          beginRealtimeResponse();
         }
       };
 
@@ -403,17 +388,17 @@ const useSpeechToTextRealtime = (
       socket.onmessage = (event) => handleMessageEvent(event as MessageEvent<string>);
 
       socket.onerror = () => {
-        cleanup();
-        resetState();
         showToast({ message: 'Realtime speech connection error', status: 'error' });
       };
 
       socket.onclose = () => {
-        cleanup();
-        resetState();
+        if (mountedRef.current) {
+          setIsListening(false);
+          setIsLoading(false);
+        }
       };
     },
-    [cleanup, handleMessageEvent, resetState, setupAudioGraph, showToast],
+    [handleMessageEvent, setupAudioGraph, showToast],
   );
 
   const connectPeerConnection = useCallback(
@@ -495,14 +480,13 @@ const useSpeechToTextRealtime = (
       return;
     }
 
-    cleanup();
     resetState();
     setIsLoading(true);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       streamRef.current = stream;
-    } catch (_error) {
+    } catch (error) {
       setIsLoading(false);
       showToast({ message: 'Microphone permission denied', status: 'error' });
       return;
@@ -558,7 +542,9 @@ const useSpeechToTextRealtime = (
 
     if (currentDescriptorRef.current?.transport !== 'webrtc') {
       sendJsonMessage({ type: 'input_audio_buffer.commit' });
-      sendJsonMessage({ type: 'response.cancel' });
+      if (hasCommittedAudioRef.current || hasRequestedResponseRef.current) {
+        sendJsonMessage({ type: 'response.cancel' });
+      }
     }
 
     finalizeTranscription(transcriptsRef.current);

@@ -3,7 +3,7 @@ import { SettingsViews, LocalStorageKeys } from 'librechat-data-provider';
 import { atomWithLocalStorage } from '~/store/utils';
 import type { TOptionSettings } from '~/common';
 
-export type RealtimeSTTOptions = {
+type RealtimeSTTOptions = {
   model?: string;
   transport: 'websocket' | 'webrtc';
   stream: boolean;
@@ -15,7 +15,7 @@ export type RealtimeSTTOptions = {
   ffmpegPath?: string;
 };
 
-export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
+const defaultRealtimeOptions: RealtimeSTTOptions = {
   model: '',
   transport: 'websocket',
   stream: true,
@@ -25,8 +25,6 @@ export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
     channels: 1,
   },
 };
-
-const defaultRealtimeOptions: RealtimeSTTOptions = DEFAULT_REALTIME_STT_OPTIONS;
 
 // Static atoms without localStorage
 const staticAtoms = {

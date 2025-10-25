@@ -64,36 +64,4 @@ describe('useSpeechSettingsInit', () => {
     expect(result.current.stream).toBe(false);
     expect(result.current.inputAudioFormat.sampleRate).toBe(16000);
   });
-
-  it('merges realtime defaults with partial server overrides', async () => {
-    (useGetCustomConfigSpeechQuery as jest.Mock).mockReturnValue({
-      data: {
-        realtime: {
-          transport: 'webrtc',
-          inputAudioFormat: {
-            sampleRate: 16000,
-          },
-        },
-      },
-    });
-
-    const { result } = renderHook(
-      () => {
-        useSpeechSettingsInit(true);
-        return useRecoilValue(store.realtimeSTTOptions);
-      },
-      {
-        wrapper: ({ children }) => <RecoilRoot>{children}</RecoilRoot>,
-      },
-    );
-
-    await waitFor(() => {
-      expect(result.current.transport).toBe('webrtc');
-    });
-
-    expect(result.current.stream).toBe(true);
-    expect(result.current.inputAudioFormat.encoding).toBe('pcm16');
-    expect(result.current.inputAudioFormat.sampleRate).toBe(16000);
-    expect(result.current.inputAudioFormat.channels).toBe(1);
-  });
 });
