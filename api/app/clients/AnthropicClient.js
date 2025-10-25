@@ -33,7 +33,8 @@ const {
 } = require('./prompts');
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
-const BaseClient = require('./BaseClient');
+const BaseClientModule = require('./BaseClient');
+const BaseClient = BaseClientModule?.default ?? BaseClientModule;
 
 const HUMAN_PROMPT = '\n\nHuman:';
 const AI_PROMPT = '\n\nAssistant:';
