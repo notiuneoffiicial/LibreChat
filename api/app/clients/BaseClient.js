@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fetch = require('node-fetch');
 const { logger } = require('@librechat/data-schemas');
+const { HumanMessage } = require('@langchain/core/messages');
 const {
   getBalanceConfig,
   extractFileContext,
@@ -25,6 +26,7 @@ const { checkBalance } = require('~/models/balanceMethods');
 const { truncateToolCallOutputs } = require('./prompts');
 const countTokens = require('~/server/utils/countTokens');
 const { getFiles } = require('~/models/File');
+const { initializeMemoryContext } = require('~/server/services/Memory');
 const { ConversationSummaryManager } = require('./memory');
 const TextStream = require('./TextStream');
 
@@ -76,6 +78,18 @@ class BaseClient {
     this.summaryManager = null;
     /** @type {boolean} */
     this.previous_summary_from_memory = false;
+    /** @type {(messages: import('@langchain/core/messages').BaseMessage[]) => Promise<(TAttachment | null)[] | undefined> | null} */
+    this.processMemory = null;
+    /** @type {((messages: import('@langchain/core/messages').BaseMessage[]) => import('@librechat/api').MemoryClassificationResult) | null} */
+    this.memoryClassifier = null;
+    /** @type {number | undefined} */
+    this.memoryWindowSize = undefined;
+    /** @type {string | undefined} */
+    this.memorySummary = undefined;
+    /** @type {boolean} */
+    this.memoryContextInitialized = false;
+    /** @type {boolean} */
+    this.memoryProcessingStarted = false;
   }
 
   setOptions() {
@@ -1056,6 +1070,242 @@ class BaseClient {
     await updateMessage(this.options.req, message);
   }
 
+  async ensureMemoryContext({ conversationId, responseMessageId, currentAgent } = {}) {
+    if (this.memoryContextInitialized) {
+      return this.memorySummary;
+    }
+
+    if (!this.options?.req || !this.options?.res) {
+      this.memoryContextInitialized = true;
+      return undefined;
+    }
+
+    try {
+      const context = await initializeMemoryContext({
+        req: this.options.req,
+        res: this.options.res,
+        conversationId: conversationId ?? this.conversationId,
+        messageId: responseMessageId ?? this.responseMessageId,
+        currentAgent,
+      });
+
+      this.memoryContextInitialized = true;
+
+      if (!context) {
+        return undefined;
+      }
+
+      this.processMemory = context.processMemory;
+      this.memoryClassifier = context.classifyWindow;
+      this.memoryWindowSize = context.messageWindowSize;
+      this.memorySummary = context.summary;
+
+      return this.memorySummary;
+    } catch (error) {
+      this.memoryContextInitialized = true;
+      logger.error('[BaseClient] Failed to initialize memory context', error);
+      return undefined;
+    }
+  }
+
+  getMemorySummary() {
+    return this.memorySummary;
+  }
+
+  startMemoryProcessing(messages) {
+    if (this.memoryProcessingStarted || typeof this.processMemory !== 'function') {
+      return;
+    }
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return;
+    }
+
+    const normalizedMessages = this.normalizeMemoryMessages(messages);
+    if (normalizedMessages.length === 0) {
+      return;
+    }
+
+    if (typeof this.memoryClassifier === 'function') {
+      const classification = this.memoryClassifier(normalizedMessages);
+      if (!classification?.shouldProcess) {
+        logger.debug(
+          `[BaseClient] Skipping memory processing (${classification?.reason ?? 'unknown'})`,
+        );
+        return;
+      }
+      if (classification.reason === 'explicit_request') {
+        logger.debug('[BaseClient] Memory processing triggered by explicit user request');
+      } else if (classification.reason === 'classifier') {
+        logger.debug(
+          `[BaseClient] Memory classifier approved window with score ${classification.score.toFixed(
+            2,
+          )}`,
+        );
+      }
+    }
+
+    const transcript = this.buildMemoryTranscript(normalizedMessages);
+    if (!transcript) {
+      return;
+    }
+
+    const memoryMessage = new HumanMessage(`# Current Chat:\n\n${transcript}`);
+    this.memoryProcessingStarted = true;
+
+    Promise.resolve()
+      .then(() => this.processMemory && this.processMemory([memoryMessage]))
+      .catch((error) => {
+        logger.error('[BaseClient] Memory processing failed', error);
+      });
+  }
+
+  normalizeMemoryMessages(messages) {
+    const windowSize = this.memoryWindowSize ?? this.options?.req?.config?.memory?.messageWindowSize ?? 5;
+    const chatMessages = [];
+
+    for (const message of messages) {
+      const role = this.resolveMemoryRole(message);
+      if (!role) {
+        continue;
+      }
+
+      const content = this.extractMessageContent(message);
+      if (!content) {
+        continue;
+      }
+
+      chatMessages.push({ role, content });
+    }
+
+    if (chatMessages.length === 0) {
+      return [];
+    }
+
+    let startIndex = Math.max(0, chatMessages.length - windowSize);
+
+    if (chatMessages.length > windowSize) {
+      for (let i = chatMessages.length - windowSize; i < chatMessages.length; i++) {
+        if (chatMessages[i].role === 'user') {
+          startIndex = i;
+          break;
+        }
+      }
+    }
+
+    const windowMessages = chatMessages.slice(startIndex);
+    while (windowMessages.length && windowMessages[0].role !== 'user') {
+      windowMessages.shift();
+    }
+
+    if (windowMessages.length === 0) {
+      return [];
+    }
+
+    return windowMessages;
+  }
+
+  resolveMemoryRole(message) {
+    if (typeof message?.role === 'string') {
+      const role = message.role.toLowerCase();
+      if (role === 'user' || role === 'assistant') {
+        return role;
+      }
+    }
+
+    if (typeof message?.author === 'string') {
+      const author = message.author.toLowerCase();
+      if (author.includes('user')) {
+        return 'user';
+      }
+      if (author.includes('assistant') || author.includes('model') || author.includes('bot')) {
+        return 'assistant';
+      }
+    }
+
+    if (message?.isCreatedByUser === true) {
+      return 'user';
+    }
+    if (message?.isCreatedByUser === false) {
+      return 'assistant';
+    }
+
+    return undefined;
+  }
+
+  extractMessageContent(message) {
+    if (!message) {
+      return '';
+    }
+
+    if (typeof message.content === 'string') {
+      return message.content.trim();
+    }
+
+    if (Array.isArray(message.content)) {
+      return message.content.map((part) => this.flattenContentPart(part)).filter(Boolean).join('\n').trim();
+    }
+
+    if (typeof message.text === 'string') {
+      return message.text.trim();
+    }
+
+    return this.flattenContentPart(message).trim();
+  }
+
+  flattenContentPart(part) {
+    if (!part) {
+      return '';
+    }
+
+    if (typeof part === 'string') {
+      return part;
+    }
+
+    if (Array.isArray(part)) {
+      return part.map((item) => this.flattenContentPart(item)).filter(Boolean).join('\n');
+    }
+
+    if (typeof part === 'object') {
+      if (typeof part.text === 'string') {
+        return part.text;
+      }
+      if (typeof part.content === 'string') {
+        return part.content;
+      }
+      if (typeof part.value === 'string') {
+        return part.value;
+      }
+      if (typeof part[ContentTypes.TEXT] === 'string') {
+        return part[ContentTypes.TEXT];
+      }
+      if (typeof part[ContentTypes.THINK] === 'string') {
+        return part[ContentTypes.THINK];
+      }
+      if (typeof part.input_text === 'string') {
+        return part.input_text;
+      }
+      if (typeof part.message === 'string') {
+        return part.message;
+      }
+      if (Array.isArray(part.parts)) {
+        return part.parts.map((item) => this.flattenContentPart(item)).filter(Boolean).join('\n');
+      }
+    }
+
+    return '';
+  }
+
+  buildMemoryTranscript(messages) {
+    return messages
+      .map(({ role, content }) => {
+        const speaker = role === 'user' ? 'User' : this.sender ?? 'Assistant';
+        return `${speaker}: ${content.trim()}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
   /**
    * Iterate through messages, building an array based on the parentMessageId.
    *
@@ -1475,3 +1725,5 @@ class BaseClient {
 }
 
 module.exports = BaseClient;
+module.exports.BaseClient = BaseClient;
+module.exports.default = BaseClient;

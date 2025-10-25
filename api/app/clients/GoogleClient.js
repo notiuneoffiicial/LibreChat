@@ -2,6 +2,7 @@ const { google } = require('googleapis');
 const { sleep } = require('@librechat/agents');
 const { logger } = require('@librechat/data-schemas');
 const { getModelMaxTokens } = require('@librechat/api');
+const { memoryInstructions } = require('@librechat/api');
 const { concat } = require('@langchain/core/utils/stream');
 const { ChatVertexAI } = require('@langchain/google-vertexai');
 const { Tokenizer, getSafetySettings } = require('@librechat/api');
@@ -381,6 +382,18 @@ class GoogleClient extends BaseClient {
       throw new Error('[GoogleClient] PaLM 2 and Codey models are no longer supported.');
     }
 
+    const memorySummary = await this.ensureMemoryContext({
+      conversationId: this.conversationId,
+      responseMessageId: this.responseMessageId,
+    });
+
+    if (memorySummary) {
+      const memoryPrompt = `${memoryInstructions}\n\n# Existing memory about the user:\n${memorySummary}`;
+      this.systemMessage = this.systemMessage
+        ? `${this.systemMessage.trim()}\n\n${memoryPrompt}`
+        : memoryPrompt;
+    }
+
     if (this.systemMessage) {
       const instructionsTokenCount = this.getTokenCount(this.systemMessage);
 
@@ -411,6 +424,8 @@ class GoogleClient extends BaseClient {
       orderedMessages: _messages,
       formattedMessages: _messages,
     });
+
+    this.startMemoryProcessing(messages);
 
     if (!this.project_id && !EXCLUDED_GENAI_MODELS.test(this.modelOptions.model)) {
       const result = await this.buildGenerativeMessages(messages);

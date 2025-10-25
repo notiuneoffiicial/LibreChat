@@ -6,14 +6,12 @@ const {
   sendEvent,
   createRun,
   Tokenizer,
-  checkAccess,
   logAxiosError,
   resolveHeaders,
   getBalanceConfig,
   memoryInstructions,
   formatContentStrings,
   getTransactionsConfig,
-  createMemoryProcessor,
 } = require('@librechat/api');
 const {
   Callback,
@@ -27,26 +25,20 @@ const {
 } = require('@librechat/agents');
 const {
   Constants,
-  Permissions,
   VisionModes,
   ContentTypes,
   EModelEndpoint,
-  PermissionTypes,
   isAgentsEndpoint,
   AgentCapabilities,
   bedrockInputSchema,
   removeNullishValues,
 } = require('librechat-data-provider');
 const { addCacheControl, createContextHandlers } = require('~/app/clients/prompts');
-const { initializeAgent } = require('~/server/services/Endpoints/agents/agent');
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
-const { getFormattedMemories, deleteMemory, setMemory } = require('~/models');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const { getProviderConfig } = require('~/server/services/Endpoints');
 const { checkCapability } = require('~/server/services/Config');
 const BaseClient = require('~/app/clients/BaseClient');
-const { getRoleByName } = require('~/models/Role');
-const { loadAgent } = require('~/models/Agent');
 const { getMCPManager } = require('~/config');
 
 const omitTitleOptions = new Set([
@@ -430,112 +422,11 @@ class AgentClient extends BaseClient {
    * @returns {Promise<string | undefined>}
    */
   async useMemory() {
-    const user = this.options.req.user;
-    if (user.personalization?.memories === false) {
-      return;
-    }
-    const hasAccess = await checkAccess({
-      user,
-      permissionType: PermissionTypes.MEMORIES,
-      permissions: [Permissions.USE],
-      getRoleByName,
+    return await this.ensureMemoryContext({
+      conversationId: this.conversationId,
+      responseMessageId: this.responseMessageId,
+      currentAgent: this.options.agent,
     });
-
-    if (!hasAccess) {
-      logger.debug(
-        `[api/server/controllers/agents/client.js #useMemory] User ${user.id} does not have USE permission for memories`,
-      );
-      return;
-    }
-    const appConfig = this.options.req.config;
-    const memoryConfig = appConfig.memory;
-    if (!memoryConfig || memoryConfig.disabled === true) {
-      return;
-    }
-
-    /** @type {Agent} */
-    let prelimAgent;
-    const allowedProviders = new Set(
-      appConfig?.endpoints?.[EModelEndpoint.agents]?.allowedProviders,
-    );
-    try {
-      if (memoryConfig.agent?.id != null && memoryConfig.agent.id !== this.options.agent.id) {
-        prelimAgent = await loadAgent({
-          req: this.options.req,
-          agent_id: memoryConfig.agent.id,
-          endpoint: EModelEndpoint.agents,
-        });
-      } else if (
-        memoryConfig.agent?.id == null &&
-        memoryConfig.agent?.model != null &&
-        memoryConfig.agent?.provider != null
-      ) {
-        prelimAgent = { id: Constants.EPHEMERAL_AGENT_ID, ...memoryConfig.agent };
-      }
-    } catch (error) {
-      logger.error(
-        '[api/server/controllers/agents/client.js #useMemory] Error loading agent for memory',
-        error,
-      );
-    }
-
-    const agent = await initializeAgent({
-      req: this.options.req,
-      res: this.options.res,
-      agent: prelimAgent,
-      allowedProviders,
-      endpointOption: {
-        endpoint:
-          prelimAgent.id !== Constants.EPHEMERAL_AGENT_ID
-            ? EModelEndpoint.agents
-            : memoryConfig.agent?.provider,
-      },
-    });
-
-    if (!agent) {
-      logger.warn(
-        '[api/server/controllers/agents/client.js #useMemory] No agent found for memory',
-        memoryConfig,
-      );
-      return;
-    }
-
-    const llmConfig = Object.assign(
-      {
-        provider: agent.provider,
-        model: agent.model,
-      },
-      agent.model_parameters,
-    );
-
-    /** @type {import('@librechat/api').MemoryConfig} */
-    const config = {
-      validKeys: memoryConfig.validKeys,
-      instructions: agent.instructions,
-      llmConfig,
-      tokenLimit: memoryConfig.tokenLimit,
-      notableThreshold: memoryConfig.notableThreshold,
-    };
-
-    const userId = this.options.req.user.id + '';
-    const messageId = this.responseMessageId + '';
-    const conversationId = this.conversationId + '';
-    const [withoutKeys, processMemory, classifyWindow] = await createMemoryProcessor({
-      userId,
-      config,
-      messageId,
-      conversationId,
-      memoryMethods: {
-        setMemory,
-        deleteMemory,
-        getFormattedMemories,
-      },
-      res: this.options.res,
-    });
-
-    this.processMemory = processMemory;
-    this.memoryClassifier = classifyWindow;
-    return withoutKeys;
   }
 
   /**
