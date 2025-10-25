@@ -28,7 +28,8 @@ const pkgManager = (() => {
 })();
 
 const buildCommand = process.env.ENSURE_CLIENT_DIST_COMMAND;
-const commandLabel = buildCommand || `${pkgManager} run build:client`;
+const defaultScript = process.env.ENSURE_CLIENT_DIST_SCRIPT || 'frontend';
+const commandLabel = buildCommand || `${pkgManager} run ${defaultScript}`;
 
 let missingLocalVite = false;
 
@@ -41,13 +42,15 @@ if (!buildCommand) {
     !fs.existsSync(viteExecutable) && !fs.existsSync(path.resolve(clientDir, 'node_modules', 'vite'));
 
   if (missingLocalVite) {
-    console.warn('[ensure-client-dist] Vite devDependency not found locally; skipping client build.');
-    console.warn('[ensure-client-dist] Install devDependencies to build locally or ship a prebuilt "client/dist" directory.');
+    console.error('[ensure-client-dist] "client/dist" is missing and Vite is not installed in this environment.');
+    console.error(
+      '[ensure-client-dist] Build the client bundle before stripping devDependencies (e.g. run "npm run frontend") or provide a prebuilt "client/dist" directory.'
+    );
+    console.error(
+      '[ensure-client-dist] You can also supply a custom build command via ENSURE_CLIENT_DIST_COMMAND when running with devDependencies present.'
+    );
+    process.exit(1);
   }
-}
-
-if (missingLocalVite) {
-  process.exit(0);
 }
 
 console.log(`[ensure-client-dist] Client build missing. Running "${commandLabel}"...`);
@@ -58,7 +61,7 @@ const result = buildCommand
       cwd: workspaceRoot,
       shell: true,
     })
-  : spawnSync(pkgManager, ['run', 'build:client'], {
+  : spawnSync(pkgManager, ['run', defaultScript], {
       stdio: 'inherit',
       cwd: workspaceRoot,
       shell: process.platform === 'win32',
