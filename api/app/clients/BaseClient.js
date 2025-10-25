@@ -1728,3 +1728,5 @@ class BaseClient {
 }
 
 module.exports = BaseClient;
+module.exports.BaseClient = BaseClient;
+module.exports.default = BaseClient;
