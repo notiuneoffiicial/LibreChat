@@ -34,7 +34,14 @@ const {
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const BaseClientModule = require('./BaseClient');
-const BaseClient = BaseClientModule?.default ?? BaseClientModule;
+const BaseClient =
+  typeof BaseClientModule === 'function'
+    ? BaseClientModule
+    : BaseClientModule?.default ?? BaseClientModule?.BaseClient;
+
+if (typeof BaseClient !== 'function') {
+  throw new TypeError('BaseClient module did not export a constructor');
+}
 
 const HUMAN_PROMPT = '\n\nHuman:';
 const AI_PROMPT = '\n\nAssistant:';
