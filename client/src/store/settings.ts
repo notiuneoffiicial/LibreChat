@@ -3,6 +3,31 @@ import { SettingsViews, LocalStorageKeys } from 'librechat-data-provider';
 import { atomWithLocalStorage } from '~/store/utils';
 import type { TOptionSettings } from '~/common';
 
+export type RealtimeSTTOptions = {
+  model?: string;
+  transport: 'websocket' | 'webrtc';
+  stream: boolean;
+  inputAudioFormat: {
+    encoding: string;
+    sampleRate: number;
+    channels: number;
+  };
+  ffmpegPath?: string;
+};
+
+export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
+  model: '',
+  transport: 'websocket',
+  stream: true,
+  inputAudioFormat: {
+    encoding: 'pcm16',
+    sampleRate: 24000,
+    channels: 1,
+  },
+};
+
+const defaultRealtimeOptions: RealtimeSTTOptions = DEFAULT_REALTIME_STT_OPTIONS;
+
 // Static atoms without localStorage
 const staticAtoms = {
   abortScroll: atom<boolean>({ key: 'abortScroll', default: false }),
@@ -59,6 +84,10 @@ const localStorageAtoms = {
   autoTranscribeAudio: atomWithLocalStorage('autoTranscribeAudio', false),
   decibelValue: atomWithLocalStorage('decibelValue', -45),
   autoSendText: atomWithLocalStorage('autoSendText', -1),
+  realtimeSTTOptions: atomWithLocalStorage<RealtimeSTTOptions>(
+    'realtimeSTTOptions',
+    defaultRealtimeOptions,
+  ),
 
   textToSpeech: atomWithLocalStorage('textToSpeech', true),
   engineTTS: atomWithLocalStorage('engineTTS', 'external'),

@@ -6,18 +6,22 @@ import store from '~/store';
 
 interface EngineSTTDropdownProps {
   external: boolean;
+  realtimeAvailable?: boolean;
 }
 
-const EngineSTTDropdown: React.FC<EngineSTTDropdownProps> = ({ external }) => {
+const EngineSTTDropdown: React.FC<EngineSTTDropdownProps> = ({ external, realtimeAvailable }) => {
   const localize = useLocalize();
   const [engineSTT, setEngineSTT] = useRecoilState<string>(store.engineSTT);
 
-  const endpointOptions = external
-    ? [
-        { value: 'browser', label: localize('com_nav_browser') },
-        { value: 'external', label: localize('com_nav_external') },
-      ]
-    : [{ value: 'browser', label: localize('com_nav_browser') }];
+  const realtimeLabel = localize('com_nav_realtime');
+  const normalizedRealtimeLabel =
+    realtimeLabel && realtimeLabel !== 'com_nav_realtime' ? realtimeLabel : 'Realtime';
+
+  const endpointOptions = [
+    { value: 'browser', label: localize('com_nav_browser') },
+    ...(realtimeAvailable ? [{ value: 'realtime', label: normalizedRealtimeLabel }] : []),
+    ...(external ? [{ value: 'external', label: localize('com_nav_external') }] : []),
+  ];
 
   const handleSelect = (value: string) => {
     setEngineSTT(value);

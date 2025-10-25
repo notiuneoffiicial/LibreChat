@@ -310,7 +310,6 @@
   "com_nav_font_size_sm": "Mały",
   "com_nav_font_size_xl": "Bardzo duży",
   "com_nav_font_size_xs": "Bardzo mały",
-  "com_nav_help_faq": "Pomoc i często zadawane pytania",
   "com_nav_hide_panel": "Ukryj skrajny prawy panel",
   "com_nav_info_code_artifacts": "Włącza wyświetlanie eksperymentalnych artefaktów kodu obok czatu",
   "com_nav_info_custom_prompt_mode": "Gdy włączone, domyślny systemowy prompt artefaktów nie zostanie dołączony. Wszystkie instrukcje generowania artefaktów muszą być podane ręcznie w tym trybie.",

@@ -8,8 +8,9 @@ import { useBadgeRowContext } from '~/Providers';
 function WebSearch() {
   const localize = useLocalize();
   const { webSearch: webSearchData, searchApiKeyForm } = useBadgeRowContext();
-  const { toggleState: webSearch, debouncedChange, isPinned, authData } = webSearchData;
+  const { toggleState: webSearch, debouncedChange, isPinned } = webSearchData;
   const { badgeTriggerRef } = searchApiKeyForm;
+  const isWebSearchActive = Boolean(webSearch);
 
   const canUseWebSearch = useHasAccess({
     permissionType: PermissionTypes.WEB_SEARCH,
@@ -20,11 +21,15 @@ function WebSearch() {
     return null;
   }
 
+  if (!isWebSearchActive && !isPinned) {
+    return null;
+  }
+
   return (
     <CheckboxButton
       ref={badgeTriggerRef}
       className="max-w-fit"
-      checked={!!webSearch}
+      checked={isWebSearchActive}
       setValue={debouncedChange}
       label={localize('com_ui_search')}
       isCheckedClassName="border-blue-600/40 bg-blue-500/10 hover:bg-blue-700/10"

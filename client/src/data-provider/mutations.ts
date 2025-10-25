@@ -719,6 +719,15 @@ export const useSpeechToTextMutation = (
   });
 };
 
+export const useRealtimeSessionMutation = (
+  options?: t.MutationOptions<t.RealtimeSessionDescriptor, void>,
+): UseMutationResult<t.RealtimeSessionDescriptor, unknown, void, unknown> => {
+  return useMutation([MutationKeys.realtimeSession], {
+    mutationFn: () => dataService.createRealtimeSpeechSession(),
+    ...(options || {}),
+  });
+};
+
 /* Text to speech */
 export const useTextToSpeechMutation = (
   options?: t.TextToSpeechOptions,

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import * as Ariakit from '@ariakit/react';
-import { Settings, Settings2, TerminalSquareIcon } from 'lucide-react';
+import { Settings, Settings2, TerminalSquareIcon, Globe, Brain } from 'lucide-react';
 import { TooltipAnchor, DropdownPopup, PinIcon, VectorIcon } from '@librechat/client';
 import type { MenuItemProps } from '~/common';
 import {
@@ -25,8 +25,16 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
   const localize = useLocalize();
   const isDisabled = disabled ?? false;
   const [isPopoverActive, setIsPopoverActive] = useState(false);
-  const { artifacts, fileSearch, agentsConfig, mcpServerManager, codeApiKeyForm, codeInterpreter } =
-    useBadgeRowContext();
+  const {
+    artifacts,
+    fileSearch,
+    webSearch,
+    reason,
+    agentsConfig,
+    mcpServerManager,
+    codeApiKeyForm,
+    codeInterpreter,
+  } = useBadgeRowContext();
   const { data: startupConfig } = useGetStartupConfig();
 
   const { codeEnabled, artifactsEnabled, fileSearchEnabled } = useAgentCapabilities(
@@ -40,11 +48,29 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     setIsPinned: setIsCodePinned,
     authData: codeAuthData,
   } = codeInterpreter;
+  const {
+    toggleState: webSearchState,
+    debouncedChange: toggleWebSearch,
+    isPinned: isWebSearchPinned,
+    setIsPinned: setIsWebSearchPinned,
+  } = webSearch;
+  const {
+    toggleState: isReasoning,
+    debouncedChange: toggleReason,
+    isPinned: isReasonPinned,
+    setIsPinned: setIsReasonPinned,
+    isAvailable: isReasonAvailable,
+  } = reason;
   const { isPinned: isFileSearchPinned, setIsPinned: setIsFileSearchPinned } = fileSearch;
   const { isPinned: isArtifactsPinned, setIsPinned: setIsArtifactsPinned } = artifacts;
 
   const canRunCode = useHasAccess({
     permissionType: PermissionTypes.RUN_CODE,
+    permission: Permissions.USE,
+  });
+
+  const canUseWebSearch = useHasAccess({
+    permissionType: PermissionTypes.WEB_SEARCH,
     permission: Permissions.USE,
   });
 
@@ -62,6 +88,22 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     const newValue = !codeInterpreter.toggleState;
     codeInterpreter.debouncedChange({ value: newValue });
   }, [codeInterpreter]);
+
+  const handleWebSearchToggle = useCallback(() => {
+    if (!canUseWebSearch) {
+      return;
+    }
+    const newValue = !Boolean(webSearchState);
+    toggleWebSearch({ value: newValue });
+  }, [canUseWebSearch, webSearchState, toggleWebSearch]);
+
+  const handleReasonToggle = useCallback(() => {
+    if (!isReasonAvailable) {
+      return;
+    }
+    const newValue = !isReasoning;
+    toggleReason({ value: newValue });
+  }, [isReasonAvailable, isReasoning, toggleReason]);
 
   const handleFileSearchToggle = useCallback(() => {
     const newValue = !fileSearch.toggleState;
@@ -98,6 +140,74 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
   const mcpPlaceholder = startupConfig?.interface?.mcpServers?.placeholder;
 
   const dropdownItems: MenuItemProps[] = [];
+
+  if (canUseWebSearch) {
+    dropdownItems.push({
+      onClick: handleWebSearchToggle,
+      hideOnClick: false,
+      render: (props) => (
+        <div {...props}>
+          <div className="flex items-center gap-2">
+            <Globe className="icon-md" />
+            <span>{localize('com_ui_search')}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsWebSearchPinned(!isWebSearchPinned);
+              }}
+              className={cn(
+                'rounded p-1 transition-all duration-200',
+                'hover:bg-surface-secondary hover:shadow-sm',
+                !isWebSearchPinned && 'text-text-secondary hover:text-text-primary',
+              )}
+              aria-label={isWebSearchPinned ? 'Unpin' : 'Pin'}
+            >
+              <div className="h-4 w-4">
+                <PinIcon unpin={isWebSearchPinned} />
+              </div>
+            </button>
+          </div>
+        </div>
+      ),
+    });
+  }
+
+  if (isReasonAvailable) {
+    dropdownItems.push({
+      onClick: handleReasonToggle,
+      hideOnClick: false,
+      render: (props) => (
+        <div {...props}>
+          <div className="flex items-center gap-2">
+            <Brain className="icon-md" />
+            <span>Reason</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsReasonPinned(!isReasonPinned);
+              }}
+              className={cn(
+                'rounded p-1 transition-all duration-200',
+                'hover:bg-surface-secondary hover:shadow-sm',
+                !isReasonPinned && 'text-text-secondary hover:text-text-primary',
+              )}
+              aria-label={isReasonPinned ? 'Unpin' : 'Pin'}
+            >
+              <div className="h-4 w-4">
+                <PinIcon unpin={isReasonPinned} />
+              </div>
+            </button>
+          </div>
+        </div>
+      ),
+    });
+  }
 
   if (fileSearchEnabled && canUseFileSearch) {
     dropdownItems.push({

@@ -33,7 +33,23 @@ const {
 } = require('./prompts');
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
-const BaseClient = require('./BaseClient');
+const BaseClientModule = require('./BaseClient');
+const BaseClientCandidates = [
+  BaseClientModule,
+  BaseClientModule?.BaseClient,
+  BaseClientModule?.default,
+  BaseClientModule?.default?.BaseClient,
+  BaseClientModule?.BaseClient?.default,
+];
+
+const BaseClient = BaseClientCandidates.find((candidate) => typeof candidate === 'function');
+
+if (!BaseClient) {
+  const keys = BaseClientModule && typeof BaseClientModule === 'object' ? Object.keys(BaseClientModule) : [];
+  throw new TypeError(
+    `BaseClient module did not export a constructor${keys.length ? ` (received keys: ${keys.join(', ')})` : ''}`,
+  );
+}
 
 const HUMAN_PROMPT = '\n\nHuman:';
 const AI_PROMPT = '\n\nAssistant:';
