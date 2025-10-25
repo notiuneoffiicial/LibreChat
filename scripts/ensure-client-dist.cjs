@@ -4,6 +4,12 @@ const { spawnSync } = require('child_process');
 
 const workspaceRoot = path.resolve(__dirname, '..');
 const distIndexPath = path.resolve(workspaceRoot, 'client', 'dist', 'index.html');
+const clientDir = path.resolve(workspaceRoot, 'client');
+
+const viteExecutable =
+  process.platform === 'win32'
+    ? path.resolve(clientDir, 'node_modules', '.bin', 'vite.cmd')
+    : path.resolve(clientDir, 'node_modules', '.bin', 'vite');
 
 if (fs.existsSync(distIndexPath)) {
   process.exit(0);
@@ -29,6 +35,18 @@ const pkgManager = (() => {
 const buildCommand = process.env.ENSURE_CLIENT_DIST_COMMAND;
 const commandLabel =
   buildCommand || `${pkgManager} run build:client`;
+
+if (
+  !buildCommand &&
+  !fs.existsSync(viteExecutable) &&
+  !fs.existsSync(path.resolve(clientDir, 'node_modules', 'vite'))
+) {
+  console.error('[ensure-client-dist] Missing client build and Vite dependency not installed.');
+  console.error(
+    '[ensure-client-dist] Install devDependencies (e.g. run without "--omit=dev") and execute "npm run build:client" before starting the backend.'
+  );
+  process.exit(1);
+}
 
 console.log(`[ensure-client-dist] Client build missing. Running "${commandLabel}"...`);
 
