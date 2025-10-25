@@ -1161,7 +1161,10 @@ class BaseClient {
   }
 
   normalizeMemoryMessages(messages) {
-    const windowSize = this.memoryWindowSize ?? this.options?.req?.config?.memory?.messageWindowSize ?? 5;
+    const windowSize =
+      this.memoryWindowSize ??
+      this.options?.req?.config?.memory?.messageWindowSize ??
+      5;
     const chatMessages = [];
 
     for (const message of messages) {
