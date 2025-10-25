@@ -30,17 +30,24 @@ const pkgManager = (() => {
 const buildCommand = process.env.ENSURE_CLIENT_DIST_COMMAND;
 const commandLabel = buildCommand || `${pkgManager} run build:client`;
 
+let missingLocalVite = false;
+
 if (!buildCommand) {
   const viteExecutable =
     process.platform === 'win32'
       ? path.resolve(clientDir, 'node_modules', '.bin', 'vite.cmd')
       : path.resolve(clientDir, 'node_modules', '.bin', 'vite');
-  if (!fs.existsSync(viteExecutable) && !fs.existsSync(path.resolve(clientDir, 'node_modules', 'vite'))) {
-    console.warn('[ensure-client-dist] Vite devDependency not found locally; attempting client build anyway.');
-    console.warn(
-      '[ensure-client-dist] If this command fails, reinstall with devDependencies or provide a prebuilt "client/dist" directory.'
-    );
+  missingLocalVite =
+    !fs.existsSync(viteExecutable) && !fs.existsSync(path.resolve(clientDir, 'node_modules', 'vite'));
+
+  if (missingLocalVite) {
+    console.warn('[ensure-client-dist] Vite devDependency not found locally; skipping client build.');
+    console.warn('[ensure-client-dist] Install devDependencies to build locally or ship a prebuilt "client/dist" directory.');
   }
+}
+
+if (missingLocalVite) {
+  process.exit(0);
 }
 
 console.log(`[ensure-client-dist] Client build missing. Running "${commandLabel}"...`);
