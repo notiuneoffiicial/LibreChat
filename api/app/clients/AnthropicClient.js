@@ -542,9 +542,7 @@ class AnthropicClient extends BaseClient {
 
     if (memorySummary) {
       const memoryPrompt = `${memoryInstructions}\n\n# Existing memory about the user:\n${memorySummary}`;
-      promptPrefix = promptPrefix
-        ? `${promptPrefix.trim()}\n\n${memoryPrompt}`
-        : memoryPrompt;
+      promptPrefix = promptPrefix ? `${promptPrefix.trim()}\n\n${memoryPrompt}` : memoryPrompt;
     }
 
     // Prompt AI to respond, empty if last message was from AI
