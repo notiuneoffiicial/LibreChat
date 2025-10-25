@@ -3,11 +3,35 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const workspaceRoot = path.resolve(__dirname, '..');
-const distIndexPath = path.resolve(workspaceRoot, 'client', 'dist', 'index.html');
+const distDir = path.resolve(workspaceRoot, 'client', 'dist');
+const distIndexPath = path.resolve(distDir, 'index.html');
 const clientDir = path.resolve(workspaceRoot, 'client');
+const cachedDistDir = path.resolve(clientDir, '.prebuilt-dist');
+const cachedDistIndexPath = path.resolve(cachedDistDir, 'index.html');
 
 if (fs.existsSync(distIndexPath)) {
+  try {
+    if (fs.existsSync(cachedDistDir)) {
+      fs.rmSync(cachedDistDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(cachedDistDir, { recursive: true });
+    fs.cpSync(distDir, cachedDistDir, { recursive: true });
+  } catch (err) {
+    console.warn('[ensure-client-dist] Unable to refresh cached client build:', err.message);
+  }
   process.exit(0);
+}
+
+if (fs.existsSync(cachedDistIndexPath)) {
+  try {
+    console.log('[ensure-client-dist] Restoring "client/dist" from cached build.');
+    fs.rmSync(distDir, { recursive: true, force: true });
+    fs.mkdirSync(distDir, { recursive: true });
+    fs.cpSync(cachedDistDir, distDir, { recursive: true });
+    process.exit(0);
+  } catch (err) {
+    console.warn('[ensure-client-dist] Failed to restore cached client build:', err.message);
+  }
 }
 
 const userAgent = process.env.npm_config_user_agent ?? '';
@@ -80,4 +104,15 @@ if (result.status !== 0) {
 if (!fs.existsSync(distIndexPath)) {
   console.error('[ensure-client-dist] Build command completed but "client/dist/index.html" is still missing.');
   process.exit(1);
+}
+
+try {
+  if (fs.existsSync(cachedDistDir)) {
+    fs.rmSync(cachedDistDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(cachedDistDir, { recursive: true });
+  fs.cpSync(distDir, cachedDistDir, { recursive: true });
+  console.log('[ensure-client-dist] Cached client build at "client/.prebuilt-dist".');
+} catch (err) {
+  console.warn('[ensure-client-dist] Unable to cache client build:', err.message);
 }
