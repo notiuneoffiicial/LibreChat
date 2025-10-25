@@ -49,9 +49,13 @@ const POSITIVE_REQUEST_PATTERNS = [
   /\bdon't forget\b/i,
   /\bstore (?:this|that|it)\b/i,
   /\bsave (?:this|that|it)\b/i,
-  /\bnote (?:this|that)\b/i,
-  /\bwrite this down\b/i,
+  /\bnote (?:this|that|it)\b/i,
+  /\bwrite (?:this|that|it) down\b/i,
+  /\bjot (?:this|that|it) down\b/i,
+  /\bmake a note of (?:this|that|it)\b/i,
+  /\blog (?:this|that|it)\b/i,
   /\bkeep this in mind\b/i,
+  /\bkeep track of (?:this|that|it)\b/i,
 ];
 
 const DELETE_REQUEST_PATTERNS = [
@@ -59,13 +63,17 @@ const DELETE_REQUEST_PATTERNS = [
   /\bdelete the memory\b/i,
   /\bremove the memory\b/i,
   /\bforget the memory\b/i,
+  /\bclear (?:that|this|my) memory\b/i,
+  /\b(?:erase|wipe) (?:that|this|my) memory\b/i,
 ];
 
 const MEMORY_OPT_OUT_PATTERNS = [
   /\b(?:please\s+)?don't (?:remember|save|store|keep)\b/i,
   /\bdo not (?:remember|save|store|keep)\b/i,
-  /\bno need to remember\b/i,
+  /\bno need to (?:remember|save|store|keep)\b/i,
   /\bplease ignore this\b/i,
+  /\bnot for memory\b/i,
+  /\bno need to take note\b/i,
 ];
 
 const NOTABLE_PATTERNS = [
@@ -85,6 +93,27 @@ const NOTABLE_PATTERNS = [
   { regex: /\bmy (?:partner|spouse|wife|husband|son|daughter|kid|children)\b/i, weight: 0.4 },
   { regex: /\bproject deadline\b/i, weight: 0.35 },
   { regex: /\bi'm planning to\b/i, weight: 0.35 },
+  { regex: /\bi (?:plan|plans|planning) to\b/i, weight: 0.4 },
+  { regex: /\bi['’]?m going to\b/i, weight: 0.35 },
+  { regex: /\bi['’]?ll (?:be|start|finish|have)\b/i, weight: 0.3 },
+  { regex: /\bwe(?:'re| are) (?:planning|going to)\b/i, weight: 0.35 },
+  { regex: /\blet['’]?s (?:plan|schedule|meet|set up|organize)\b/i, weight: 0.35 },
+  { regex: /\bi (?:just|recently)? (?:got|accepted|started) (?:a|the)? new job\b/i, weight: 0.55 },
+  { regex: /\bi (?:moved|relocated) to\b/i, weight: 0.6 },
+  { regex: /\bstandup\b/i, weight: 0.3 },
+  { regex: /\b(?:deadline|due date) (?:is|on)\b/i, weight: 0.35 },
+  { regex: /\b(?:vacation|trip) (?:is|on|starts)\b/i, weight: 0.3 },
+];
+
+const CONFIRMATION_PATTERNS = [
+  /\b(?:yes|yeah|yep|sure|absolutely|definitely|of course)\b[^.!?\n]*\b(?:please|do|go ahead|sounds good|that works)?\b/i,
+  /\b(?:please do|please save it|please remember|go ahead|sounds good|that works|that would be (?:great|helpful|perfect))\b/i,
+];
+
+const ASSISTANT_MEMORY_PROMPT_PATTERNS = [
+  /\b(?:remember|save|store|keep track|memor(?:y|ise))\b/i,
+  /\bshould i (?:remember|save|store|keep)\b/i,
+  /\bwant me to (?:remember|save|store)\b/i,
 ];
 
 const clampThreshold = (value?: number) => {
@@ -101,6 +130,8 @@ const clampThreshold = (value?: number) => {
 };
 
 type MessageWithRole = BaseMessage & { role?: string; lc_kwargs?: { role?: string } };
+
+type UserMessageInfo = { text: string; normalized: string };
 
 const getMessageRole = (message: MessageWithRole): string | undefined => {
   if (typeof message?.role === 'string') {
@@ -160,11 +191,26 @@ const getMessageText = (message: BaseMessage): string => {
   return '';
 };
 
-const getLastUserMessageText = (messages: BaseMessage[]): string => {
+const collectUserMessages = (messages: BaseMessage[]): UserMessageInfo[] => {
+  const userMessages: UserMessageInfo[] = [];
+  for (const baseMessage of messages) {
+    const message = baseMessage as MessageWithRole;
+    if (getMessageRole(message) !== 'user') {
+      continue;
+    }
+    const text = getMessageText(message).trim();
+    if (!text) {
+      continue;
+    }
+    userMessages.push({ text, normalized: text.toLowerCase() });
+  }
+  return userMessages;
+};
+
+const getLastAssistantMessageText = (messages: BaseMessage[]): string => {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i] as MessageWithRole;
-    const role = getMessageRole(message);
-    if (role === 'user') {
+    if (getMessageRole(message) === 'assistant') {
       return getMessageText(message);
     }
   }
@@ -179,7 +225,7 @@ const computeNotableScore = (text: string): number => {
     }
   }
 
-  const pronounMatches = text.match(/\bmy\b/gi)?.length ?? 0;
+  const pronounMatches = text.match(/\b(?:my|our)\b/gi)?.length ?? 0;
   if (pronounMatches >= 2) {
     score = Math.min(1, score + 0.1);
   }
@@ -225,9 +271,9 @@ export function classifyMemoryWindow({
   const normalizedThreshold = clampThreshold(
     typeof threshold === 'number' ? threshold : DEFAULT_NOTABLE_THRESHOLD,
   );
-  const lastUserText = getLastUserMessageText(messages).trim();
+  const userMessages = collectUserMessages(messages);
 
-  if (!lastUserText) {
+  if (userMessages.length === 0) {
     return {
       shouldProcess: false,
       score: 0,
@@ -237,20 +283,52 @@ export function classifyMemoryWindow({
     };
   }
 
-  const normalizedText = lastUserText.toLowerCase();
-  const hasRememberRequest =
-    REMEMBER_PATTERN.test(normalizedText) && !NEGATIVE_REMEMBER_PATTERN.test(normalizedText);
-  const hasPositiveRequest =
-    hasRememberRequest || POSITIVE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalizedText));
-  const hasDeleteRequest =
-    !/don't forget/.test(normalizedText) &&
-    DELETE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalizedText));
-  const explicitRequest = hasPositiveRequest || hasDeleteRequest;
+  const aggregatedText = userMessages.map((message) => message.text).join('\n\n');
+  const aggregatedScore = computeNotableScore(aggregatedText);
+  const perMessageScores = userMessages.map((message) => computeNotableScore(message.text));
+  let score = Math.max(aggregatedScore, ...perMessageScores, 0);
+  score = Math.min(1, score);
 
-  const explicitOptOut =
-    !explicitRequest && MEMORY_OPT_OUT_PATTERNS.some((pattern) => pattern.test(normalizedText));
+  let explicitRequest = false;
+  let explicitOptOut = false;
 
-  const score = computeNotableScore(lastUserText);
+  for (let i = userMessages.length - 1; i >= 0; i--) {
+    const normalizedText = userMessages[i].normalized;
+    if (MEMORY_OPT_OUT_PATTERNS.some((pattern) => pattern.test(normalizedText))) {
+      explicitOptOut = true;
+      break;
+    }
+
+    const hasRememberRequest =
+      REMEMBER_PATTERN.test(normalizedText) && !NEGATIVE_REMEMBER_PATTERN.test(normalizedText);
+    const hasPositiveRequest =
+      hasRememberRequest || POSITIVE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalizedText));
+    const hasDeleteRequest =
+      !/don't forget/.test(normalizedText) &&
+      DELETE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalizedText));
+
+    if (hasPositiveRequest || hasDeleteRequest) {
+      explicitRequest = true;
+      break;
+    }
+  }
+
+  const lastUser = userMessages[userMessages.length - 1];
+  const assistantPrompt = getLastAssistantMessageText(messages).toLowerCase();
+  const assistantPromptedMemory =
+    assistantPrompt.length > 0 &&
+    ASSISTANT_MEMORY_PROMPT_PATTERNS.some((pattern) => pattern.test(assistantPrompt));
+
+  const confirmation =
+    lastUser != null && CONFIRMATION_PATTERNS.some((pattern) => pattern.test(lastUser.normalized));
+
+  if (!explicitRequest && !explicitOptOut && assistantPromptedMemory && confirmation) {
+    const priorScores = perMessageScores.slice(0, -1);
+    const hasPriorSignal = priorScores.some((value) => value >= Math.max(0.2, normalizedThreshold * 0.5));
+    if (hasPriorSignal) {
+      explicitRequest = true;
+    }
+  }
 
   if (explicitOptOut) {
     return {
@@ -265,7 +343,7 @@ export function classifyMemoryWindow({
   if (explicitRequest) {
     return {
       shouldProcess: true,
-      score: 1,
+      score: Math.max(1, score),
       reason: 'explicit_request',
       explicitRequest: true,
       explicitOptOut: false,

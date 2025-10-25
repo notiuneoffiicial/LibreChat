@@ -570,4 +570,62 @@ describe('classifyMemoryWindow', () => {
     expect(result.reason).toBe('noise');
     expect(result.score).toBeLessThan(0.4);
   });
+
+  it('considers earlier user turns in the window when assessing notability', () => {
+    const messages: BaseMessage[] = [
+      { role: 'user', content: 'My birthday is on June 1st.' } as unknown as BaseMessage,
+      { role: 'assistant', content: 'That is coming up soon!' } as unknown as BaseMessage,
+      { role: 'user', content: 'Thanks!' } as unknown as BaseMessage,
+    ];
+
+    const result = classifyMemoryWindow({
+      messages,
+      threshold: 0.6,
+      tokenLimit: 500,
+      totalTokens: 120,
+    });
+
+    expect(result.shouldProcess).toBe(true);
+    expect(result.reason).toBe('classifier');
+    expect(result.score).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('treats confirmations after assistant memory prompts as explicit requests', () => {
+    const messages: BaseMessage[] = [
+      { role: 'user', content: 'I just moved to Berlin for work.' } as unknown as BaseMessage,
+      { role: 'assistant', content: 'Do you want me to remember that?' } as unknown as BaseMessage,
+      { role: 'user', content: 'Yes please do.' } as unknown as BaseMessage,
+    ];
+
+    const result = classifyMemoryWindow({
+      messages,
+      threshold: 0.7,
+      tokenLimit: 200,
+      totalTokens: 40,
+    });
+
+    expect(result.shouldProcess).toBe(true);
+    expect(result.reason).toBe('explicit_request');
+    expect(result.explicitRequest).toBe(true);
+    expect(result.explicitOptOut).toBe(false);
+  });
+
+  it('honors the most recent explicit opt-out instruction', () => {
+    const messages: BaseMessage[] = [
+      { role: 'user', content: 'Please remember that I love jazz.' } as unknown as BaseMessage,
+      { role: 'assistant', content: 'Got it!' } as unknown as BaseMessage,
+      { role: 'user', content: "Actually, don't remember that." } as unknown as BaseMessage,
+    ];
+
+    const result = classifyMemoryWindow({
+      messages,
+      threshold: 0.5,
+      tokenLimit: 200,
+      totalTokens: 80,
+    });
+
+    expect(result.shouldProcess).toBe(false);
+    expect(result.reason).toBe('opt_out');
+    expect(result.explicitOptOut).toBe(true);
+  });
 });

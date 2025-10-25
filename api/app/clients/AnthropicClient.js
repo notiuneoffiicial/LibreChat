@@ -21,6 +21,7 @@ const {
   checkPromptCacheSupport,
   getModelMaxOutputTokens,
   createStreamEventHandlers,
+  memoryInstructions,
 } = require('@librechat/api');
 const {
   truncateText,
@@ -534,6 +535,16 @@ class AnthropicClient extends BaseClient {
       promptPrefix = `${identityPrefix}${promptPrefix}`;
     }
 
+    const memorySummary = await this.ensureMemoryContext({
+      conversationId: this.conversationId,
+      responseMessageId: this.responseMessageId,
+    });
+
+    if (memorySummary) {
+      const memoryPrompt = `${memoryInstructions}\n\n# Existing memory about the user:\n${memorySummary}`;
+      promptPrefix = promptPrefix ? `${promptPrefix.trim()}\n\n${memoryPrompt}` : memoryPrompt;
+    }
+
     // Prompt AI to respond, empty if last message was from AI
     let isEdited = lastAuthor === this.assistantLabel;
     const promptSuffix = isEdited ? '' : `${promptPrefix}${this.assistantLabel}\n`;
@@ -664,6 +675,7 @@ class AnthropicClient extends BaseClient {
     ) {
       await buildMessagesPayload();
       processTokens();
+      this.startMemoryProcessing(messagesInWindow);
       return {
         prompt: messagesPayload,
         context: messagesInWindow,
@@ -682,6 +694,8 @@ class AnthropicClient extends BaseClient {
     }
 
     let prompt = `${promptBody}${promptSuffix}`;
+
+    this.startMemoryProcessing(messagesInWindow);
 
     return { prompt, context, promptTokens: currentTokenCount, tokenCountMap };
   }
