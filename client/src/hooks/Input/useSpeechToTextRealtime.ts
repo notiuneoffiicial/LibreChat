@@ -209,9 +209,7 @@ const useSpeechToTextRealtime = (
 
     const descriptor = currentDescriptorRef.current;
     const includeModalities = Array.isArray(descriptor?.include)
-      ? descriptor.include.filter(
-          (value) => typeof value === 'string' && value.trim().length > 0,
-        )
+      ? descriptor.include.filter((value) => typeof value === 'string' && value.trim().length > 0)
       : [];
 
     let requestedModalities: string[];
