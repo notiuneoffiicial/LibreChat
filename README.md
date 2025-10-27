@@ -22,10 +22,41 @@ speech:
       transport: websocket           # optional – `websocket` (default) or `webrtc`
       stream: true                   # optional – whether to request server-side streaming
       url: wss://api.openai.com/v1/realtime # optional – override the realtime base URL
-      inputAudioFormat:              # optional – overrides fallback defaults
-        encoding: pcm16
-        sampleRate: 24000
-        channels: 1
+      session:                       # optional – defaults for the realtime session envelope
+        mode: conversation           # e.g. `conversation`, `speech_to_text`, `speech_to_speech`
+        speechToSpeech: false        # enable to request spoken responses from the model
+        model: gpt-4o-realtime-preview # override the session model when it differs from `model`
+        voice: alloy                 # pre-select the realtime voice
+        voices: [alloy, nova, verse] # optional – surface allowed voices in the UI
+        instructions: |
+          You are LibreChat's realtime assistant. Respond briefly and confirm
+          important details back to the user.
+        instructionTemplates:        # optional named snippets surfaced to the UI
+          default: |
+            Keep replies concise and finish with a follow-up question.
+          handsfree: |
+            Provide spoken-friendly responses with no markdown formatting.
+      audio:
+        input:
+          format:                    # optional – overrides fallback audio format defaults
+            encoding: pcm16
+            sampleRate: 24000
+            channels: 1
+          noiseReduction: server_light   # optional – choose preset or custom object
+          transcriptionDefaults:         # optional – baseline Whisper/ASR preferences
+            language: en
+            temperature: 0
+            diarization: true
+          turnDetection:                 # optional – configure server / semantic VAD
+            type: server_vad
+            serverVad:
+              enabled: true
+              silenceDurationMs: 500
+              threshold: 0.5
+            semantic:
+              enabled: false
+              minDecisionIntervalMs: 750
+      include: [text, audio]        # optional – limit which modalities are requested
       ffmpegPath: /usr/local/bin/ffmpeg # optional – set if ffmpeg is not on PATH
 ```
 
@@ -47,3 +78,16 @@ streams microphone audio over the requested transport.
 
 After updating the YAML, restart the server so the new speech configuration is
 picked up.
+
+### Migration notes
+
+- Existing configurations that only specify the legacy `inputAudioFormat`
+  continue to work. When you're ready, move those settings under
+  `audio.input.format` and optionally populate the new
+  `noiseReduction`, `transcriptionDefaults`, and `turnDetection` blocks.
+- New `session` defaults (mode, model, voice, instructions, templates, and the
+  speech-to-speech toggle) are persisted for authenticated users without exposing
+  your API key. The UI falls back to legacy behaviour if the block is omitted.
+- The optional `include` list narrows which modalities are requested when the
+  realtime session is created (for example, `['text']` to disable audio
+  responses).

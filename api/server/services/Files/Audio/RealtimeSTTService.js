@@ -94,10 +94,12 @@ class RealtimeSTTService {
 
   buildSessionPayload(realtimeConfig) {
     const payload = {
-      model: realtimeConfig.model,
+      model: realtimeConfig.session?.model ?? realtimeConfig.model,
     };
 
-    const inputFormat = this.normalizeInputFormat(realtimeConfig.inputAudioFormat);
+    const inputFormat = this.normalizeInputFormat(
+      realtimeConfig.audio?.input?.format ?? realtimeConfig.inputAudioFormat,
+    );
 
     if (inputFormat) {
       const { encoding } = inputFormat;
@@ -146,13 +148,35 @@ class RealtimeSTTService {
         throw new RealtimeSTTError('Empty response from realtime session endpoint', 502);
       }
 
+      const inputFormat = this.normalizeInputFormat(
+        realtimeConfig.audio?.input?.format ?? realtimeConfig.inputAudioFormat,
+      );
+
+      const includeList = Array.isArray(realtimeConfig.include)
+        ? [...realtimeConfig.include]
+        : undefined;
+
+      const sessionDefaults = realtimeConfig.session ? { ...realtimeConfig.session } : undefined;
+
+      const audioConfig = {
+        ...(realtimeConfig.audio ? { ...realtimeConfig.audio, input: undefined } : {}),
+        input: {
+          ...(realtimeConfig.audio?.input ? { ...realtimeConfig.audio.input } : {}),
+          format: inputFormat,
+        },
+      };
+
       return {
         url: realtimeConfig.url ?? DEFAULT_REALTIME_URL,
         transport: realtimeConfig.transport ?? 'websocket',
         stream: typeof realtimeConfig.stream === 'boolean' ? realtimeConfig.stream : true,
-        inputAudioFormat: this.normalizeInputFormat(realtimeConfig.inputAudioFormat),
+        inputAudioFormat: inputFormat,
         model: realtimeConfig.model,
         session,
+        ...(realtimeConfig.ffmpegPath ? { ffmpegPath: realtimeConfig.ffmpegPath } : {}),
+        audio: audioConfig,
+        ...(includeList ? { include: includeList } : {}),
+        ...(sessionDefaults ? { sessionDefaults } : {}),
       };
     } catch (error) {
       const status = error?.response?.status ?? error?.status ?? 502;

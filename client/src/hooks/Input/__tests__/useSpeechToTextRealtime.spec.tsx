@@ -98,6 +98,15 @@ describe('useSpeechToTextRealtime', () => {
       id: 'sess_123',
       client_secret: { value: 'secret' },
     },
+    audio: {
+      input: {
+        format: {
+          encoding: 'pcm16',
+          sampleRate: 24000,
+          channels: 1,
+        },
+      },
+    },
   };
 
   beforeAll(() => {

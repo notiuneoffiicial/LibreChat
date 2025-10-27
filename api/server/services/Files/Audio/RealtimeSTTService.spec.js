@@ -102,6 +102,15 @@ describe('RealtimeSTTService', () => {
       },
       model: 'gpt-4o-realtime-preview',
       session: mockSession,
+      audio: {
+        input: {
+          format: {
+            encoding: 'pcm16',
+            sampleRate: 16000,
+            channels: 1,
+          },
+        },
+      },
     });
     expect(getAppConfig).not.toHaveBeenCalled();
   });
@@ -140,6 +149,77 @@ describe('RealtimeSTTService', () => {
       sampleRate: 24000,
       channels: 1,
     });
+  });
+
+  it('includes extended realtime defaults in the session descriptor', async () => {
+    process.env.REALTIME_KEY = 'test-key';
+
+    const req = {
+      config: {
+        speech: {
+          stt: {
+            realtime: {
+              apiKey: '${REALTIME_KEY}',
+              model: 'gpt-4o-realtime-preview',
+              session: {
+                mode: 'conversation',
+                model: 'gpt-4o-realtime-latest',
+                voice: 'alloy',
+                instructions: 'Keep responses brief.',
+              },
+              audio: {
+                input: {
+                  noiseReduction: 'server_light',
+                  turnDetection: {
+                    type: 'server_vad',
+                    serverVad: {
+                      enabled: true,
+                    },
+                  },
+                },
+              },
+              include: ['text', 'audio'],
+            },
+          },
+        },
+      },
+    };
+
+    const httpClient = {
+      post: jest.fn().mockResolvedValue({ data: { client_secret: { value: 'secret' } } }),
+    };
+
+    const service = new RealtimeSTTService({ httpClient });
+    const descriptor = await service.createSessionDescriptor(req);
+
+    expect(httpClient.post).toHaveBeenCalledWith(
+      DEFAULT_SESSION_ENDPOINT,
+      expect.objectContaining({ model: 'gpt-4o-realtime-latest' }),
+      expect.any(Object),
+    );
+    expect(descriptor.sessionDefaults).toEqual({
+      mode: 'conversation',
+      model: 'gpt-4o-realtime-latest',
+      voice: 'alloy',
+      instructions: 'Keep responses brief.',
+    });
+    expect(descriptor.audio).toMatchObject({
+      input: {
+        format: {
+          encoding: 'pcm16',
+          sampleRate: 24000,
+          channels: 1,
+        },
+        noiseReduction: 'server_light',
+        turnDetection: {
+          type: 'server_vad',
+          serverVad: {
+            enabled: true,
+          },
+        },
+      },
+    });
+    expect(descriptor.include).toEqual(['text', 'audio']);
   });
 
   it('throws an error when realtime config is missing', async () => {
