@@ -94,28 +94,132 @@ class RealtimeSTTService {
 
   buildSessionPayload(realtimeConfig) {
     const payload = {
-      model: realtimeConfig.model,
+      model: realtimeConfig.session?.model ?? realtimeConfig.model,
     };
 
-    const inputFormat = this.normalizeInputFormat(realtimeConfig.inputAudioFormat);
+    const sessionDefaults = realtimeConfig.session ?? {};
+
+    if (typeof sessionDefaults.mode === 'string') {
+      payload.mode = sessionDefaults.mode;
+    }
+
+    if (typeof sessionDefaults.voice === 'string') {
+      payload.voice = sessionDefaults.voice;
+    }
+
+    if (Array.isArray(sessionDefaults.voices) && sessionDefaults.voices.length > 0) {
+      payload.voices = [...sessionDefaults.voices];
+    }
+
+    if (typeof sessionDefaults.instructions === 'string') {
+      payload.instructions = sessionDefaults.instructions;
+    }
+
+    if (typeof sessionDefaults.speechToSpeech === 'boolean') {
+      payload.speech_to_speech = sessionDefaults.speechToSpeech;
+    }
+
+    if (
+      sessionDefaults.instructionTemplates &&
+      typeof sessionDefaults.instructionTemplates === 'object'
+    ) {
+      payload.instruction_templates = { ...sessionDefaults.instructionTemplates };
+    }
+
+    const includeList = Array.isArray(realtimeConfig.include)
+      ? realtimeConfig.include.filter(
+          (value) => typeof value === 'string' && value.trim().length > 0,
+        )
+      : [];
+
+    if (includeList.length > 0) {
+      payload.modalities = [...new Set(includeList)];
+    }
+
+    const inputFormat = this.normalizeInputFormat(
+      realtimeConfig.audio?.input?.format ?? realtimeConfig.inputAudioFormat,
+    );
 
     if (inputFormat) {
-      const { encoding } = inputFormat;
+      const { encoding, sampleRate, channels, ...rest } = inputFormat;
+      let codec = 'pcm16';
 
       if (typeof encoding === 'string' && encoding.trim().length > 0) {
-        payload.input_audio_format = encoding;
+        codec = encoding;
       } else if (
         typeof encoding === 'object' &&
         typeof encoding.codec === 'string' &&
         encoding.codec.trim().length > 0
       ) {
-        payload.input_audio_format = encoding.codec;
-      } else {
-        payload.input_audio_format = 'pcm16';
+        codec = encoding.codec;
+        Object.assign(rest, this.#convertKeysToSnakeCase({ ...encoding, codec: undefined }));
+      }
+
+      payload.input_audio_format = {
+        codec,
+        sample_rate: typeof sampleRate === 'number' ? sampleRate : undefined,
+        channels: typeof channels === 'number' ? channels : undefined,
+        ...this.#convertKeysToSnakeCase(rest),
+      };
+
+      if (payload.input_audio_format.sample_rate === undefined) {
+        delete payload.input_audio_format.sample_rate;
+      }
+
+      if (payload.input_audio_format.channels === undefined) {
+        delete payload.input_audio_format.channels;
+      }
+    }
+
+    const audioInput = realtimeConfig.audio?.input;
+
+    if (audioInput) {
+      const audioPayload = {};
+
+      if (audioInput.noiseReduction !== undefined) {
+        audioPayload.noise_reduction = audioInput.noiseReduction;
+      }
+
+      if (audioInput.transcriptionDefaults) {
+        audioPayload.transcription_defaults = this.#convertKeysToSnakeCase(
+          audioInput.transcriptionDefaults,
+        );
+      }
+
+      if (audioInput.turnDetection) {
+        audioPayload.turn_detection = this.#convertKeysToSnakeCase(audioInput.turnDetection);
+      }
+
+      if (Object.keys(audioPayload).length > 0) {
+        payload.audio = { input: audioPayload };
       }
     }
 
     return payload;
+  }
+
+  #convertKeysToSnakeCase(value) {
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.#convertKeysToSnakeCase(entry));
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    return Object.entries(value).reduce((acc, [key, entryValue]) => {
+      if (entryValue === undefined) {
+        return acc;
+      }
+
+      const normalizedKey = key
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[-\s]+/g, '_')
+        .toLowerCase();
+
+      acc[normalizedKey] = this.#convertKeysToSnakeCase(entryValue);
+      return acc;
+    }, {});
   }
 
   buildHeaders(apiKey) {
@@ -146,13 +250,38 @@ class RealtimeSTTService {
         throw new RealtimeSTTError('Empty response from realtime session endpoint', 502);
       }
 
+      const inputFormat = this.normalizeInputFormat(
+        realtimeConfig.audio?.input?.format ?? realtimeConfig.inputAudioFormat,
+      );
+
+      const includeList = Array.isArray(realtimeConfig.include)
+        ? [...realtimeConfig.include]
+        : undefined;
+
+      const sessionDefaults = realtimeConfig.session ? { ...realtimeConfig.session } : undefined;
+
+      const audioConfig = {
+        ...(realtimeConfig.audio ? { ...realtimeConfig.audio, input: undefined } : {}),
+        input: {
+          ...(realtimeConfig.audio?.input ? { ...realtimeConfig.audio.input } : {}),
+          format: inputFormat,
+        },
+      };
+
+      const descriptorModel =
+        session?.model ?? session?.default_model ?? sessionDefaults?.model ?? realtimeConfig.model;
+
       return {
         url: realtimeConfig.url ?? DEFAULT_REALTIME_URL,
         transport: realtimeConfig.transport ?? 'websocket',
         stream: typeof realtimeConfig.stream === 'boolean' ? realtimeConfig.stream : true,
-        inputAudioFormat: this.normalizeInputFormat(realtimeConfig.inputAudioFormat),
-        model: realtimeConfig.model,
+        inputAudioFormat: inputFormat,
+        model: descriptorModel,
         session,
+        ...(realtimeConfig.ffmpegPath ? { ffmpegPath: realtimeConfig.ffmpegPath } : {}),
+        audio: audioConfig,
+        ...(includeList ? { include: includeList } : {}),
+        ...(sessionDefaults ? { sessionDefaults } : {}),
       };
     } catch (error) {
       const status = error?.response?.status ?? error?.status ?? 502;

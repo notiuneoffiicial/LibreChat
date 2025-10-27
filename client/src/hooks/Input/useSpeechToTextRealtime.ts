@@ -207,7 +207,24 @@ const useSpeechToTextRealtime = (
       return;
     }
 
-    const didSend = sendJsonMessage({ type: 'response.create', response: { modalities: ['text'] } });
+    const descriptor = currentDescriptorRef.current;
+    const includeModalities = Array.isArray(descriptor?.include)
+      ? descriptor.include.filter((value) => typeof value === 'string' && value.trim().length > 0)
+      : [];
+
+    let requestedModalities: string[];
+    if (includeModalities.length) {
+      requestedModalities = [...new Set(includeModalities)];
+    } else if (descriptor?.sessionDefaults?.speechToSpeech) {
+      requestedModalities = ['text', 'audio'];
+    } else {
+      requestedModalities = ['text'];
+    }
+
+    const didSend = sendJsonMessage({
+      type: 'response.create',
+      response: { modalities: requestedModalities },
+    });
     if (didSend) {
       hasRequestedResponseRef.current = true;
       pendingResponseRequestRef.current = false;

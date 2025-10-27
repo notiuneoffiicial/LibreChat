@@ -13,6 +13,56 @@ const { getAppConfig } = require('~/server/services/Config');
  * @returns {Promise<void>}
  * @throws {Error} - If the custom configuration or the speechTab schema is missing, an error is thrown
  */
+const DEFAULT_INPUT_FORMAT = {
+  encoding: 'pcm16',
+  sampleRate: 24000,
+  channels: 1,
+};
+
+const normalizeInputFormat = (inputFormat) => ({
+  encoding: inputFormat?.encoding ?? DEFAULT_INPUT_FORMAT.encoding,
+  sampleRate: inputFormat?.sampleRate ?? DEFAULT_INPUT_FORMAT.sampleRate,
+  channels: inputFormat?.channels ?? DEFAULT_INPUT_FORMAT.channels,
+});
+
+const buildRealtimeSettings = (realtimeConfig) => {
+  if (!realtimeConfig) {
+    return null;
+  }
+
+  const normalizedFormat = normalizeInputFormat(
+    realtimeConfig.audio?.input?.format ?? realtimeConfig.inputAudioFormat,
+  );
+
+  const realtimeSettings = {
+    model: realtimeConfig.model,
+    transport: realtimeConfig.transport ?? 'websocket',
+    stream: typeof realtimeConfig.stream === 'boolean' ? realtimeConfig.stream : true,
+    inputAudioFormat: normalizedFormat,
+    ...(realtimeConfig.ffmpegPath ? { ffmpegPath: realtimeConfig.ffmpegPath } : {}),
+  };
+
+  if (realtimeConfig.session) {
+    realtimeSettings.session = { ...realtimeConfig.session };
+  }
+
+  const audioInputConfig = {
+    ...(realtimeConfig.audio?.input ? { ...realtimeConfig.audio.input } : {}),
+    format: normalizedFormat,
+  };
+
+  realtimeSettings.audio = {
+    ...(realtimeConfig.audio ? { ...realtimeConfig.audio, input: undefined } : {}),
+    input: audioInputConfig,
+  };
+
+  if (Array.isArray(realtimeConfig.include)) {
+    realtimeSettings.include = [...realtimeConfig.include];
+  }
+
+  return realtimeSettings;
+};
+
 async function getCustomConfigSpeech(req, res) {
   try {
     const appConfig = await getAppConfig({
@@ -33,32 +83,12 @@ async function getCustomConfigSpeech(req, res) {
     };
 
     if (!appConfig.speech?.speechTab) {
-      const realtimeConfig = appConfig.speech?.stt?.realtime;
+      const realtimeConfig = buildRealtimeSettings(appConfig.speech?.stt?.realtime);
 
       if (realtimeConfig) {
-        const {
-          model,
-          transport,
-          stream,
-          inputAudioFormat,
-          ffmpegPath,
-        } = realtimeConfig;
-
-        const inputFormat = {
-          encoding: inputAudioFormat?.encoding ?? 'pcm16',
-          sampleRate: inputAudioFormat?.sampleRate ?? 24000,
-          channels: inputAudioFormat?.channels ?? 1,
-        };
-
         settings = {
           ...settings,
-          realtime: {
-            model,
-            transport: transport ?? 'websocket',
-            stream: stream ?? true,
-            inputAudioFormat: inputFormat,
-            ...(ffmpegPath ? { ffmpegPath } : {}),
-          },
+          realtime: realtimeConfig,
         };
       }
 
@@ -83,22 +113,10 @@ async function getCustomConfigSpeech(req, res) {
       }
     }
 
-    const realtimeConfig = appConfig.speech?.stt?.realtime;
+    const realtimeConfig = buildRealtimeSettings(appConfig.speech?.stt?.realtime);
 
     if (realtimeConfig) {
-      const { model, transport, stream, inputAudioFormat, ffmpegPath } = realtimeConfig;
-
-      settings.realtime = {
-        model,
-        transport: transport ?? 'websocket',
-        stream: stream ?? true,
-        inputAudioFormat: {
-          encoding: inputAudioFormat?.encoding ?? 'pcm16',
-          sampleRate: inputAudioFormat?.sampleRate ?? 24000,
-          channels: inputAudioFormat?.channels ?? 1,
-        },
-        ...(ffmpegPath ? { ffmpegPath } : {}),
-      };
+      settings.realtime = realtimeConfig;
     }
 
     if (speechTab.textToSpeech) {

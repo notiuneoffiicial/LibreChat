@@ -9,17 +9,13 @@ jest.mock('librechat-data-provider/react-query', () => ({
   useGetCustomConfigSpeechQuery: jest.fn(),
 }));
 
-jest.mock('~/utils', () => {
-  const actual = jest.requireActual('~/utils');
-  return {
-    ...actual,
-    logger: {
-      log: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    },
-  };
-});
+jest.mock('~/utils', () => ({
+  logger: {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
 
 describe('useSpeechSettingsInit', () => {
   beforeEach(() => {
@@ -63,5 +59,50 @@ describe('useSpeechSettingsInit', () => {
     expect(result.current.model).toBe('gpt-4o-realtime-preview');
     expect(result.current.stream).toBe(false);
     expect(result.current.inputAudioFormat.sampleRate).toBe(16000);
+  });
+
+  it('persists extended realtime metadata', async () => {
+    const realtimeConfig = {
+      model: 'gpt-4o-realtime-preview',
+      session: {
+        mode: 'conversation',
+        voice: 'alloy',
+        instructions: 'Keep responses brief.',
+      },
+      audio: {
+        input: {
+          noiseReduction: 'server_light',
+          transcriptionDefaults: {
+            language: 'en',
+          },
+        },
+      },
+      include: ['text'],
+    };
+
+    (useGetCustomConfigSpeechQuery as jest.Mock).mockReturnValue({
+      data: {
+        realtime: realtimeConfig,
+      },
+    });
+
+    const { result } = renderHook(
+      () => {
+        useSpeechSettingsInit(true);
+        return useRecoilValue(store.realtimeSTTOptions);
+      },
+      {
+        wrapper: ({ children }) => <RecoilRoot>{children}</RecoilRoot>,
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.session?.voice).toBe('alloy');
+    });
+
+    expect(result.current.session?.instructions).toBe('Keep responses brief.');
+    expect(result.current.audio?.input?.noiseReduction).toBe('server_light');
+    expect(result.current.audio?.input?.transcriptionDefaults).toMatchObject({ language: 'en' });
+    expect(result.current.include).toEqual(['text']);
   });
 });

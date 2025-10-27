@@ -3,25 +3,83 @@ import { SetterOrUpdater, useSetRecoilState } from 'recoil';
 import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-query';
 import { logger } from '~/utils';
 import store from '~/store';
-import { DEFAULT_REALTIME_STT_OPTIONS, type RealtimeSTTOptions } from '~/store/settings';
+import {
+  DEFAULT_REALTIME_STT_OPTIONS,
+  type RealtimeSTTOptions,
+  type RealtimeSTTAudioOptions,
+  type RealtimeSTTSessionDefaults,
+} from '~/store/settings';
 
-type RealtimeSettingsUpdate = Partial<RealtimeSTTOptions> & {
+type RealtimeAudioUpdate = Partial<RealtimeSTTAudioOptions> & {
+  input?: Partial<NonNullable<RealtimeSTTAudioOptions['input']>> & {
+    format?: Partial<RealtimeSTTOptions['inputAudioFormat']>;
+  };
+};
+
+type RealtimeSettingsUpdate = Partial<
+  Omit<RealtimeSTTOptions, 'inputAudioFormat' | 'audio' | 'session'>
+> & {
   inputAudioFormat?: Partial<RealtimeSTTOptions['inputAudioFormat']>;
+  session?: Partial<RealtimeSTTSessionDefaults>;
+  audio?: RealtimeAudioUpdate;
 };
 
 const mergeRealtimeDefaults = (
   previous: RealtimeSTTOptions | undefined,
   update: RealtimeSettingsUpdate,
-): RealtimeSTTOptions => ({
-  ...DEFAULT_REALTIME_STT_OPTIONS,
-  ...(previous ?? {}),
-  ...update,
-  inputAudioFormat: {
-    ...DEFAULT_REALTIME_STT_OPTIONS.inputAudioFormat,
-    ...(previous?.inputAudioFormat ?? {}),
-    ...(update.inputAudioFormat ?? {}),
-  },
-});
+): RealtimeSTTOptions => {
+  const base: RealtimeSTTOptions = {
+    ...DEFAULT_REALTIME_STT_OPTIONS,
+    ...(previous ?? {}),
+    ...update,
+    inputAudioFormat: {
+      ...DEFAULT_REALTIME_STT_OPTIONS.inputAudioFormat,
+      ...(previous?.inputAudioFormat ?? {}),
+      ...(update.inputAudioFormat ?? {}),
+    },
+  };
+
+  const mergedSession = {
+    ...(DEFAULT_REALTIME_STT_OPTIONS.session ?? {}),
+    ...(previous?.session ?? {}),
+    ...(update.session ?? {}),
+  };
+
+  base.session = Object.keys(mergedSession).length ? mergedSession : undefined;
+
+  const mergedAudioInputFormat = {
+    ...(DEFAULT_REALTIME_STT_OPTIONS.audio?.input?.format ?? {}),
+    ...(previous?.audio?.input?.format ?? {}),
+    ...(update.audio?.input?.format ?? {}),
+  };
+
+  const mergedAudioInput = {
+    ...(DEFAULT_REALTIME_STT_OPTIONS.audio?.input ?? {}),
+    ...(previous?.audio?.input ?? {}),
+    ...(update.audio?.input ?? {}),
+  };
+
+  if (Object.keys(mergedAudioInputFormat).length) {
+    mergedAudioInput.format = mergedAudioInputFormat;
+  }
+
+  const mergedAudio = {
+    ...(DEFAULT_REALTIME_STT_OPTIONS.audio ?? {}),
+    ...(previous?.audio ?? {}),
+    ...(update.audio ?? {}),
+  };
+
+  if (Object.keys(mergedAudioInput).length) {
+    mergedAudio.input = mergedAudioInput;
+  }
+
+  base.audio = Object.keys(mergedAudio).length ? mergedAudio : undefined;
+  const includeSource =
+    update.include ?? previous?.include ?? DEFAULT_REALTIME_STT_OPTIONS.include;
+  base.include = includeSource ? [...includeSource] : includeSource;
+
+  return base;
+};
 
 /**
  * Initializes speech-related Recoil values from the server-side custom
@@ -100,21 +158,26 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
       if (key === 'sttExternal' || key === 'ttsExternal') return;
 
       const storageKey = storageKeyOverrides[key] ?? key;
-
-      if (localStorage.getItem(storageKey) !== null) return;
-
       const setter = setters[key as keyof typeof setters];
-      if (setter) {
-        logger.log(`Setting default speech setting: ${key} = ${value}`);
-        if (key === 'realtime' && typeof value === 'object' && value !== null) {
-          const realtimeValue = value as RealtimeSettingsUpdate;
-
-          setter((previous) => mergeRealtimeDefaults(previous, realtimeValue));
-          return;
-        }
-
-        setter(value as any);
+      if (!setter) {
+        return;
       }
+
+      const hasStoredValue = localStorage.getItem(storageKey) !== null;
+
+      if (key === 'realtime' && typeof value === 'object' && value !== null) {
+        const realtimeValue = value as RealtimeSettingsUpdate;
+        logger.log('Merging realtime speech defaults with config overrides:', realtimeValue);
+        setter((previous) => mergeRealtimeDefaults(previous, realtimeValue));
+        return;
+      }
+
+      if (hasStoredValue) {
+        return;
+      }
+
+      logger.log(`Setting default speech setting: ${key} = ${value}`);
+      setter(value as any);
     });
   }, [isAuthenticated, data, setters]);
 }

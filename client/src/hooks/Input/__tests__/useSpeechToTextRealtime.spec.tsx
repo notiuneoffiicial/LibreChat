@@ -98,6 +98,15 @@ describe('useSpeechToTextRealtime', () => {
       id: 'sess_123',
       client_secret: { value: 'secret' },
     },
+    audio: {
+      input: {
+        format: {
+          encoding: 'pcm16',
+          sampleRate: 24000,
+          channels: 1,
+        },
+      },
+    },
   };
 
   beforeAll(() => {
@@ -212,6 +221,193 @@ describe('useSpeechToTextRealtime', () => {
     expect(sessionFetcher).toHaveBeenCalled();
     expect(setText).toHaveBeenCalledWith('hello');
     expect(onComplete).toHaveBeenCalledWith('hello');
+
+    act(() => {
+      result.current.stopRecording();
+    });
+  });
+
+  it('uses configured include modalities when requesting realtime responses', async () => {
+    const mockStream: MediaStream = {
+      getTracks: () => [
+        {
+          stop: jest.fn(),
+        } as unknown as MediaStreamTrack,
+      ],
+    } as MediaStream;
+
+    const getUserMedia = jest.fn().mockResolvedValue(mockStream);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia },
+      configurable: true,
+    });
+
+    const websocket = new MockWebSocket('', []);
+    const sessionWithInclude = { ...mockSession, include: ['text', 'audio'] };
+    const sessionFetcher = jest.fn().mockResolvedValue(sessionWithInclude);
+    const processor = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      onaudioprocess: undefined as ((event: any) => void) | undefined,
+    };
+
+    const audioContextFactory = jest.fn(() => ({
+      createMediaStreamSource: () => ({
+        connect: jest.fn(),
+        disconnect: jest.fn(),
+      }),
+      createScriptProcessor: () => processor,
+      createGain: () => ({
+        gain: { value: 0 },
+        connect: jest.fn(),
+        disconnect: jest.fn(),
+      }),
+      destination: {},
+      close: jest.fn().mockResolvedValue(undefined),
+      suspend: jest.fn().mockResolvedValue(undefined),
+    }));
+    const setText = jest.fn();
+    const onComplete = jest.fn();
+
+    const { result } = renderHook(
+      () =>
+        useSpeechToTextRealtime(setText, onComplete, {
+          realtimeSessionFetcher: sessionFetcher,
+          websocketFactory: () => websocket as unknown as WebSocket,
+          audioContextFactory,
+        }),
+      {
+        wrapper: ({ children }) => (
+          <RecoilRoot
+            initializeState={({ set }) => {
+              set(store.autoSendText, 0);
+              set(store.speechToText, true);
+              set(store.realtimeSTTOptions, sessionWithInclude);
+            }}
+          >
+            {children}
+          </RecoilRoot>
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.startRecording();
+    });
+
+    await act(async () => {
+      websocket.open();
+    });
+
+    await act(async () => {
+      processor.onaudioprocess?.({
+        inputBuffer: {
+          getChannelData: () => new Float32Array([0.1, -0.1]),
+        },
+      });
+    });
+
+    expect(websocket.sent).toHaveLength(3);
+    const responsePayload = JSON.parse(websocket.sent[2]);
+    expect(responsePayload).toMatchObject({
+      type: 'response.create',
+      response: { modalities: ['text', 'audio'] },
+    });
+
+    act(() => {
+      result.current.stopRecording();
+    });
+  });
+
+  it('requests audio modality when speech-to-speech defaults are enabled', async () => {
+    const mockStream: MediaStream = {
+      getTracks: () => [
+        {
+          stop: jest.fn(),
+        } as unknown as MediaStreamTrack,
+      ],
+    } as MediaStream;
+
+    const getUserMedia = jest.fn().mockResolvedValue(mockStream);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia },
+      configurable: true,
+    });
+
+    const websocket = new MockWebSocket('', []);
+    const sessionWithSpeechToSpeech = {
+      ...mockSession,
+      sessionDefaults: { speechToSpeech: true },
+    };
+    const sessionFetcher = jest.fn().mockResolvedValue(sessionWithSpeechToSpeech);
+    const processor = {
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      onaudioprocess: undefined as ((event: any) => void) | undefined,
+    };
+
+    const audioContextFactory = jest.fn(() => ({
+      createMediaStreamSource: () => ({
+        connect: jest.fn(),
+        disconnect: jest.fn(),
+      }),
+      createScriptProcessor: () => processor,
+      createGain: () => ({
+        gain: { value: 0 },
+        connect: jest.fn(),
+        disconnect: jest.fn(),
+      }),
+      destination: {},
+      close: jest.fn().mockResolvedValue(undefined),
+      suspend: jest.fn().mockResolvedValue(undefined),
+    }));
+    const setText = jest.fn();
+    const onComplete = jest.fn();
+
+    const { result } = renderHook(
+      () =>
+        useSpeechToTextRealtime(setText, onComplete, {
+          realtimeSessionFetcher: sessionFetcher,
+          websocketFactory: () => websocket as unknown as WebSocket,
+          audioContextFactory,
+        }),
+      {
+        wrapper: ({ children }) => (
+          <RecoilRoot
+            initializeState={({ set }) => {
+              set(store.autoSendText, 0);
+              set(store.speechToText, true);
+              set(store.realtimeSTTOptions, sessionWithSpeechToSpeech);
+            }}
+          >
+            {children}
+          </RecoilRoot>
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.startRecording();
+    });
+
+    await act(async () => {
+      websocket.open();
+    });
+
+    await act(async () => {
+      processor.onaudioprocess?.({
+        inputBuffer: {
+          getChannelData: () => new Float32Array([0.1, -0.1]),
+        },
+      });
+    });
+
+    expect(websocket.sent).toHaveLength(3);
+    const responsePayload = JSON.parse(websocket.sent[2]);
+    expect(responsePayload).toMatchObject({
+      type: 'response.create',
+      response: { modalities: ['text', 'audio'] },
+    });
 
     act(() => {
       result.current.stopRecording();

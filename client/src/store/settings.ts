@@ -3,6 +3,77 @@ import { SettingsViews, LocalStorageKeys } from 'librechat-data-provider';
 import { atomWithLocalStorage } from '~/store/utils';
 import type { TOptionSettings } from '~/common';
 
+export type RealtimeSTTTurnDetectionConfig = {
+  type?: 'server_vad' | 'semantic';
+  serverVad?: {
+    enabled?: boolean;
+    threshold?: number;
+    silenceDurationMs?: number;
+    minSpeechDurationMs?: number;
+    prefixPaddingMs?: number;
+    postfixPaddingMs?: number;
+    [key: string]: unknown;
+  };
+  semantic?: {
+    enabled?: boolean;
+    minDecisionIntervalMs?: number;
+    speechProbThreshold?: number;
+    activationThreshold?: number;
+    deactivationThreshold?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type RealtimeSTTTranscriptionDefaults = {
+  model?: string;
+  language?: string;
+  prompt?: string;
+  temperature?: number;
+  responseFormat?: string;
+  diarization?: boolean;
+  enableWordTimestamps?: boolean;
+  timestampGranularities?: string[];
+  [key: string]: unknown;
+};
+
+export type RealtimeSTTNoiseReduction =
+  | string
+  | ({
+      type?: string;
+      preset?: string;
+      enabled?: boolean;
+      [key: string]: unknown;
+    } & Record<string, unknown>);
+
+export type RealtimeSTTAudioInputOptions = {
+  format?: {
+    encoding?: string;
+    sampleRate?: number;
+    channels?: number;
+  };
+  noiseReduction?: RealtimeSTTNoiseReduction;
+  transcriptionDefaults?: RealtimeSTTTranscriptionDefaults;
+  turnDetection?: RealtimeSTTTurnDetectionConfig;
+  [key: string]: unknown;
+};
+
+export type RealtimeSTTAudioOptions = {
+  input?: RealtimeSTTAudioInputOptions;
+  [key: string]: unknown;
+};
+
+export type RealtimeSTTSessionDefaults = {
+  mode?: string;
+  model?: string;
+  voice?: string;
+  voices?: string[];
+  speechToSpeech?: boolean;
+  instructions?: string;
+  instructionTemplates?: Record<string, string>;
+  [key: string]: unknown;
+};
+
 export type RealtimeSTTOptions = {
   model?: string;
   transport: 'websocket' | 'webrtc';
@@ -13,6 +84,9 @@ export type RealtimeSTTOptions = {
     channels: number;
   };
   ffmpegPath?: string;
+  session?: RealtimeSTTSessionDefaults;
+  audio?: RealtimeSTTAudioOptions;
+  include?: string[];
 };
 
 export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
@@ -24,6 +98,16 @@ export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
     sampleRate: 24000,
     channels: 1,
   },
+  audio: {
+    input: {
+      format: {
+        encoding: 'pcm16',
+        sampleRate: 24000,
+        channels: 1,
+      },
+    },
+  },
+  include: [],
 };
 
 // Static atoms without localStorage

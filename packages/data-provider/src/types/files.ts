@@ -146,6 +146,78 @@ export type RealtimeSession = {
   [key: string]: unknown;
 };
 
+export type RealtimeSessionDefaults = {
+  mode?: string;
+  model?: string;
+  voice?: string;
+  voices?: string[];
+  speechToSpeech?: boolean;
+  instructions?: string;
+  instructionTemplates?: Record<string, string>;
+  [key: string]: unknown;
+};
+
+export type RealtimeTurnDetectionConfig = {
+  type?: 'server_vad' | 'semantic';
+  serverVad?: {
+    enabled?: boolean;
+    threshold?: number;
+    silenceDurationMs?: number;
+    minSpeechDurationMs?: number;
+    prefixPaddingMs?: number;
+    postfixPaddingMs?: number;
+    [key: string]: unknown;
+  };
+  semantic?: {
+    enabled?: boolean;
+    minDecisionIntervalMs?: number;
+    speechProbThreshold?: number;
+    activationThreshold?: number;
+    deactivationThreshold?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type RealtimeTranscriptionDefaults = {
+  model?: string;
+  language?: string;
+  prompt?: string;
+  temperature?: number;
+  responseFormat?: string;
+  diarization?: boolean;
+  enableWordTimestamps?: boolean;
+  timestampGranularities?: string[];
+  [key: string]: unknown;
+};
+
+export type RealtimeNoiseReduction =
+  | string
+  | ({
+      type?: string;
+      preset?: string;
+      enabled?: boolean;
+      [key: string]: unknown;
+    } & Record<string, unknown>);
+
+export type RealtimeAudioInputConfig = {
+  format?: {
+    encoding?: string;
+    sampleRate?: number;
+    channels?: number;
+    [key: string]: unknown;
+  };
+  noiseReduction?: RealtimeNoiseReduction;
+  transcriptionDefaults?: RealtimeTranscriptionDefaults;
+  turnDetection?: RealtimeTurnDetectionConfig;
+  [key: string]: unknown;
+};
+
+export type RealtimeAudioConfig = {
+  input?: RealtimeAudioInputConfig;
+  [key: string]: unknown;
+};
+
 export type RealtimeSessionDescriptor = {
   url: string;
   transport: 'websocket' | 'webrtc';
@@ -157,6 +229,10 @@ export type RealtimeSessionDescriptor = {
   };
   model: string;
   session: RealtimeSession;
+  ffmpegPath?: string;
+  sessionDefaults?: RealtimeSessionDefaults;
+  audio?: RealtimeAudioConfig;
+  include?: string[];
 };
 
 export type UploadMutationOptions = {

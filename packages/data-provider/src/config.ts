@@ -418,6 +418,88 @@ const realtimeInputAudioFormatSchema = z.object({
   channels: z.number().int().positive().optional(),
 });
 
+const realtimeTranscriptionDefaultsSchema = z
+  .object({
+    model: z.string().optional(),
+    language: z.string().optional(),
+    prompt: z.string().optional(),
+    temperature: z.number().optional(),
+    responseFormat: z.string().optional(),
+    diarization: z.boolean().optional(),
+    enableWordTimestamps: z.boolean().optional(),
+    timestampGranularities: z.array(z.string()).optional(),
+  })
+  .catchall(z.unknown());
+
+const realtimeNoiseReductionSchema = z
+  .union([
+    z.string(),
+    z
+      .object({
+        type: z.string().optional(),
+        preset: z.string().optional(),
+        enabled: z.boolean().optional(),
+      })
+      .catchall(z.unknown()),
+  ])
+  .optional();
+
+const realtimeServerVadSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    threshold: z.number().optional(),
+    silenceDurationMs: z.number().optional(),
+    minSpeechDurationMs: z.number().optional(),
+    prefixPaddingMs: z.number().optional(),
+    postfixPaddingMs: z.number().optional(),
+  })
+  .catchall(z.unknown());
+
+const realtimeSemanticVadSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    minDecisionIntervalMs: z.number().optional(),
+    speechProbThreshold: z.number().optional(),
+    activationThreshold: z.number().optional(),
+    deactivationThreshold: z.number().optional(),
+  })
+  .catchall(z.unknown());
+
+const realtimeTurnDetectionSchema = z
+  .object({
+    type: z.enum(['server_vad', 'semantic']).optional(),
+    serverVad: realtimeServerVadSchema.optional(),
+    semantic: realtimeSemanticVadSchema.optional(),
+  })
+  .catchall(z.unknown());
+
+const realtimeAudioInputSchema = z
+  .object({
+    format: realtimeInputAudioFormatSchema.optional(),
+    noiseReduction: realtimeNoiseReductionSchema,
+    transcriptionDefaults: realtimeTranscriptionDefaultsSchema.optional(),
+    turnDetection: realtimeTurnDetectionSchema.optional(),
+  })
+  .catchall(z.unknown());
+
+const realtimeAudioSchema = z
+  .object({
+    input: realtimeAudioInputSchema.optional(),
+  })
+  .catchall(z.unknown());
+
+const realtimeSessionSchema = z
+  .object({
+    mode: z.string().optional(),
+    model: z.string().optional(),
+    voice: z.string().optional(),
+    voices: z.array(z.string()).optional(),
+    speechToSpeech: z.boolean().optional(),
+    instructions: z.string().optional(),
+    instructionTemplates: z.record(z.string()).optional(),
+  })
+  .catchall(z.unknown());
+
 const sttRealtimeSchema = z.object({
   url: z.string().optional(),
   apiKey: z.string(),
@@ -426,6 +508,9 @@ const sttRealtimeSchema = z.object({
   stream: z.boolean().default(true),
   inputAudioFormat: realtimeInputAudioFormatSchema.optional(),
   ffmpegPath: z.string().optional(),
+  session: realtimeSessionSchema.optional(),
+  audio: realtimeAudioSchema.optional(),
+  include: z.array(z.string()).optional(),
 });
 
 const sttSchema = z.object({

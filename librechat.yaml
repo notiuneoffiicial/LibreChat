@@ -85,11 +85,51 @@ speech:
       apiKey: "${OPENAI_API_KEY}"
       model: "gpt-4o-mini-transcribe"
     realtime:
-       apiKey: "${OPENAI_API_KEY}"
-       model: "gpt-realtime-mini"
-       transport: webrtc
-       stream: true
-       url: 'https://api.openai.com/v1/realtime'
+      apiKey: "${OPENAI_API_KEY}"
+      model: "gpt-realtime-mini"
+      transport: webrtc
+      stream: true
+      url: 'https://api.openai.com/v1/realtime'
+      session:
+        mode: conversation
+        speechToSpeech: false
+        model: "gpt-realtime-mini"
+        voice: alloy
+        voices:
+          - alloy
+          - ash
+          - nova
+        instructions: |
+          You are LibreChat's realtime assistant. Follow the configured
+          instruction template when responding to microphone input.
+        instructionTemplates:
+          default: |
+            Please summarize the user's request before responding.
+          handsfree: |
+            Keep replies short (max 2 sentences) while in hands-free mode.
+      audio:
+        input:
+          format:
+            encoding: pcm16
+            sampleRate: 24000
+            channels: 1
+          noiseReduction: server_light
+          transcriptionDefaults:
+            language: en
+            temperature: 0
+            diarization: true
+          turnDetection:
+            type: server_vad
+            serverVad:
+              enabled: true
+              threshold: 0.5
+              silenceDurationMs: 500
+            semantic:
+              enabled: false
+              minDecisionIntervalMs: 750
+      include:
+        - text
+        - audio
 
 # ---- Web Search Configuration ----
 webSearch:

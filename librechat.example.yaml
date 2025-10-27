@@ -155,13 +155,44 @@ registration:
 #       model: 'gpt-4o-realtime-preview'
 #       transport: websocket  # websocket | webrtc
 #       stream: true
-#       inputAudioFormat:
-#         encoding: pcm16
-#         sampleRate: 24000
-#         channels: 1
 #       # url: 'wss://api.openai.com/v1/realtime'
 #       # Optional: set a custom ffmpeg binary path if ffmpeg is not on PATH
 #       # ffmpegPath: '/usr/local/bin/ffmpeg'
+#       session:
+#         mode: conversation
+#         speechToSpeech: false
+#         model: 'gpt-4o-realtime-preview'
+#         voice: alloy
+#         voices: ['alloy', 'nova', 'verse']
+#         instructions: |
+#           You are LibreChat's realtime assistant. Use the "default"
+#           instruction template when present.
+#         instructionTemplates:
+#           default: |
+#             Keep replies concise and end with a follow-up question.
+#           handsfree: |
+#             Provide spoken-friendly responses with no markdown.
+#       audio:
+#         input:
+#           format:
+#             encoding: pcm16
+#             sampleRate: 24000
+#             channels: 1
+#           noiseReduction: server_light  # choose preferred preset or custom object
+#           transcriptionDefaults:
+#             language: en
+#             temperature: 0
+#             diarization: true
+#           turnDetection:
+#             type: server_vad
+#             serverVad:
+#               enabled: true
+#               threshold: 0.5
+#               silenceDurationMs: 500
+#             semantic:
+#               enabled: false
+#               minDecisionIntervalMs: 750
+#       include: ['text', 'audio']
 
 # rateLimits:
 #   fileUploads:
