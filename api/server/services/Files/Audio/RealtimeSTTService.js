@@ -166,12 +166,14 @@ class RealtimeSTTService {
         },
       };
 
+      const descriptorModel = sessionDefaults?.model ?? realtimeConfig.model;
+
       return {
         url: realtimeConfig.url ?? DEFAULT_REALTIME_URL,
         transport: realtimeConfig.transport ?? 'websocket',
         stream: typeof realtimeConfig.stream === 'boolean' ? realtimeConfig.stream : true,
         inputAudioFormat: inputFormat,
-        model: realtimeConfig.model,
+        model: descriptorModel,
         session,
         ...(realtimeConfig.ffmpegPath ? { ffmpegPath: realtimeConfig.ffmpegPath } : {}),
         audio: audioConfig,
