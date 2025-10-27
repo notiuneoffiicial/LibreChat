@@ -56,10 +56,53 @@ const stopTracks = (stream: MediaStream | null) => {
 
 type RealtimeCallConfig = Partial<Omit<RealtimeCallRequest, 'sdpOffer'>>;
 
+const isString = (value: unknown): value is string => typeof value === 'string';
+
+const extractNestedText = (value: unknown, keys: string[] = ['text']): string => {
+  if (isString(value)) {
+    return value;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const key of keys) {
+      if (key in (value as Record<string, unknown>)) {
+        const textValue = (value as Record<string, unknown>)[key];
+        if (isString(textValue)) {
+          return textValue;
+        }
+      }
+    }
+  }
+
+  return '';
+};
+
+const extractDeltaText = (event: { delta?: unknown; text?: unknown }): string => {
+  const directDelta = extractNestedText(event.delta);
+  if (directDelta) {
+    return directDelta;
+  }
+
+  return extractNestedText(event.text);
+};
+
+const extractCompletedText = (event: { transcription?: unknown; text?: unknown }): string => {
+  const transcriptionText = extractNestedText(event.transcription);
+  if (transcriptionText) {
+    return transcriptionText;
+  }
+
+  return extractNestedText(event.text);
+};
+
+const extractErrorMessage = (event: { error?: unknown }): string => {
+  return extractNestedText(event.error, ['message', 'text']);
+};
+
 const useSpeechToTextRealtime = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
-  options?: SpeechToTextOptions,
+  options?: SpeechToTextOptions
 ) => {
   const { showToast } = useToastContext();
   const realtimeSessionMutation = useRealtimeSessionMutation();
@@ -80,6 +123,7 @@ const useSpeechToTextRealtime = (
   const finalizedRef = useRef(false);
   const mountedRef = useRef(true);
   const optionsRef = useRef<SpeechToTextOptions | undefined>(options);
+  const abortedRef = useRef(false);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -303,11 +347,18 @@ const useSpeechToTextRealtime = (
         autoSendOnSuccess || (speechToTextEnabled && (delaySource ?? -1) > -1);
 
       if (shouldAutoSend) {
-        const delaySeconds = overrideSpecified
-          ? delayOverride ?? 0
-          : autoSendText > -1
-            ? autoSendText
-            : 0;
+        const delaySeconds = (() => {
+          if (overrideSpecified) {
+            return (delayOverride ?? 0) as number;
+          }
+
+          if (autoSendText > -1) {
+            return autoSendText;
+          }
+
+          return 0;
+        })();
+
         const delay = delaySeconds > 0 ? delaySeconds * 1000 : 0;
         const dispatchCompletion = () => onTranscriptionComplete(text);
         if (delay > 0) {
@@ -344,16 +395,10 @@ const useSpeechToTextRealtime = (
 
       switch (type) {
         case 'conversation.item.input_audio_transcription.delta': {
-          const deltaValue =
-            typeof typed.delta === 'string'
-              ? typed.delta
-              : typeof typed.text === 'string'
-                ? typed.text
-                : typeof typed.delta === 'object' && typed.delta !== null
-                  ? typeof (typed.delta as { text?: string }).text === 'string'
-                    ? (typed.delta as { text?: string }).text ?? ''
-                    : ''
-                  : '';
+          const deltaValue = extractDeltaText({
+            delta: typed.delta,
+            text: typed.text,
+          });
 
           if (!deltaValue) {
             return;
@@ -365,14 +410,10 @@ const useSpeechToTextRealtime = (
           break;
         }
         case 'conversation.item.input_audio_transcription.completed': {
-          const completedText =
-            typeof typed.transcription === 'object' && typed.transcription !== null
-              ? typeof (typed.transcription as { text?: string }).text === 'string'
-                ? (typed.transcription as { text?: string }).text ?? ''
-                : ''
-              : typeof typed.text === 'string'
-                ? typed.text
-                : transcriptsRef.current;
+          const completedText = extractCompletedText({
+            transcription: typed.transcription,
+            text: typed.text,
+          }) || transcriptsRef.current;
           finalizeTranscription(completedText);
           break;
         }
@@ -382,12 +423,7 @@ const useSpeechToTextRealtime = (
           break;
         }
         case 'response.error': {
-          const message =
-            typeof typed.error === 'object' && typed.error !== null
-              ? typeof (typed.error as { message?: string }).message === 'string'
-                ? (typed.error as { message?: string }).message ?? ''
-                : ''
-              : '';
+          const message = extractErrorMessage({ error: typed.error });
           if (message) {
             showToast({ message, status: 'error' });
             reportError(message);
@@ -426,6 +462,11 @@ const useSpeechToTextRealtime = (
   );
 
   const negotiatePeerConnection = useCallback(async () => {
+    if (abortedRef.current) {
+      cleanup();
+      return;
+    }
+
     const stream = streamRef.current;
     if (!stream) {
       throw new Error('Missing audio stream for realtime transcription');
@@ -442,7 +483,8 @@ const useSpeechToTextRealtime = (
 
     dataChannel.onmessage = (event) => handleMessageEvent(event as MessageEvent<string>);
     dataChannel.onopen = () => {
-      if (!mountedRef.current) {
+      if (!mountedRef.current || abortedRef.current) {
+        dataChannel.close();
         return;
       }
       setIsLoading(false);
@@ -478,11 +520,21 @@ const useSpeechToTextRealtime = (
       peerConnection.addTrack(track, stream);
     });
 
+    if (abortedRef.current) {
+      cleanup();
+      return;
+    }
+
     const offer = await peerConnection.createOffer({
       offerToReceiveAudio: receiveAudio,
       offerToReceiveVideo: false,
     });
     await peerConnection.setLocalDescription(offer);
+
+    if (abortedRef.current) {
+      cleanup();
+      return;
+    }
 
     const sdpOffer = offer.sdp ?? '';
     if (!sdpOffer) {
@@ -490,7 +542,16 @@ const useSpeechToTextRealtime = (
     }
 
     const payload = buildCallPayload(sdpOffer);
+    if (abortedRef.current) {
+      cleanup();
+      return;
+    }
+
     const response = await initiateRealtimeCall(payload);
+    if (abortedRef.current) {
+      cleanup();
+      return;
+    }
 
     const answer = response?.sdpAnswer;
     if (!answer) {
@@ -498,6 +559,9 @@ const useSpeechToTextRealtime = (
     }
 
     await peerConnection.setRemoteDescription({ type: 'answer', sdp: answer });
+    if (abortedRef.current) {
+      cleanup();
+    }
   }, [
     buildCallPayload,
     cleanup,
@@ -512,6 +576,7 @@ const useSpeechToTextRealtime = (
       return;
     }
 
+    abortedRef.current = false;
     transcriptsRef.current = '';
     finalizedRef.current = false;
 
@@ -534,6 +599,7 @@ const useSpeechToTextRealtime = (
       if (mountedRef.current) {
         setIsLoading(false);
       }
+      logger.warn?.('Failed to acquire microphone for realtime transcription', mediaError);
       return;
     }
 
@@ -554,9 +620,19 @@ const useSpeechToTextRealtime = (
       }
       cleanup();
     }
-  }, [cleanup, isListening, isLoading, negotiatePeerConnection, reportError, showToast, updateStatus]);
+  }, [
+    cleanup,
+    isListening,
+    isLoading,
+    negotiatePeerConnection,
+    reportError,
+    showToast,
+    updateStatus,
+  ]);
 
   const stopRecording = useCallback(() => {
+    abortedRef.current = true;
+
     if (!pcRef.current && !streamRef.current) {
       cleanup();
       updateStatus('idle');

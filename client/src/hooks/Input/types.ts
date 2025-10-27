@@ -1,8 +1,6 @@
 import type { RealtimeCallRequest, RealtimeCallResponse } from 'librechat-data-provider';
 import type {
   RealtimeSTTNoiseReduction,
-  RealtimeSTTOptions,
-  RealtimeSTTSessionDefaults,
   RealtimeSTTTurnDetectionConfig,
 } from '~/store/settings';
 
