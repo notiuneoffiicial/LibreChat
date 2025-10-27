@@ -269,10 +269,7 @@ class RealtimeSTTService {
       };
 
       const descriptorModel =
-        session?.model ??
-        session?.default_model ??
-        sessionDefaults?.model ??
-        realtimeConfig.model;
+        session?.model ?? session?.default_model ?? sessionDefaults?.model ?? realtimeConfig.model;
 
       return {
         url: realtimeConfig.url ?? DEFAULT_REALTIME_URL,
