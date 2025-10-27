@@ -60,11 +60,11 @@ speech:
       ffmpegPath: /usr/local/bin/ffmpeg # optional – set if ffmpeg is not on PATH
 ```
 
-The backend exposes `POST /api/files/speech/stt/realtime/session`, which creates
-an ephemeral session descriptor against the configured realtime endpoint. The
+The backend exposes `POST /api/files/speech/stt/realtime/call`, which accepts an
+SDP offer and returns the SDP answer from the configured realtime provider. The
 client calls this route whenever the "Realtime" engine is selected: it merges the
-server defaults into the `realtimeSTTOptions` store, creates the session, and
-streams microphone audio over the requested transport.
+server defaults into the `realtimeSTTOptions` store, forwards the call request,
+and streams microphone audio over the negotiated WebRTC connection.
 
 - When `speech.stt.realtime` is present the Speech settings tab automatically
   shows the "Realtime" option. Users can opt in via **Settings → Speech →
@@ -73,7 +73,7 @@ streams microphone audio over the requested transport.
   `speech.speechTab.speechToText.engineSTT: realtime` in the same configuration
   block.
 - The API key can either be a literal value or an environment reference such as
-  `${OPENAI_API_KEY}`; it is dereferenced at request time before the session is
+  `${OPENAI_API_KEY}`; it is dereferenced at request time before the call is
   created.
 
 After updating the YAML, restart the server so the new speech configuration is
