@@ -719,7 +719,7 @@ export const useSpeechToTextMutation = (
   });
 };
 
-export const useRealtimeCallMutation = (
+export const useRealtimeSessionMutation = (
   options?: t.MutationOptions<t.RealtimeCallResponse, t.RealtimeCallRequest>,
 ): UseMutationResult<
   t.RealtimeCallResponse,
@@ -727,9 +727,9 @@ export const useRealtimeCallMutation = (
   t.RealtimeCallRequest,
   unknown
 > => {
-  return useMutation([MutationKeys.realtimeCall], {
+  return useMutation([MutationKeys.realtimeSession], {
     mutationFn: (variables: t.RealtimeCallRequest) =>
-      dataService.createRealtimeSpeechCall(variables),
+      dataService.speechRealtimeCall(variables),
     ...(options || {}),
   });
 };

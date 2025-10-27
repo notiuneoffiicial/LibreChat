@@ -73,7 +73,7 @@ describe('POST /api/files/speech/stt/realtime/call', () => {
       voice: 'alloy',
       instructions: 'Be brief',
       include: ['text'],
-      vad: { type: 'server_vad' },
+      turnDetection: { type: 'server_vad' },
       noiseReduction: 'server_light',
     };
 

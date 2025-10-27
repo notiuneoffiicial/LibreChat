@@ -25,8 +25,8 @@ export interface RealtimeCallOverrides {
   voice?: string;
   instructions?: string;
   include?: string[];
-  vad?: Record<string, unknown>;
-  noiseReduction?: string;
+  turnDetection?: Record<string, unknown>;
+  noiseReduction?: string | Record<string, unknown>;
 }
 
 export interface RealtimeCallResponse {
@@ -285,6 +285,8 @@ export class RealtimeCallService {
     const noiseReduction = overrides.noiseReduction ?? audioInput.noiseReduction;
     if (typeof noiseReduction === 'string' && noiseReduction.trim().length > 0) {
       payload.noise_reduction = noiseReduction;
+    } else if (noiseReduction && typeof noiseReduction === 'object') {
+      payload.noise_reduction = this.convertKeysToSnakeCase(noiseReduction);
     }
 
     let vadSource: Record<string, unknown> | undefined;
@@ -293,8 +295,8 @@ export class RealtimeCallService {
       vadSource = this.mergeDeep({}, audioInput.turnDetection);
     }
 
-    if (overrides.vad && typeof overrides.vad === 'object') {
-      vadSource = this.mergeDeep(vadSource ?? {}, overrides.vad);
+    if (overrides.turnDetection && typeof overrides.turnDetection === 'object') {
+      vadSource = this.mergeDeep(vadSource ?? {}, overrides.turnDetection);
     }
 
     if (vadSource && Object.keys(vadSource).length > 0) {

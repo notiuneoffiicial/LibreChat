@@ -11,7 +11,7 @@ jest.mock('@librechat/client', () => ({
 const mockMutateAsync = jest.fn();
 
 jest.mock('~/data-provider', () => ({
-  useRealtimeCallMutation: jest.fn(() => ({ mutateAsync: mockMutateAsync })),
+  useRealtimeSessionMutation: jest.fn(() => ({ mutateAsync: mockMutateAsync })),
 }));
 
 type MockSocketEvent = { data: string };
@@ -353,7 +353,9 @@ describe('useSpeechToTextRealtime', () => {
         model: webrtcDefaults.model,
         voice: webrtcDefaults.session?.voice,
         instructions: webrtcDefaults.session?.instructions,
-        vad: expect.any(Object),
+        turnDetection: expect.objectContaining({ type: 'server_vad' }),
+        noiseReduction: webrtcDefaults.audio?.input?.noiseReduction,
+        include: ['text'],
       }),
     );
 
@@ -494,7 +496,7 @@ describe('useSpeechToTextRealtime', () => {
     const websocket = new MockWebSocket('', []);
     const sessionWithSpeechToSpeech = {
       ...mockSession,
-      sessionDefaults: { speechToSpeech: true },
+      session: { speechToSpeech: true },
     };
     const sessionFetcher = jest.fn().mockResolvedValue(sessionWithSpeechToSpeech);
     const processor = {

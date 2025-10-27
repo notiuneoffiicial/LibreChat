@@ -1,8 +1,15 @@
-import type {
-  RealtimeCallRequest,
-  RealtimeCallResponse,
-  RealtimeSessionDescriptor,
-} from 'librechat-data-provider';
+import type { RealtimeCallRequest, RealtimeCallResponse } from 'librechat-data-provider';
+import type { RealtimeSTTOptions, RealtimeSTTSessionDefaults } from '~/store/settings';
+
+export type RealtimeSessionConfig = RealtimeSTTOptions & {
+  url?: string;
+  session?: (
+    RealtimeSTTSessionDefaults & {
+      id?: string;
+      client_secret?: { value?: string } & Record<string, unknown>;
+    }
+  ) | null;
+};
 
 export interface SpeechToTextOptions {
   /**
@@ -30,7 +37,7 @@ export interface SpeechToTextOptions {
    * creating realtime session descriptors instead of using the default
    * mutation hook.
    */
-  realtimeSessionFetcher?: () => Promise<RealtimeSessionDescriptor>;
+  realtimeSessionFetcher?: () => Promise<RealtimeSessionConfig>;
   /**
    * Allows tests or advanced consumers to override the default realtime call
    * initiation logic. When provided, this function is invoked with the

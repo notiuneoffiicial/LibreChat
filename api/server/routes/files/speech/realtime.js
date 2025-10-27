@@ -8,7 +8,7 @@ const handleRealtimeCall = async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { sdpOffer, mode, model, voice, instructions, include, vad, noiseReduction } =
+  const { sdpOffer, mode, model, voice, instructions, include, turnDetection, noiseReduction } =
     req.body ?? {};
 
   if (typeof sdpOffer !== 'string' || sdpOffer.trim().length === 0) {
@@ -22,8 +22,10 @@ const handleRealtimeCall = async (req, res) => {
     ...(typeof voice === 'string' ? { voice } : {}),
     ...(typeof instructions === 'string' ? { instructions } : {}),
     ...(Array.isArray(include) ? { include } : {}),
-    ...(vad && typeof vad === 'object' ? { vad } : {}),
-    ...(typeof noiseReduction === 'string' ? { noiseReduction } : {}),
+    ...(turnDetection && typeof turnDetection === 'object' ? { turnDetection } : {}),
+    ...(typeof noiseReduction === 'string' || (noiseReduction && typeof noiseReduction === 'object')
+      ? { noiseReduction }
+      : {}),
   };
 
   try {

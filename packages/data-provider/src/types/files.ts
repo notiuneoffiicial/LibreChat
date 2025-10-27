@@ -218,23 +218,6 @@ export type RealtimeAudioConfig = {
   [key: string]: unknown;
 };
 
-export type RealtimeSessionDescriptor = {
-  url: string;
-  transport: 'websocket' | 'webrtc';
-  stream: boolean;
-  inputAudioFormat: {
-    encoding: string;
-    sampleRate: number;
-    channels: number;
-  };
-  model: string;
-  session?: RealtimeSession;
-  ffmpegPath?: string;
-  sessionDefaults?: RealtimeSessionDefaults;
-  audio?: RealtimeAudioConfig;
-  include?: string[];
-};
-
 export type RealtimeCallRequest = {
   sdpOffer: string;
   mode?: string;
@@ -242,14 +225,14 @@ export type RealtimeCallRequest = {
   voice?: string;
   instructions?: string;
   include?: string[];
-  vad?: Record<string, unknown>;
-  noiseReduction?: string;
+  turnDetection?: RealtimeTurnDetectionConfig;
+  noiseReduction?: RealtimeNoiseReduction;
 };
 
 export type RealtimeCallResponse = {
   sdpAnswer: string;
-  expiresAt?: number;
-} & Record<string, unknown>;
+  expiresAt?: number | string;
+};
 
 export type UploadMutationOptions = {
   onSuccess?: (data: TFileUpload, variables: FormData, context?: unknown) => void;

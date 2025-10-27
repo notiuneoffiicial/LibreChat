@@ -605,7 +605,7 @@ export const speechToText = (data: FormData): Promise<f.SpeechToTextResponse> =>
   return request.postMultiPart(endpoints.speechToText(), data);
 };
 
-export const createRealtimeSpeechCall = (
+export const speechRealtimeCall = (
   payload: f.RealtimeCallRequest,
 ): Promise<f.RealtimeCallResponse> => {
   return request.post(endpoints.speechRealtimeCall(), payload);
