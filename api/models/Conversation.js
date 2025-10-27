@@ -1,7 +1,113 @@
 const { logger } = require('@librechat/data-schemas');
-const { createTempChatExpirationDate } = require('@librechat/api');
+const { createTempChatExpirationDate, composeMetaPrompt } = require('@librechat/api');
 const { getMessages, deleteMessages } = require('./Message');
-const { Conversation } = require('~/db/models');
+const { Conversation, Message } = require('~/db/models');
+
+const MAX_HISTORY_LENGTH = 20;
+
+const guardrailStatusMap = {
+  ACCEPTED: 'accepted',
+  ROLLED_BACK: 'rolled_back',
+};
+
+function shouldApplyMetaPrompt(convo = {}, metadata = {}) {
+  if (convo?.isCreatedByUser === true) {
+    return true;
+  }
+
+  const context = metadata?.context ?? '';
+  if (!context) {
+    return false;
+  }
+
+  if (context.includes('saveUserMessage')) {
+    return true;
+  }
+
+  if (context === 'POST /api/messages/:conversationId') {
+    return convo?.isCreatedByUser !== false;
+  }
+
+  return false;
+}
+
+function toComposerMessages(messages = []) {
+  return messages.map((message) => ({
+    role: message?.isCreatedByUser ? 'user' : 'assistant',
+    text: message?.text ?? undefined,
+    summary: message?.summary ?? undefined,
+    content: Array.isArray(message?.content) ? message.content : undefined,
+    createdAt: message?.createdAt ?? undefined,
+  }));
+}
+
+function approxTokens(text = '') {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return 0;
+  }
+  return trimmed.split(/\s+/).length;
+}
+
+function createInitialHistoryEntry(prefix, timestamp) {
+  const updatedAt = timestamp ?? new Date();
+  const diagnostics = {
+    revision: 1,
+    appliedRules: [],
+    conversationPhase: 'onboarding',
+    sentimentScore: 0,
+    sentimentLabel: 'neutral',
+    guardrailReasons: [],
+    diff: { added: 0, removed: 0, diffRatio: 0 },
+    tokens: approxTokens(prefix ?? ''),
+    sourcePrefix: 'default',
+    timestamp: updatedAt.toISOString(),
+    notes: 'Initial preset applied.',
+  };
+
+  return {
+    revision: 1,
+    promptPrefix: prefix ?? '',
+    updatedAt,
+    source: 'default',
+    diagnostics,
+    guardrailStatus: guardrailStatusMap.ACCEPTED,
+  };
+}
+
+function updateGuardrailState(previous = {}, status = guardrailStatusMap.ACCEPTED, diagnostics = {}) {
+  const now = new Date();
+  const reasons = diagnostics.guardrailReasons ?? previous.reasons ?? [];
+  if (status === guardrailStatusMap.ACCEPTED) {
+    return {
+      ...previous,
+      lastStatus: guardrailStatusMap.ACCEPTED,
+      lastStatusAt: now,
+      blocked: false,
+      reasons,
+    };
+  }
+
+  if (status === guardrailStatusMap.ROLLED_BACK) {
+    const failureCount = (previous.failureCount ?? 0) + 1;
+    const blockedPhrases = [
+      ...(previous.blockedPhrases ?? []),
+      ...reasons.filter((reason) => typeof reason === 'string' && reason.startsWith('forbidden:')),
+    ].slice(-10);
+
+    return {
+      ...previous,
+      lastStatus: guardrailStatusMap.ROLLED_BACK,
+      lastStatusAt: now,
+      blocked: true,
+      reasons,
+      blockedPhrases,
+      failureCount,
+    };
+  }
+
+  return previous;
+}
 
 /**
  * Searches for a conversation by conversationId and returns a lean document with only conversationId and user.
@@ -93,7 +199,134 @@ module.exports = {
       }
 
       const messages = await getMessages({ conversationId }, '_id');
+      const existingConversation = await Conversation.findOne({
+        conversationId,
+        user: req.user.id,
+      }).lean();
+
+      const shouldRunComposer = shouldApplyMetaPrompt(convo, metadata);
+      const now = new Date();
+
+      let defaultPrefix =
+        existingConversation?.promptPrefixDefault ??
+        existingConversation?.promptPrefix ??
+        convo.promptPrefix ??
+        req?.body?.promptPrefix ??
+        null;
+
+      let promptPrefixCurrent =
+        convo.promptPrefix ??
+        existingConversation?.promptPrefixCurrent ??
+        existingConversation?.promptPrefix ??
+        defaultPrefix ??
+        null;
+
+      let promptPrefixHistory = Array.isArray(existingConversation?.promptPrefixHistory)
+        ? [...existingConversation.promptPrefixHistory]
+        : [];
+
+      let guardrailState = existingConversation?.promptGuardrailState ?? undefined;
+      let composerResult;
+
+      if (!existingConversation && defaultPrefix != null) {
+        promptPrefixHistory = [createInitialHistoryEntry(defaultPrefix, now)];
+        guardrailState = updateGuardrailState(undefined, guardrailStatusMap.ACCEPTED, {});
+        promptPrefixCurrent = defaultPrefix;
+      }
+
+      if (shouldRunComposer) {
+        try {
+          const recentMessages = await Message.find({ conversationId, user: req.user.id })
+            .sort({ createdAt: -1 })
+            .limit(6)
+            .lean();
+
+          const userMessageCount = recentMessages.filter((message) => message?.isCreatedByUser)
+            .length;
+
+          if (userMessageCount > 0) {
+            const orderedMessages = recentMessages.reverse();
+            const composerInput = {
+              conversation: {
+                conversationId,
+                defaultPrefix: defaultPrefix ?? undefined,
+                currentPrefix: promptPrefixCurrent ?? undefined,
+                tags: Array.isArray(convo.tags) ? convo.tags : existingConversation?.tags,
+                tools: Array.isArray(convo.tools) ? convo.tools : existingConversation?.tools,
+                reasoningSummary:
+                  convo.reasoning_summary ?? existingConversation?.reasoning_summary ?? undefined,
+                guardrailState: guardrailState ?? undefined,
+              },
+              messages: toComposerMessages(orderedMessages),
+            };
+
+            composerResult = composeMetaPrompt(composerInput);
+
+            promptPrefixCurrent = composerResult.promptPrefix ?? promptPrefixCurrent;
+            guardrailState = updateGuardrailState(
+              guardrailState,
+              composerResult.guardrailStatus,
+              composerResult.diagnostics,
+            );
+
+            const revision =
+              (promptPrefixHistory[promptPrefixHistory.length - 1]?.revision ?? 0) + 1;
+
+            const shouldRecordHistory =
+              composerResult.guardrailStatus !== guardrailStatusMap.ACCEPTED ||
+              (Array.isArray(composerResult.diagnostics?.appliedRules) &&
+                composerResult.diagnostics.appliedRules.length > 0);
+
+            if (shouldRecordHistory) {
+              const historyEntry = {
+                revision,
+                promptPrefix: promptPrefixCurrent ?? '',
+                updatedAt: now,
+                source:
+                  composerResult.guardrailStatus === guardrailStatusMap.ROLLED_BACK
+                    ? 'rollback'
+                    : 'meta-injector',
+                diagnostics: { ...composerResult.diagnostics, revision },
+                guardrailStatus: composerResult.guardrailStatus,
+              };
+
+              promptPrefixHistory = [...promptPrefixHistory, historyEntry];
+              if (promptPrefixHistory.length > MAX_HISTORY_LENGTH) {
+                promptPrefixHistory = promptPrefixHistory.slice(-MAX_HISTORY_LENGTH);
+              }
+
+              logger.debug('[saveConvo] meta prompt update', {
+                conversationId,
+                revision,
+                guardrailStatus: composerResult.guardrailStatus,
+                appliedRules: composerResult.diagnostics?.appliedRules ?? [],
+                diff: composerResult.diagnostics?.diff,
+              });
+            }
+          }
+        } catch (error) {
+          logger.error('[saveConvo] Error applying meta prompt injector', error);
+        }
+      }
+
       const update = { ...convo, messages, user: req.user.id };
+
+      if (defaultPrefix != null) {
+        update.promptPrefixDefault = defaultPrefix;
+      }
+
+      if (promptPrefixCurrent != null) {
+        update.promptPrefix = promptPrefixCurrent;
+        update.promptPrefixCurrent = promptPrefixCurrent;
+      }
+
+      if (promptPrefixHistory?.length) {
+        update.promptPrefixHistory = promptPrefixHistory;
+      }
+
+      if (guardrailState && Object.keys(guardrailState).length > 0) {
+        update.promptGuardrailState = guardrailState;
+      }
 
       if (newConversationId) {
         update.conversationId = newConversationId;

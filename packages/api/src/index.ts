@@ -20,6 +20,7 @@ export * from './mcp/oauth/OAuthReconnectionManager';
 export * from './crypto';
 /* Flow */
 export * from './flow/manager';
+export * from './flow/metaPromptComposer';
 /* Middleware */
 export * from './middleware';
 /* Memory */
