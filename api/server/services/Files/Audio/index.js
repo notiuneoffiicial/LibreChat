@@ -3,17 +3,19 @@ const TTSService = require('./TTSService');
 const STTService = require('./STTService');
 const getVoices = require('./getVoices');
 const {
-  RealtimeSTTService,
-  RealtimeSTTError,
-  issueRealtimeSession,
-} = require('./RealtimeSTTService');
+  RealtimeCallService,
+  RealtimeCallError,
+  createRealtimeCall,
+  REALTIME_CALLS_ENDPOINT,
+} = require('./RealtimeCallService');
 
 module.exports = {
   getVoices,
   getCustomConfigSpeech,
   ...STTService,
   ...TTSService,
-  RealtimeSTTService,
-  RealtimeSTTError,
-  issueRealtimeSession,
+  RealtimeCallService,
+  RealtimeCallError,
+  createRealtimeCall,
+  REALTIME_CALLS_ENDPOINT,
 };

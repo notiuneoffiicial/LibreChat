@@ -1,14 +1,15 @@
-class MockRealtimeSTTError extends Error {
-  constructor(message, status = 500) {
+class MockRealtimeCallError extends Error {
+  constructor(message, status = 500, code) {
     super(message);
-    this.name = 'RealtimeSTTError';
+    this.name = 'RealtimeCallError';
     this.status = status;
+    this.code = code;
   }
 }
 
 jest.mock('~/server/services/Files/Audio', () => ({
-  issueRealtimeSession: jest.fn(),
-  RealtimeSTTError: MockRealtimeSTTError,
+  createRealtimeCall: jest.fn(),
+  RealtimeCallError: MockRealtimeCallError,
 }));
 
 const request = require('supertest');
@@ -33,7 +34,7 @@ const buildApp = (withUser = true) => {
   return app;
 };
 
-describe('POST /api/files/speech/stt/realtime/session', () => {
+describe('POST /api/files/speech/stt/realtime/call', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -41,43 +42,73 @@ describe('POST /api/files/speech/stt/realtime/session', () => {
   it('rejects unauthenticated requests', async () => {
     const app = buildApp(false);
 
-    const response = await request(app).post('/api/files/speech/stt/realtime/session').send({});
+    const response = await request(app).post('/api/files/speech/stt/realtime/call').send({});
 
-    expect(audioServices.issueRealtimeSession).not.toHaveBeenCalled();
+    expect(audioServices.createRealtimeCall).not.toHaveBeenCalled();
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
-  it('returns the realtime session descriptor from the service', async () => {
+  it('validates the presence of an SDP offer', async () => {
     const app = buildApp();
-    const descriptor = { session: { client_secret: { value: 'secret' } } };
-    audioServices.issueRealtimeSession.mockResolvedValue(descriptor);
 
-    const response = await request(app).post('/api/files/speech/stt/realtime/session').send({});
+    const response = await request(app)
+      .post('/api/files/speech/stt/realtime/call')
+      .send({ mode: 'conversation' });
 
-    expect(audioServices.issueRealtimeSession).toHaveBeenCalled();
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual(descriptor);
+    expect(audioServices.createRealtimeCall).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Missing SDP offer' });
   });
 
-  it('surfaces RealtimeSTTError status codes', async () => {
+  it('passes overrides to the realtime call service', async () => {
     const app = buildApp();
-    const { RealtimeSTTError } = audioServices;
-    audioServices.issueRealtimeSession.mockRejectedValue(
-      new RealtimeSTTError('Realtime STT is not configured', 404),
+    const payload = { sdpAnswer: 'test-answer' };
+    audioServices.createRealtimeCall.mockResolvedValue(payload);
+
+    const body = {
+      sdpOffer: 'offer',
+      mode: 'conversation',
+      model: 'gpt-realtime',
+      voice: 'alloy',
+      instructions: 'Be brief',
+      include: ['text'],
+      vad: { type: 'server_vad' },
+      noiseReduction: 'server_light',
+    };
+
+    const response = await request(app).post('/api/files/speech/stt/realtime/call').send(body);
+
+    expect(audioServices.createRealtimeCall).toHaveBeenCalledWith(
+      expect.objectContaining({ user: { id: 'user-123' } }),
+      body,
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(payload);
+  });
+
+  it('surfaces RealtimeCallError details', async () => {
+    const app = buildApp();
+    const { RealtimeCallError } = audioServices;
+    audioServices.createRealtimeCall.mockRejectedValue(
+      new RealtimeCallError('OpenAI rejected the offer', 409, 'conflict'),
     );
 
-    const response = await request(app).post('/api/files/speech/stt/realtime/session').send({});
+    const response = await request(app)
+      .post('/api/files/speech/stt/realtime/call')
+      .send({ sdpOffer: 'offer' });
 
-    expect(response.status).toBe(404);
-    expect(response.body).toEqual({ error: 'Realtime STT is not configured' });
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: 'OpenAI rejected the offer', code: 'conflict' });
   });
 
-  it('returns a 500 when the service throws an unexpected error', async () => {
+  it('falls back to 500 for unexpected errors', async () => {
     const app = buildApp();
-    audioServices.issueRealtimeSession.mockRejectedValue(new Error('Boom'));
+    audioServices.createRealtimeCall.mockRejectedValue(new Error('Boom'));
 
-    const response = await request(app).post('/api/files/speech/stt/realtime/session').send({});
+    const response = await request(app)
+      .post('/api/files/speech/stt/realtime/call')
+      .send({ sdpOffer: 'offer' });
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Boom' });
