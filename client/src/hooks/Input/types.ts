@@ -1,15 +1,8 @@
 import type { RealtimeCallRequest, RealtimeCallResponse } from 'librechat-data-provider';
-import type { RealtimeSTTOptions, RealtimeSTTSessionDefaults } from '~/store/settings';
-
-export type RealtimeSessionConfig = RealtimeSTTOptions & {
-  url?: string;
-  session?: (
-    RealtimeSTTSessionDefaults & {
-      id?: string;
-      client_secret?: { value?: string } & Record<string, unknown>;
-    }
-  ) | null;
-};
+import type {
+  RealtimeSTTNoiseReduction,
+  RealtimeSTTTurnDetectionConfig,
+} from '~/store/settings';
 
 export interface SpeechToTextOptions {
   /**
@@ -33,12 +26,6 @@ export interface SpeechToTextOptions {
    */
   autoSendDelayOverride?: number | null;
   /**
-   * Allows tests or advanced consumers to provide a custom function for
-   * creating realtime session descriptors instead of using the default
-   * mutation hook.
-   */
-  realtimeSessionFetcher?: () => Promise<RealtimeSessionConfig>;
-  /**
    * Allows tests or advanced consumers to override the default realtime call
    * initiation logic. When provided, this function is invoked with the
    * payload that would normally be sent to the server and must return the
@@ -46,18 +33,76 @@ export interface SpeechToTextOptions {
    */
   realtimeCallInvoker?: (payload: RealtimeCallRequest) => Promise<RealtimeCallResponse>;
   /**
-   * Factory override for creating WebSocket connections, primarily used for
-   * testing environments that lack a native implementation.
-   */
-  websocketFactory?: (url: string, protocols?: string | string[]) => WebSocket;
-  /**
    * Factory override for constructing peer connections when the realtime
    * engine requests WebRTC transport.
    */
   peerConnectionFactory?: () => RTCPeerConnection;
   /**
-   * Factory override for creating audio contexts, enabling deterministic
-   * testing of audio capture pipelines.
+   * Override the realtime session mode that will be requested from the
+   * provider. Falls back to the persisted realtime session defaults when
+   * omitted.
    */
-  audioContextFactory?: (options?: AudioContextOptions) => AudioContext;
+  mode?: string;
+  /**
+   * Override the realtime model that should power the transcription session.
+   */
+  model?: string;
+  /**
+   * Override the realtime voice to request when speech responses are enabled.
+   */
+  voice?: string;
+  /**
+   * Override the default instructions used when creating the realtime
+   * session.
+   */
+  instructions?: string;
+  /**
+   * Explicitly control which modalities should be requested from the
+   * realtime provider.
+   */
+  include?: string[];
+  /**
+   * Override the voice activity detection configuration forwarded to the
+   * realtime provider.
+   */
+  turnDetection?: RealtimeSTTTurnDetectionConfig;
+  /**
+   * Override the noise reduction configuration forwarded to the realtime
+   * provider.
+   */
+  noiseReduction?: RealtimeSTTNoiseReduction;
+  /**
+   * Provide ad-hoc overrides for the realtime call payload. Properties defined
+   * here win over all other derived defaults with the exception of the
+   * required `sdpOffer` field.
+   */
+  callOverrides?: Partial<Omit<RealtimeCallRequest, 'sdpOffer'>>;
+  /**
+   * Observe realtime recorder status changes. The hook invokes this callback
+   * whenever the internal status changes.
+   */
+  onStatusChange?: (status: RealtimeRecorderStatus) => void;
+  /**
+   * Observe realtime recorder error state changes. Passing `null` clears the
+   * current error.
+   */
+  onError?: (error: string | null) => void;
+  /**
+   * Receive streaming speech synthesis events from the realtime session when
+   * speech responses are enabled.
+   */
+  onSpeechOutputDelta?: (event: unknown) => void;
+  /**
+   * Receive the completion event for streamed speech synthesis responses.
+   */
+  onSpeechOutputCompleted?: (event: unknown) => void;
 }
+
+export type RealtimeRecorderStatus =
+  | 'idle'
+  | 'acquiring_media'
+  | 'negotiating'
+  | 'connected'
+  | 'processing'
+  | 'completed'
+  | 'error';
