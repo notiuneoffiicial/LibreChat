@@ -21,6 +21,15 @@ import {
   EngineSTTDropdown,
   DecibelSelector,
 } from './STT';
+import {
+  RealtimeModeSelector,
+  RealtimeModelInput,
+  RealtimeVoiceSelector,
+  RealtimeInstructionsInput,
+  RealtimeIncludeToggles,
+  RealtimeNoiseReductionSelector,
+  RealtimeVADSettings,
+} from './Realtime';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -186,6 +195,12 @@ function Speech() {
       <Tabs.Content value={'simple'} tabIndex={-1}>
         <div className="flex flex-col gap-3 text-sm text-text-primary">
           <SpeechToTextSwitch />
+          {engineSTT === 'realtime' && (
+            <div className="space-y-3 rounded-md border border-border-medium p-3">
+              <RealtimeModeSelector />
+              <RealtimeVoiceSelector />
+            </div>
+          )}
           <LanguageSTTDropdown />
           <div className="h-px bg-border-medium" role="none" />
           <TextToSpeechSwitch />
@@ -198,6 +213,18 @@ function Speech() {
           <SpeechToTextSwitch />
 
           <EngineSTTDropdown external={sttExternal} realtimeAvailable={realtimeAvailable} />
+
+          {engineSTT === 'realtime' && (
+            <div className="space-y-4 rounded-md border border-border-medium p-4">
+              <RealtimeModeSelector />
+              <RealtimeModelInput />
+              <RealtimeIncludeToggles />
+              <RealtimeVoiceSelector />
+              <RealtimeInstructionsInput />
+              <RealtimeNoiseReductionSelector />
+              <RealtimeVADSettings />
+            </div>
+          )}
 
           <LanguageSTTDropdown />
           <div className="pb-2">

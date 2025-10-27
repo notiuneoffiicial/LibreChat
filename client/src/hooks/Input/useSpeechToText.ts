@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import useSpeechToTextBrowser from './useSpeechToTextBrowser';
 import useSpeechToTextExternal from './useSpeechToTextExternal';
 import useSpeechToTextRealtime from './useSpeechToTextRealtime';
 import useGetAudioSettings from './useGetAudioSettings';
+import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 
 import type { SpeechToTextOptions } from './types';
 
@@ -15,9 +17,47 @@ const useSpeechToText = (
   stopRecording: () => void | (() => Promise<void>);
   startRecording: () => void | (() => Promise<void>);
 } => {
-  const { speechToTextEndpoint } = useGetAudioSettings();
+  const { speechToTextEndpoint, realtime } = useGetAudioSettings();
   const externalSpeechToText = speechToTextEndpoint === 'external';
   const realtimeSpeechToText = speechToTextEndpoint === 'realtime';
+
+  const realtimeOptions = useMemo(() => {
+    const defaults = realtime ?? DEFAULT_REALTIME_STT_OPTIONS;
+    const base: SpeechToTextOptions = { ...(options ?? {}) };
+    const session = defaults.session ?? {};
+    const include = Array.isArray(defaults.include) ? defaults.include : undefined;
+    const audioInput = defaults.audio?.input ?? {};
+
+    if (base.mode === undefined && session.mode) {
+      base.mode = session.mode;
+    }
+
+    if (base.model === undefined) {
+      base.model = session.model ?? defaults.model;
+    }
+
+    if (base.voice === undefined && session.voice) {
+      base.voice = session.voice;
+    }
+
+    if (base.instructions === undefined && session.instructions) {
+      base.instructions = session.instructions;
+    }
+
+    if (base.include === undefined && include) {
+      base.include = include;
+    }
+
+    if (base.turnDetection === undefined && audioInput.turnDetection) {
+      base.turnDetection = audioInput.turnDetection;
+    }
+
+    if (base.noiseReduction === undefined && audioInput.noiseReduction !== undefined) {
+      base.noiseReduction = audioInput.noiseReduction;
+    }
+
+    return base;
+  }, [options, realtime]);
 
   const {
     isListening: speechIsListeningBrowser,
@@ -38,7 +78,7 @@ const useSpeechToText = (
     isLoading: speechIsLoadingRealtime,
     startRecording: startSpeechRecordingRealtime,
     stopRecording: stopSpeechRecordingRealtime,
-  } = useSpeechToTextRealtime(setText, onTranscriptionComplete, options);
+  } = useSpeechToTextRealtime(setText, onTranscriptionComplete, realtimeOptions);
 
   const isListening = realtimeSpeechToText
     ? speechIsListeningRealtime
