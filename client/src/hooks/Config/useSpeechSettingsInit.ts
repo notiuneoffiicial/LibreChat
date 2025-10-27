@@ -158,21 +158,26 @@ export default function useSpeechSettingsInit(isAuthenticated: boolean) {
       if (key === 'sttExternal' || key === 'ttsExternal') return;
 
       const storageKey = storageKeyOverrides[key] ?? key;
-
-      if (localStorage.getItem(storageKey) !== null) return;
-
       const setter = setters[key as keyof typeof setters];
-      if (setter) {
-        logger.log(`Setting default speech setting: ${key} = ${value}`);
-        if (key === 'realtime' && typeof value === 'object' && value !== null) {
-          const realtimeValue = value as RealtimeSettingsUpdate;
-
-          setter((previous) => mergeRealtimeDefaults(previous, realtimeValue));
-          return;
-        }
-
-        setter(value as any);
+      if (!setter) {
+        return;
       }
+
+      const hasStoredValue = localStorage.getItem(storageKey) !== null;
+
+      if (key === 'realtime' && typeof value === 'object' && value !== null) {
+        const realtimeValue = value as RealtimeSettingsUpdate;
+        logger.log('Merging realtime speech defaults with config overrides:', realtimeValue);
+        setter((previous) => mergeRealtimeDefaults(previous, realtimeValue));
+        return;
+      }
+
+      if (hasStoredValue) {
+        return;
+      }
+
+      logger.log(`Setting default speech setting: ${key} = ${value}`);
+      setter(value as any);
     });
   }, [isAuthenticated, data, setters]);
 }

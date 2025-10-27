@@ -127,7 +127,9 @@ class RealtimeSTTService {
     }
 
     const includeList = Array.isArray(realtimeConfig.include)
-      ? realtimeConfig.include.filter((value) => typeof value === 'string' && value.trim().length > 0)
+      ? realtimeConfig.include.filter(
+          (value) => typeof value === 'string' && value.trim().length > 0,
+        )
       : [];
 
     if (includeList.length > 0) {
@@ -266,7 +268,11 @@ class RealtimeSTTService {
         },
       };
 
-      const descriptorModel = sessionDefaults?.model ?? realtimeConfig.model;
+      const descriptorModel =
+        session?.model ??
+        session?.default_model ??
+        sessionDefaults?.model ??
+        realtimeConfig.model;
 
       return {
         url: realtimeConfig.url ?? DEFAULT_REALTIME_URL,
