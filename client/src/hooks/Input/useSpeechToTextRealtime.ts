@@ -113,7 +113,10 @@ const useSpeechToTextRealtime = (
       logger.warn?.('Realtime websocket transport is not supported; defaulting to WebRTC');
     }
 
-    const sessionConfig = defaults.session ? JSON.parse(JSON.stringify(defaults.session)) : undefined;
+    const sessionConfig =
+      defaults.session
+        ? JSON.parse(JSON.stringify(defaults.session))
+        : undefined;
     const audioConfig = defaults.audio ? JSON.parse(JSON.stringify(defaults.audio)) : undefined;
 
     return {
