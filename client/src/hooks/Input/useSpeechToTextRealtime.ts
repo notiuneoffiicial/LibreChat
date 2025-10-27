@@ -597,13 +597,7 @@ const useSpeechToTextRealtime = (
         beginRealtimeResponse();
       }
     },
-    [
-      beginRealtimeResponse,
-      buildCallPayload,
-      cleanup,
-      handleMessageEvent,
-      initiateRealtimeCall,
-    ],
+    [beginRealtimeResponse, buildCallPayload, cleanup, handleMessageEvent, initiateRealtimeCall],
   );
 
   const establishRealtimeConnection = useCallback(
