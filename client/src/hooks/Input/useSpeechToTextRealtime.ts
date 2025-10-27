@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRecoilValue } from 'recoil';
-import type { RealtimeSessionDescriptor } from 'librechat-data-provider';
+import type {
+  RealtimeCallRequest,
+  RealtimeCallResponse,
+  RealtimeSessionDescriptor,
+} from 'librechat-data-provider';
 import { useToastContext } from '@librechat/client';
-import { useRealtimeSessionMutation } from '~/data-provider';
+import { useRealtimeCallMutation } from '~/data-provider';
 import store from '~/store';
 import { logger } from '~/utils';
 import type { SpeechToTextOptions } from './types';
@@ -72,7 +76,7 @@ const useSpeechToTextRealtime = (
   options?: SpeechToTextOptions,
 ) => {
   const { showToast } = useToastContext();
-  const { mutateAsync: createSessionDescriptor } = useRealtimeSessionMutation();
+  const realtimeCallMutation = useRealtimeCallMutation();
 
   const realtimeDefaults = useRecoilValue(store.realtimeSTTOptions);
   const autoSendText = useRecoilValue(store.autoSendText);
@@ -100,6 +104,57 @@ const useSpeechToTextRealtime = (
   useEffect(() => {
     optionsRef.current = options;
   }, [options]);
+
+  const buildDescriptorFromDefaults = useCallback((): RealtimeSessionDescriptor => {
+    const defaults = realtimeDefaults ?? {};
+    const include = Array.isArray(defaults.include)
+      ? defaults.include.filter((value) => typeof value === 'string' && value.trim().length > 0)
+      : [];
+
+    if (defaults.transport && defaults.transport !== 'webrtc') {
+      logger.warn?.('Realtime websocket transport is not supported; defaulting to WebRTC');
+    }
+
+    const sessionDefaults = defaults.session ? JSON.parse(JSON.stringify(defaults.session)) : undefined;
+    const audioConfig = defaults.audio ? JSON.parse(JSON.stringify(defaults.audio)) : undefined;
+
+    return {
+      url: '',
+      transport: 'webrtc',
+      stream: typeof defaults.stream === 'boolean' ? defaults.stream : true,
+      inputAudioFormat: {
+        encoding: defaults.inputAudioFormat?.encoding ?? DEFAULT_ENCODING,
+        sampleRate: defaults.inputAudioFormat?.sampleRate ?? DEFAULT_SAMPLE_RATE,
+        channels: defaults.inputAudioFormat?.channels ?? 1,
+      },
+      model: typeof defaults.model === 'string' ? defaults.model : '',
+      sessionDefaults,
+      audio: audioConfig,
+      include: include.length > 0 ? include : undefined,
+      ffmpegPath: defaults.ffmpegPath,
+    };
+  }, [realtimeDefaults]);
+
+  const fetchSessionDescriptor = useCallback(() => {
+    const override = optionsRef.current?.realtimeSessionFetcher;
+    if (override) {
+      return override();
+    }
+
+    return Promise.resolve(buildDescriptorFromDefaults());
+  }, [buildDescriptorFromDefaults]);
+
+  const initiateRealtimeCall = useCallback(
+    (payload: RealtimeCallRequest): Promise<RealtimeCallResponse> => {
+      const override = optionsRef.current?.realtimeCallInvoker;
+      if (override) {
+        return override(payload);
+      }
+
+      return realtimeCallMutation.mutateAsync(payload);
+    },
+    [realtimeCallMutation],
+  );
 
   useEffect(() => {
     return () => {
@@ -195,6 +250,46 @@ const useSpeechToTextRealtime = (
 
     return false;
   }, []);
+
+  const buildCallPayload = useCallback(
+    (descriptor: RealtimeSessionDescriptor, sdpOffer: string): RealtimeCallRequest => {
+      const payload: RealtimeCallRequest = { sdpOffer };
+      const sessionDefaults = descriptor.sessionDefaults ?? {};
+      const resolvedModel = sessionDefaults.model ?? descriptor.model;
+
+      if (sessionDefaults.mode) {
+        payload.mode = sessionDefaults.mode;
+      }
+
+      if (resolvedModel) {
+        payload.model = resolvedModel;
+      }
+
+      if (sessionDefaults.voice) {
+        payload.voice = sessionDefaults.voice;
+      }
+
+      if (sessionDefaults.instructions) {
+        payload.instructions = sessionDefaults.instructions;
+      }
+
+      if (Array.isArray(descriptor.include) && descriptor.include.length > 0) {
+        payload.include = descriptor.include;
+      }
+
+      const audioInput = descriptor.audio?.input;
+      if (audioInput?.turnDetection) {
+        payload.vad = JSON.parse(JSON.stringify(audioInput.turnDetection));
+      }
+
+      if (typeof audioInput?.noiseReduction === 'string') {
+        payload.noiseReduction = audioInput.noiseReduction;
+      }
+
+      return payload;
+    },
+    [],
+  );
 
   const beginRealtimeResponse = useCallback(() => {
     if (hasRequestedResponseRef.current) {
@@ -481,19 +576,19 @@ const useSpeechToTextRealtime = (
       const offer = await peerConnection.createOffer({ offerToReceiveAudio: true });
       await peerConnection.setLocalDescription(offer);
 
-      const authHeaders = {
-        Authorization: `Bearer ${descriptor.session?.client_secret?.value ?? ''}`,
-        'Content-Type': 'application/sdp',
-        'OpenAI-Beta': 'realtime=v1',
-      };
+      const sdpOffer = offer.sdp ?? '';
+      if (!sdpOffer) {
+        throw new Error('Failed to create SDP offer for realtime call');
+      }
 
-      const response = await fetch(buildRealtimeUrl(descriptor), {
-        method: 'POST',
-        body: offer.sdp ?? '',
-        headers: authHeaders,
-      });
+      const payload = buildCallPayload(descriptor, sdpOffer);
+      const response = await initiateRealtimeCall(payload);
 
-      const answer = await response.text();
+      const answer = response?.sdpAnswer;
+      if (!answer) {
+        throw new Error('Realtime call did not return an SDP answer');
+      }
+
       await peerConnection.setRemoteDescription({ type: 'answer', sdp: answer });
 
       currentDescriptorRef.current = descriptor;
@@ -502,7 +597,13 @@ const useSpeechToTextRealtime = (
         beginRealtimeResponse();
       }
     },
-    [beginRealtimeResponse, cleanup, handleMessageEvent],
+    [
+      beginRealtimeResponse,
+      buildCallPayload,
+      cleanup,
+      handleMessageEvent,
+      initiateRealtimeCall,
+    ],
   );
 
   const establishRealtimeConnection = useCallback(
@@ -516,14 +617,6 @@ const useSpeechToTextRealtime = (
     },
     [connectPeerConnection, connectWebSocket],
   );
-
-  const fetchSessionDescriptor = useCallback(() => {
-    const override = optionsRef.current?.realtimeSessionFetcher;
-    if (override) {
-      return override();
-    }
-    return createSessionDescriptor();
-  }, [createSessionDescriptor]);
 
   const startRecording = useCallback(async () => {
     if (isLoading || isListening) {
@@ -555,7 +648,7 @@ const useSpeechToTextRealtime = (
           sampleRate: descriptor.inputAudioFormat?.sampleRate ?? realtimeDefaults.inputAudioFormat.sampleRate,
           channels: descriptor.inputAudioFormat?.channels ?? realtimeDefaults.inputAudioFormat.channels,
         },
-        transport: descriptor.transport ?? realtimeDefaults.transport,
+        transport: descriptor.transport ?? realtimeDefaults.transport ?? 'webrtc',
         stream: typeof descriptor.stream === 'boolean' ? descriptor.stream : realtimeDefaults.stream,
       };
 
@@ -575,7 +668,11 @@ const useSpeechToTextRealtime = (
       await establishRealtimeConnection(resolved);
     } catch (error) {
       logger.error?.('Failed to start realtime transcription session', error);
-      showToast({ message: 'Failed to start realtime transcription', status: 'error' });
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Failed to start realtime transcription';
+      showToast({ message, status: 'error' });
       setIsLoading(false);
       cleanup();
     }

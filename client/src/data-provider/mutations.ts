@@ -719,16 +719,17 @@ export const useSpeechToTextMutation = (
   });
 };
 
-export const useRealtimeSessionMutation = (
-  options?: t.MutationOptions<t.RealtimeSessionDescriptor, void>,
+export const useRealtimeCallMutation = (
+  options?: t.MutationOptions<t.RealtimeCallResponse, t.RealtimeCallRequest>,
 ): UseMutationResult<
-  t.RealtimeSessionDescriptor,
+  t.RealtimeCallResponse,
   unknown,
-  void,
+  t.RealtimeCallRequest,
   unknown
 > => {
-  return useMutation([MutationKeys.realtimeSession], {
-    mutationFn: () => dataService.createRealtimeSpeechSession(),
+  return useMutation([MutationKeys.realtimeCall], {
+    mutationFn: (variables: t.RealtimeCallRequest) =>
+      dataService.createRealtimeSpeechCall(variables),
     ...(options || {}),
   });
 };

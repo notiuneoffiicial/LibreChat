@@ -46,6 +46,5 @@ const handleRealtimeCall = async (req, res) => {
 };
 
 router.post('/call', handleRealtimeCall);
-router.post('/session', handleRealtimeCall);
 
 module.exports = router;

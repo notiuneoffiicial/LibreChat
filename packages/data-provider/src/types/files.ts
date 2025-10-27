@@ -228,12 +228,28 @@ export type RealtimeSessionDescriptor = {
     channels: number;
   };
   model: string;
-  session: RealtimeSession;
+  session?: RealtimeSession;
   ffmpegPath?: string;
   sessionDefaults?: RealtimeSessionDefaults;
   audio?: RealtimeAudioConfig;
   include?: string[];
 };
+
+export type RealtimeCallRequest = {
+  sdpOffer: string;
+  mode?: string;
+  model?: string;
+  voice?: string;
+  instructions?: string;
+  include?: string[];
+  vad?: Record<string, unknown>;
+  noiseReduction?: string;
+};
+
+export type RealtimeCallResponse = {
+  sdpAnswer: string;
+  expiresAt?: number;
+} & Record<string, unknown>;
 
 export type UploadMutationOptions = {
   onSuccess?: (data: TFileUpload, variables: FormData, context?: unknown) => void;

@@ -1,4 +1,8 @@
-import type { RealtimeSessionDescriptor } from 'librechat-data-provider';
+import type {
+  RealtimeCallRequest,
+  RealtimeCallResponse,
+  RealtimeSessionDescriptor,
+} from 'librechat-data-provider';
 
 export interface SpeechToTextOptions {
   /**
@@ -27,6 +31,13 @@ export interface SpeechToTextOptions {
    * mutation hook.
    */
   realtimeSessionFetcher?: () => Promise<RealtimeSessionDescriptor>;
+  /**
+   * Allows tests or advanced consumers to override the default realtime call
+   * initiation logic. When provided, this function is invoked with the
+   * payload that would normally be sent to the server and must return the
+   * realtime call response.
+   */
+  realtimeCallInvoker?: (payload: RealtimeCallRequest) => Promise<RealtimeCallResponse>;
   /**
    * Factory override for creating WebSocket connections, primarily used for
    * testing environments that lack a native implementation.
