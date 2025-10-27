@@ -3,10 +3,12 @@ import type { RealtimeSTTOptions, RealtimeSTTSessionDefaults } from '~/store/set
 
 export type RealtimeSessionConfig = RealtimeSTTOptions & {
   url?: string;
-  session?: (RealtimeSTTSessionDefaults & {
-    id?: string;
-    client_secret?: { value?: string } & Record<string, unknown>;
-  }) | null;
+  session?: (
+    RealtimeSTTSessionDefaults & {
+      id?: string;
+      client_secret?: { value?: string } & Record<string, unknown>;
+    }
+  ) | null;
 };
 
 export interface SpeechToTextOptions {
