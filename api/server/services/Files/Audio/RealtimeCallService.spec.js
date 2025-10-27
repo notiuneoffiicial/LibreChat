@@ -119,23 +119,24 @@ describe('RealtimeCallService', () => {
 
     expect(sessionPayload).toMatchObject({
       model: 'gpt-realtime-mini',
+      type: 'transcription',
       instructions: 'Transcribe clearly',
       speech_to_speech: false,
-      modalities: ['text', 'audio'],
-      input_audio_format: {
-        codec: 'pcm16',
-        sample_rate: 16000,
-        channels: 1,
-      },
+      include: ['text', 'audio'],
       audio: {
         input: {
-          transcription_defaults: {
+          format: {
+            type: 'pcm16',
+            rate: 16000,
+            channels: 1,
+          },
+          transcriptionDefaults: {
             language: 'en',
             temperature: 0,
           },
-          turn_detection: {
+          turnDetection: {
             type: 'server_vad',
-            server_vad: {
+            serverVad: {
               enabled: true,
               threshold: 0.5,
             },
@@ -193,21 +194,27 @@ describe('RealtimeCallService', () => {
 
     expect(sessionPayload).toMatchObject({
       model: 'gpt-realtime-mini',
+      type: 'realtime',
       mode: 'conversation',
       speech_to_speech: true,
       voice: 'nova',
       voices: ['alloy', 'nova'],
       audio: {
         input: {
-          noise_reduction: 'server_light',
-          turn_detection: {
+          format: {
+            type: 'pcm16',
+            rate: 24000,
+            channels: 1,
+          },
+          noiseReduction: 'server_light',
+          turnDetection: {
             type: 'server_vad',
-            server_vad: { enabled: true },
+            serverVad: { enabled: true },
           },
         },
       },
     });
-    expect(sessionPayload.audio.input).not.toHaveProperty('transcription_defaults');
+    expect(sessionPayload.audio.input).not.toHaveProperty('transcriptionDefaults');
     expect(payload).toEqual({ sdpAnswer: 'answer' });
   });
 

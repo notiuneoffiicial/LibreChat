@@ -176,6 +176,7 @@ export class RealtimeCallService {
     const speechToSpeech = Boolean(sessionConfig.speechToSpeech);
     const session: Record<string, unknown> = {
       model: overrides.model ?? sessionConfig.model ?? config.model,
+      type: speechToSpeech ? 'realtime' : 'transcription',
     };
 
     const mode = overrides.mode ?? sessionConfig.mode;
@@ -190,7 +191,7 @@ export class RealtimeCallService {
 
     const include = this.mergeInclude(config.include, overrides.include);
     if (include.length > 0) {
-      session.modalities = include;
+      session.include = include;
     }
 
     if (speechToSpeech) {
@@ -211,11 +212,12 @@ export class RealtimeCallService {
     }
 
     const inputAudioFormat = this.normalizeInputFormat(config.audio?.input?.format);
+    const audioPayload = this.buildAudioInputPayload(config, overrides, speechToSpeech);
+
     if (inputAudioFormat) {
-      session.input_audio_format = inputAudioFormat;
+      audioPayload.format = inputAudioFormat;
     }
 
-    const audioPayload = this.buildAudioInputPayload(config, overrides, speechToSpeech);
     if (Object.keys(audioPayload).length > 0) {
       session.audio = { input: audioPayload };
     }
@@ -233,8 +235,8 @@ export class RealtimeCallService {
 
   private normalizeInputFormat(format?: RealtimeAudioInputFormat) {
     const defaults = {
-      codec: 'pcm16',
-      sample_rate: 24000,
+      type: 'pcm16',
+      rate: 24000,
       channels: 1,
     };
 
@@ -243,28 +245,28 @@ export class RealtimeCallService {
     }
 
     const { encoding, sampleRate, channels, ...rest } = format;
-    let codec = defaults.codec;
+    let type = defaults.type;
     const extra: Record<string, unknown> = {};
 
     if (typeof encoding === 'string') {
-      codec = encoding;
+      type = encoding;
     } else if (encoding && typeof encoding === 'object') {
       if (typeof encoding.codec === 'string') {
-        codec = encoding.codec;
+        type = encoding.codec;
       }
-      Object.assign(extra, this.convertKeysToSnakeCase({ ...encoding, codec: undefined }));
+      Object.assign(extra, this.convertKeysToGaCase({ ...encoding, codec: undefined }));
     }
 
     const normalized = {
-      codec,
-      sample_rate: typeof sampleRate === 'number' ? sampleRate : defaults.sample_rate,
+      type,
+      rate: typeof sampleRate === 'number' ? sampleRate : defaults.rate,
       channels: typeof channels === 'number' ? channels : defaults.channels,
-      ...this.convertKeysToSnakeCase(rest),
+      ...this.convertKeysToGaCase(rest),
       ...extra,
     };
 
-    if (normalized.sample_rate === undefined) {
-      delete normalized.sample_rate;
+    if (normalized.rate === undefined) {
+      delete normalized.rate;
     }
 
     if (normalized.channels === undefined) {
@@ -284,9 +286,9 @@ export class RealtimeCallService {
 
     const noiseReduction = overrides.noiseReduction ?? audioInput.noiseReduction;
     if (typeof noiseReduction === 'string' && noiseReduction.trim().length > 0) {
-      payload.noise_reduction = noiseReduction;
+      payload.noiseReduction = noiseReduction;
     } else if (noiseReduction && typeof noiseReduction === 'object') {
-      payload.noise_reduction = this.convertKeysToSnakeCase(noiseReduction);
+      payload.noiseReduction = this.convertKeysToGaCase(noiseReduction);
     }
 
     let vadSource: Record<string, unknown> | undefined;
@@ -300,19 +302,19 @@ export class RealtimeCallService {
     }
 
     if (vadSource && Object.keys(vadSource).length > 0) {
-      payload.turn_detection = this.convertKeysToSnakeCase(vadSource);
+      payload.turnDetection = this.convertKeysToGaCase(vadSource);
     }
 
     if (!speechToSpeech && audioInput.transcriptionDefaults) {
-      payload.transcription_defaults = this.convertKeysToSnakeCase(audioInput.transcriptionDefaults);
+      payload.transcriptionDefaults = this.convertKeysToGaCase(audioInput.transcriptionDefaults);
     }
 
     return payload;
   }
 
-  private convertKeysToSnakeCase(value: any): any {
+  private convertKeysToGaCase(value: any): any {
     if (Array.isArray(value)) {
-      return value.map((entry) => this.convertKeysToSnakeCase(entry));
+      return value.map((entry) => this.convertKeysToGaCase(entry));
     }
 
     if (!value || typeof value !== 'object') {
@@ -324,14 +326,34 @@ export class RealtimeCallService {
         return acc;
       }
 
-      const normalizedKey = key
-        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-        .replace(/[-\s]+/g, '_')
-        .toLowerCase();
+      const normalizedKey = this.toCamelCase(key);
 
-      acc[normalizedKey] = this.convertKeysToSnakeCase(entryValue);
+      acc[normalizedKey] = this.convertKeysToGaCase(entryValue);
       return acc;
     }, {} as Record<string, unknown>);
+  }
+
+  private toCamelCase(key: string): string {
+    const cleaned = key.replace(/[-\s]+/g, '_');
+    const parts = cleaned.split('_');
+    if (parts.length === 1) {
+      return parts[0].charAt(0).toLowerCase() + parts[0].slice(1);
+    }
+
+    return parts
+      .map((part, index) => {
+        if (part.length === 0) {
+          return '';
+        }
+
+        const lower = part.toLowerCase();
+        if (index === 0) {
+          return lower;
+        }
+
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join('');
   }
 
   private mergeDeep(target: Record<string, unknown>, source: Record<string, unknown>) {
