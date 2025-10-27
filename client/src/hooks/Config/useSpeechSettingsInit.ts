@@ -74,7 +74,6 @@ const mergeRealtimeDefaults = (
   }
 
   base.audio = Object.keys(mergedAudio).length ? mergedAudio : undefined;
-
   const includeSource =
     update.include ?? previous?.include ?? DEFAULT_REALTIME_STT_OPTIONS.include;
   base.include = includeSource ? [...includeSource] : includeSource;
