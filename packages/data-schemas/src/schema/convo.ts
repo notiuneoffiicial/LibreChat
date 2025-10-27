@@ -2,6 +2,30 @@ import { Schema } from 'mongoose';
 import { conversationPreset } from './defaults';
 import { IConversation } from '~/types';
 
+const promptPrefixHistorySchema = new Schema(
+  {
+    revision: { type: Number, required: true },
+    promptPrefix: { type: String, required: true },
+    updatedAt: { type: Date, default: Date.now },
+    source: { type: String, default: 'meta-injector' },
+    diagnostics: { type: Schema.Types.Mixed },
+    guardrailStatus: { type: String },
+  },
+  { _id: false },
+);
+
+const guardrailStateSchema = new Schema(
+  {
+    lastStatus: { type: String },
+    lastStatusAt: { type: Date },
+    blocked: { type: Boolean },
+    reasons: { type: [String], default: undefined },
+    blockedPhrases: { type: [String], default: undefined },
+    failureCount: { type: Number, default: 0 },
+  },
+  { _id: false },
+);
+
 const convoSchema: Schema<IConversation> = new Schema(
   {
     conversationId: {
@@ -26,6 +50,20 @@ const convoSchema: Schema<IConversation> = new Schema(
       type: Schema.Types.Mixed,
     },
     ...conversationPreset,
+    promptPrefixDefault: {
+      type: String,
+    },
+    promptPrefixCurrent: {
+      type: String,
+    },
+    promptPrefixHistory: {
+      type: [promptPrefixHistorySchema],
+      default: [],
+    },
+    promptGuardrailState: {
+      type: guardrailStateSchema,
+      default: undefined,
+    },
     agent_id: {
       type: String,
     },

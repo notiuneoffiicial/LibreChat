@@ -1,4 +1,11 @@
 import { extractLibreChatParams } from './llm';
+import { DEFAULT_META_PROMPT_OPTIONS } from '../flow/metaPromptComposer';
+
+jest.mock('librechat-data-provider', () => ({
+  librechat: {
+    resendFiles: { default: true },
+  },
+}));
 
 describe('extractLibreChatParams', () => {
   it('should return defaults when options is undefined', () => {
@@ -195,5 +202,60 @@ describe('extractLibreChatParams', () => {
       model: 'gpt-3.5-turbo',
       stop: ['\\n', '\\n\\n'],
     });
+  });
+
+  it('should apply the meta prompt injector when context is provided', () => {
+    const options = {
+      promptPrefix: 'You are a helpful assistant.',
+      resendFiles: true,
+      model: 'gpt-4',
+    };
+
+    const result = extractLibreChatParams(options, {
+      composerInput: {
+        conversation: {
+          conversationId: 'convo-ctx',
+          defaultPrefix: 'You are a helpful assistant.',
+          currentPrefix: 'You are a helpful assistant.',
+        },
+        messages: [
+          { role: 'user', text: 'This error is frustrating and urgent.' },
+          { role: 'assistant', text: 'I will check it.' },
+          { role: 'user', text: 'It is still broken and annoying.' },
+        ],
+      },
+    });
+
+    expect(result.promptPrefix).toContain(DEFAULT_META_PROMPT_OPTIONS.empathyAppendix);
+    expect(result.promptDiagnostics?.appliedRules).toContain('frustration-empathy');
+    expect(result.guardrailStatus).toBe('accepted');
+  });
+
+  it('should skip the injector when skipMetaPrompt is true', () => {
+    const options = {
+      promptPrefix: 'You are a helpful assistant.',
+      resendFiles: true,
+      model: 'gpt-4',
+    };
+
+    const result = extractLibreChatParams(options, {
+      skipMetaPrompt: true,
+      composerInput: {
+        conversation: {
+          conversationId: 'convo-ctx',
+          defaultPrefix: 'You are a helpful assistant.',
+          currentPrefix: 'You are a helpful assistant.',
+        },
+        messages: [
+          { role: 'user', text: 'This error is frustrating and urgent.' },
+          { role: 'assistant', text: 'I will check it.' },
+          { role: 'user', text: 'It is still broken and annoying.' },
+        ],
+      },
+    });
+
+    expect(result.promptPrefix).toBe('You are a helpful assistant.');
+    expect(result.promptDiagnostics).toBeUndefined();
+    expect(result.guardrailStatus).toBeUndefined();
   });
 });

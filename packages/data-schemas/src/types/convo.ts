@@ -1,5 +1,46 @@
 import type { Document, Types } from 'mongoose';
 
+export type PromptGuardrailVerdict = 'accepted' | 'rejected' | 'rolled_back';
+
+export interface PromptDiffStats {
+  added: number;
+  removed: number;
+  diffRatio: number;
+}
+
+export interface PromptComposerDiagnostics {
+  revision: number;
+  appliedRules: string[];
+  conversationPhase: 'onboarding' | 'deep_dive' | 'wrap_up';
+  sentimentScore: number;
+  sentimentLabel: 'positive' | 'neutral' | 'negative';
+  guardrailReasons?: string[];
+  diff?: PromptDiffStats;
+  tokens?: number;
+  sourcePrefix?: 'default' | 'current';
+  timestamp: string;
+  notes?: string;
+  triggeredKeywords?: string[];
+}
+
+export interface PromptPrefixHistoryEntry {
+  revision: number;
+  promptPrefix: string;
+  updatedAt: Date;
+  source: string;
+  diagnostics?: PromptComposerDiagnostics;
+  guardrailStatus?: PromptGuardrailVerdict;
+}
+
+export interface PromptGuardrailState {
+  lastStatus?: PromptGuardrailVerdict;
+  lastStatusAt?: Date;
+  blocked?: boolean;
+  reasons?: string[];
+  blockedPhrases?: string[];
+  failureCount?: number;
+}
+
 // @ts-ignore
 export interface IConversation extends Document {
   conversationId: string;
@@ -16,6 +57,10 @@ export interface IConversation extends Document {
   examples?: unknown[];
   modelLabel?: string;
   promptPrefix?: string;
+  promptPrefixDefault?: string;
+  promptPrefixCurrent?: string;
+  promptPrefixHistory?: PromptPrefixHistoryEntry[];
+  promptGuardrailState?: PromptGuardrailState;
   temperature?: number;
   top_p?: number;
   topP?: number;
