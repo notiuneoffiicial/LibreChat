@@ -8,7 +8,7 @@ import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 import { logger } from '~/utils';
 import type { RealtimeRecorderStatus, SpeechToTextOptions } from './types';
 
-const cloneConfig = <T,>(value: T): T => {
+const cloneConfig = <T>(value: T): T => {
   if (value === null || value === undefined) {
     return value;
   }
