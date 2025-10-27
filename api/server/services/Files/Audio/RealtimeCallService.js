@@ -26,7 +26,11 @@ class RealtimeCallService {
   }
 
   async createCall(req, overrides) {
-    if (!overrides || typeof overrides.sdpOffer !== 'string' || overrides.sdpOffer.trim().length === 0) {
+    if (
+      !overrides ||
+      typeof overrides.sdpOffer !== 'string' ||
+      overrides.sdpOffer.trim().length === 0
+    ) {
       throw new RealtimeCallError('Missing SDP offer', 400);
     }
 
@@ -160,7 +164,10 @@ class RealtimeCallService {
   }
 
   #mergeInclude(base, overrides) {
-    const values = [...(Array.isArray(base) ? base : []), ...(Array.isArray(overrides) ? overrides : [])]
+    const values = [
+      ...(Array.isArray(base) ? base : []),
+      ...(Array.isArray(overrides) ? overrides : []),
+    ]
       .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
       .filter((entry) => entry.length > 0);
 
@@ -234,7 +241,9 @@ class RealtimeCallService {
     }
 
     if (!speechToSpeech && audioInput.transcriptionDefaults) {
-      payload.transcription_defaults = this.#convertKeysToSnakeCase(audioInput.transcriptionDefaults);
+      payload.transcription_defaults = this.#convertKeysToSnakeCase(
+        audioInput.transcriptionDefaults,
+      );
     }
 
     return payload;

@@ -1,26 +1,15 @@
 const express = require('express');
-const {
-  createRealtimeCall,
-  RealtimeCallError,
-} = require('~/server/services/Files/Audio');
+const { createRealtimeCall, RealtimeCallError } = require('~/server/services/Files/Audio');
 
 const router = express.Router();
 
-router.post('/call', async (req, res) => {
+const handleRealtimeCall = async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const {
-    sdpOffer,
-    mode,
-    model,
-    voice,
-    instructions,
-    include,
-    vad,
-    noiseReduction,
-  } = req.body ?? {};
+  const { sdpOffer, mode, model, voice, instructions, include, vad, noiseReduction } =
+    req.body ?? {};
 
   if (typeof sdpOffer !== 'string' || sdpOffer.trim().length === 0) {
     return res.status(400).json({ error: 'Missing SDP offer' });
@@ -54,6 +43,9 @@ router.post('/call', async (req, res) => {
     const message = error?.message || 'Failed to create realtime call';
     return res.status(status).json({ error: message });
   }
-});
+};
+
+router.post('/call', handleRealtimeCall);
+router.post('/session', handleRealtimeCall);
 
 module.exports = router;
