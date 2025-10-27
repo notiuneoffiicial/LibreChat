@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRecoilValue } from 'recoil';
-import type {
-  RealtimeCallRequest,
-  RealtimeCallResponse,
-  RealtimeSessionDescriptor,
-} from 'librechat-data-provider';
+import type { RealtimeCallRequest, RealtimeCallResponse } from 'librechat-data-provider';
 import { useToastContext } from '@librechat/client';
-import { useRealtimeCallMutation } from '~/data-provider';
+import { useRealtimeSessionMutation } from '~/data-provider';
 import store from '~/store';
 import { logger } from '~/utils';
-import type { SpeechToTextOptions } from './types';
+import type { RealtimeSessionConfig, SpeechToTextOptions } from './types';
+
+type RealtimeSessionDescriptor = RealtimeSessionConfig;
 
 interface AudioGraph {
   context: AudioContext;
@@ -76,7 +74,7 @@ const useSpeechToTextRealtime = (
   options?: SpeechToTextOptions,
 ) => {
   const { showToast } = useToastContext();
-  const realtimeCallMutation = useRealtimeCallMutation();
+  const realtimeSessionMutation = useRealtimeSessionMutation();
 
   const realtimeDefaults = useRecoilValue(store.realtimeSTTOptions);
   const autoSendText = useRecoilValue(store.autoSendText);
@@ -106,7 +104,7 @@ const useSpeechToTextRealtime = (
   }, [options]);
 
   const buildDescriptorFromDefaults = useCallback((): RealtimeSessionDescriptor => {
-    const defaults = realtimeDefaults ?? {};
+    const defaults = (realtimeDefaults ?? {}) as RealtimeSessionConfig;
     const include = Array.isArray(defaults.include)
       ? defaults.include.filter((value) => typeof value === 'string' && value.trim().length > 0)
       : [];
@@ -115,7 +113,7 @@ const useSpeechToTextRealtime = (
       logger.warn?.('Realtime websocket transport is not supported; defaulting to WebRTC');
     }
 
-    const sessionDefaults = defaults.session ? JSON.parse(JSON.stringify(defaults.session)) : undefined;
+    const sessionConfig = defaults.session ? JSON.parse(JSON.stringify(defaults.session)) : undefined;
     const audioConfig = defaults.audio ? JSON.parse(JSON.stringify(defaults.audio)) : undefined;
 
     return {
@@ -128,7 +126,7 @@ const useSpeechToTextRealtime = (
         channels: defaults.inputAudioFormat?.channels ?? 1,
       },
       model: typeof defaults.model === 'string' ? defaults.model : '',
-      sessionDefaults,
+      session: sessionConfig ?? undefined,
       audio: audioConfig,
       include: include.length > 0 ? include : undefined,
       ffmpegPath: defaults.ffmpegPath,
@@ -151,9 +149,9 @@ const useSpeechToTextRealtime = (
         return override(payload);
       }
 
-      return realtimeCallMutation.mutateAsync(payload);
+      return realtimeSessionMutation.mutateAsync(payload);
     },
-    [realtimeCallMutation],
+    [realtimeSessionMutation],
   );
 
   useEffect(() => {
@@ -254,36 +252,45 @@ const useSpeechToTextRealtime = (
   const buildCallPayload = useCallback(
     (descriptor: RealtimeSessionDescriptor, sdpOffer: string): RealtimeCallRequest => {
       const payload: RealtimeCallRequest = { sdpOffer };
-      const sessionDefaults = descriptor.sessionDefaults ?? {};
-      const resolvedModel = sessionDefaults.model ?? descriptor.model;
+      const sessionConfig = descriptor.session ?? {};
+      const resolvedModel = sessionConfig.model ?? descriptor.model;
 
-      if (sessionDefaults.mode) {
-        payload.mode = sessionDefaults.mode;
+      if (typeof sessionConfig.mode === 'string' && sessionConfig.mode.trim().length > 0) {
+        payload.mode = sessionConfig.mode;
       }
 
       if (resolvedModel) {
         payload.model = resolvedModel;
       }
 
-      if (sessionDefaults.voice) {
-        payload.voice = sessionDefaults.voice;
+      if (typeof sessionConfig.voice === 'string' && sessionConfig.voice.trim().length > 0) {
+        payload.voice = sessionConfig.voice;
       }
 
-      if (sessionDefaults.instructions) {
-        payload.instructions = sessionDefaults.instructions;
+      if (
+        typeof sessionConfig.instructions === 'string' &&
+        sessionConfig.instructions.trim().length > 0
+      ) {
+        payload.instructions = sessionConfig.instructions;
       }
 
       if (Array.isArray(descriptor.include) && descriptor.include.length > 0) {
-        payload.include = descriptor.include;
+        const includeValues = descriptor.include
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter((value) => value.length > 0);
+
+        if (includeValues.length > 0) {
+          payload.include = [...new Set(includeValues)];
+        }
       }
 
       const audioInput = descriptor.audio?.input;
       if (audioInput?.turnDetection) {
-        payload.vad = JSON.parse(JSON.stringify(audioInput.turnDetection));
+        payload.turnDetection = JSON.parse(JSON.stringify(audioInput.turnDetection));
       }
 
-      if (typeof audioInput?.noiseReduction === 'string') {
-        payload.noiseReduction = audioInput.noiseReduction;
+      if (audioInput && 'noiseReduction' in audioInput && audioInput.noiseReduction !== undefined) {
+        payload.noiseReduction = JSON.parse(JSON.stringify(audioInput.noiseReduction));
       }
 
       return payload;
@@ -310,7 +317,7 @@ const useSpeechToTextRealtime = (
     let requestedModalities: string[];
     if (includeModalities.length) {
       requestedModalities = [...new Set(includeModalities)];
-    } else if (descriptor?.sessionDefaults?.speechToSpeech) {
+    } else if (descriptor?.session?.speechToSpeech) {
       requestedModalities = ['text', 'audio'];
     } else {
       requestedModalities = ['text'];

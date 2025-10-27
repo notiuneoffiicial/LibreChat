@@ -99,7 +99,7 @@ describe('RealtimeCallService', () => {
       sdpOffer: 'offer',
       instructions: 'Transcribe clearly',
       include: ['audio'],
-      vad: { type: 'server_vad', serverVad: { threshold: 0.5 } },
+      turnDetection: { type: 'server_vad', serverVad: { threshold: 0.5 } },
     });
 
     expect(httpClient.post).toHaveBeenCalledWith(
