@@ -75,7 +75,11 @@ function createInitialHistoryEntry(prefix, timestamp) {
   };
 }
 
-function updateGuardrailState(previous = {}, status = guardrailStatusMap.ACCEPTED, diagnostics = {}) {
+function updateGuardrailState(
+  previous = {},
+  status = guardrailStatusMap.ACCEPTED,
+  diagnostics = {},
+) {
   const now = new Date();
   const reasons = diagnostics.guardrailReasons ?? previous.reasons ?? [];
   if (status === guardrailStatusMap.ACCEPTED) {
@@ -241,8 +245,9 @@ module.exports = {
             .limit(6)
             .lean();
 
-          const userMessageCount = recentMessages.filter((message) => message?.isCreatedByUser)
-            .length;
+          const userMessageCount = recentMessages.filter(
+            (message) => message?.isCreatedByUser,
+          ).length;
 
           if (userMessageCount > 0) {
             const orderedMessages = recentMessages.reverse();

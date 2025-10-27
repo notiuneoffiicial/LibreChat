@@ -461,11 +461,24 @@ export function composeMetaPrompt(
   const sentimentLabel = determineSentimentLabel(averageSentiment);
 
   const guardrailState = input.conversation.guardrailState;
+  const guardrailReasons = guardrailState?.reasons ?? [];
+  const hasSafetyReason = guardrailReasons.some((reason) =>
+    reason.toLowerCase().includes('safety'),
+  );
+  const guardrailMetadata = guardrailState as (Record<string, unknown> & {
+    safety?: boolean;
+    safetyEscalation?: boolean;
+  }) | null | undefined;
+  const guardrailSafetyFlag = Boolean(
+    guardrailMetadata?.safety === true || guardrailMetadata?.safetyEscalation === true,
+  );
+  const guardrailBlockedForSafety =
+    guardrailState?.blocked === true && (hasSafetyReason || guardrailSafetyFlag);
+  const guardrailRejectedForSafety =
+    (guardrailState?.lastStatus === 'rejected' || guardrailState?.lastStatus === 'rolled_back') &&
+    (hasSafetyReason || guardrailSafetyFlag);
   const safetyEscalation =
-    crisisMatches.length > 0 ||
-    guardrailState?.blocked === true ||
-    (guardrailState?.lastStatus === 'rejected' &&
-      (guardrailState.reasons ?? []).some((reason) => reason.toLowerCase().includes('safety')));
+    crisisMatches.length > 0 || guardrailBlockedForSafety || guardrailRejectedForSafety;
 
   const eligibleForOverride =
     mergedOptions.featureEnabled !== false &&
