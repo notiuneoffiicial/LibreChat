@@ -637,6 +637,7 @@ export type TSpeechRealtimeConfig = {
   session?: RealtimeSessionDefaults;
   audio?: RealtimeAudioConfig;
   include?: string[];
+  disabled?: boolean | string;
   [key: string]: unknown;
 };
 

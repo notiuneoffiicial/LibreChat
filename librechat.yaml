@@ -91,6 +91,7 @@ speech:
       model: "gpt-realtime-mini"
       transport: webrtc
       stream: true
+      disabled: "{{ ui.disableRealtime === true }}"
       url: 'https://api.openai.com/v1/realtime'
       session:
         type: realtime
