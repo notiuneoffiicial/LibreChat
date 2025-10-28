@@ -515,14 +515,15 @@ function applyAutoRouting(req) {
     return null;
   }
 
-  if (typeof body?.spec === 'string' && body.spec.trim() !== '') {
-    req.autoRoutedConversation = parsedConversation;
+  req.autoRoutedConversation = parsedConversation;
+
+  const autoRoutingOptOut = body?.auto_router_opt_out ?? body?.autoRouterOptOut;
+  if (toBoolean(autoRoutingOptOut)) {
     return null;
   }
 
   const text = typeof body.text === 'string' ? body.text.trim() : '';
   if (!text) {
-    req.autoRoutedConversation = parsedConversation;
     return null;
   }
 
