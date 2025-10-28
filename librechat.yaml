@@ -103,7 +103,8 @@ speech:
               encoding: pcm16
               rate: 24000
               channels: 1
-            noiseReduction: server_light
+            noiseReduction:
+              preset: server_light
             transcriptionDefaults:
               language: en
               temperature: 0

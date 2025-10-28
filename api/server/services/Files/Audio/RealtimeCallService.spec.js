@@ -255,7 +255,7 @@ describe('RealtimeCallService', () => {
             sample_rate: 24000,
             channels: 1,
           },
-          noise_reduction: 'server_light',
+          noise_reduction: { preset: 'server_light' },
           turn_detection: {
             type: 'server_vad',
             server_vad: { enabled: true },
