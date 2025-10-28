@@ -97,7 +97,7 @@ speech:
         speechToSpeech: false
         model: "gpt-realtime-mini"
         instructions: |
-          You are LibreChat's realtime assistant. Respond briefly, confirm key
+          You are OptimismAi's Agent. Respond briefly, confirm key
           details, and provide follow-up suggestions when helpful.
         audio:
           input:
