@@ -213,8 +213,8 @@ module.exports = {
       }
 
       const persistedConversationId = existingConversation?.conversationId ?? null;
-      const fallbackConversationId = persistedConversationId ?? conversationId ?? null;
-      const targetConversationId = newConversationId ?? fallbackConversationId ?? null;
+      const sourceConversationId = persistedConversationId ?? conversationId ?? null;
+      const targetConversationId = newConversationId ?? sourceConversationId ?? null;
 
       if (!targetConversationId) {
         logger.error('[saveConvo] Missing conversationId for save operation', {
@@ -227,8 +227,7 @@ module.exports = {
         return existingConversation ?? null;
       }
 
-      const messageConversationId =
-        persistedConversationId ?? conversationId ?? newConversationId ?? null;
+      const messageConversationId = sourceConversationId ?? newConversationId ?? null;
 
       const messages = messageConversationId
         ? await getMessages({ conversationId: messageConversationId }, '_id')
@@ -267,7 +266,7 @@ module.exports = {
       if (shouldRunComposer) {
         try {
           const recentMessages = await Message.find({
-            conversationId: targetConversationId,
+            conversationId: messageConversationId,
             user: req.user.id,
           })
             .sort({ createdAt: -1 })
@@ -387,8 +386,7 @@ module.exports = {
       }
 
       /** Note: the resulting Model object is necessary for Meilisearch operations */
-      const filterConversationId =
-        persistedConversationId ?? conversationId ?? targetConversationId;
+      const filterConversationId = sourceConversationId ?? targetConversationId;
 
       const conversation = await Conversation.findOneAndUpdate(
         { conversationId: filterConversationId, user: req.user.id },
