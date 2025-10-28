@@ -68,6 +68,7 @@ describe('RealtimeCallService', () => {
               model: 'gpt-realtime-mini',
               include: ['text'],
               session: {
+                type: 'transcription',
                 audio: {
                   input: {
                     format: {
@@ -101,7 +102,7 @@ describe('RealtimeCallService', () => {
       sdpOffer: 'offer',
       session: {
         instructions: 'Transcribe clearly',
-        output_modalities: ['audio'],
+        modalities: ['audio'],
         audio: {
           input: { turnDetection: { type: 'server_vad', serverVad: { threshold: 0.5 } } },
         },
@@ -126,10 +127,9 @@ describe('RealtimeCallService', () => {
     expect(callHeaders).not.toHaveProperty('OpenAI-Beta');
 
     expect(sessionPayload).toMatchObject({
-      type: 'realtime',
+      type: 'transcription',
       model: 'gpt-realtime-mini',
       instructions: 'Transcribe clearly',
-      output_modalities: ['text', 'audio'],
       audio: {
         input: {
           format: {
@@ -151,7 +151,7 @@ describe('RealtimeCallService', () => {
         },
       },
     });
-    expect(sessionPayload).not.toHaveProperty('modalities');
+    expect(new Set(sessionPayload.modalities)).toEqual(new Set(['text', 'audio']));
     expect(sessionPayload).not.toHaveProperty('speech_to_speech');
 
     expect(payload).toEqual({ sdpAnswer: 'answer', expiresAt: 1234 });
@@ -168,7 +168,7 @@ describe('RealtimeCallService', () => {
               model: 'gpt-realtime-mini',
               session: {
                 include: ['text', 'logprobs'],
-                output_modalities: ['text'],
+                modalities: ['text'],
               },
             },
           },
@@ -189,7 +189,7 @@ describe('RealtimeCallService', () => {
     const sessionCall = appendSpy.mock.calls.find(([field]) => field === 'session');
     const sessionPayload = JSON.parse(sessionCall[1]);
 
-    expect(sessionPayload.output_modalities).toEqual(expect.arrayContaining(['text', 'audio']));
+    expect(sessionPayload.modalities).toEqual(expect.arrayContaining(['text', 'audio']));
     expect(sessionPayload.include).toEqual(['logprobs']);
   });
 
@@ -204,7 +204,7 @@ describe('RealtimeCallService', () => {
               model: 'gpt-realtime-mini',
               session: {
                 speechToSpeech: true,
-                mode: 'conversation',
+                type: 'realtime',
                 audio: {
                   output: {
                     voice: 'alloy',
@@ -246,8 +246,7 @@ describe('RealtimeCallService', () => {
     expect(sessionPayload).toMatchObject({
       type: 'realtime',
       model: 'gpt-realtime-mini',
-      mode: 'conversation',
-      output_modalities: ['audio'],
+      modalities: ['audio'],
       audio: {
         input: {
           format: {
@@ -267,7 +266,6 @@ describe('RealtimeCallService', () => {
         },
       },
     });
-    expect(sessionPayload).not.toHaveProperty('modalities');
     expect(sessionPayload).not.toHaveProperty('speech_to_speech');
     expect(sessionPayload.audio.input).not.toHaveProperty('transcription');
     expect(payload).toEqual({ sdpAnswer: 'answer' });

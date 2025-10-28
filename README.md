@@ -23,9 +23,10 @@ speech:
       stream: true                   # optional – whether to request server-side streaming
       url: wss://api.openai.com/v1/realtime # optional – override the realtime base URL
       session:                       # optional – defaults for the realtime session envelope
-        mode: conversation           # e.g. `conversation`, `speech_to_text`, `speech_to_speech`
+        type: realtime               # `realtime` or `transcription`
         speechToSpeech: false        # enable to request spoken responses from the model
         model: gpt-4o-realtime-preview # override the session model when it differs from `model`
+        modalities: [text, audio]    # optional – preselect GA realtime modalities
         voice: alloy                 # pre-select the realtime voice
         voices: [alloy, nova, verse] # optional – surface allowed voices in the UI
         instructions: |              # GA-compliant realtime session prompt
@@ -39,7 +40,8 @@ speech:
             channels: 1
           noiseReduction:               # optional – choose preset or provide custom settings
             preset: server_light
-          transcriptionDefaults:         # optional – baseline Whisper/ASR preferences
+          transcription:                 # optional – GA transcription payload defaults
+            model: gpt-4o-mini-transcribe
             language: en
             temperature: 0
             diarization: true

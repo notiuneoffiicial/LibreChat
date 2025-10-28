@@ -42,9 +42,15 @@ export interface SpeechToTextOptions {
    */
   peerConnectionFactory?: () => RTCPeerConnection;
   /**
+   * Overrides the realtime session type requested from the provider. When
+   * omitted, defaults to the persisted realtime session configuration.
+   */
+  type?: string;
+  /**
    * Override the realtime session mode that will be requested from the
    * provider. Falls back to the persisted realtime session defaults when
-   * omitted.
+   * omitted. Deprecated in favor of `type` but retained for backwards
+   * compatibility.
    */
   mode?: string;
   /**

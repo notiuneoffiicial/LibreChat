@@ -7,6 +7,42 @@ import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 
 import type { SpeechToTextOptions } from './types';
 
+const sanitizeInclude = (...values: unknown[]): string[] | undefined => {
+  const entries: string[] = [];
+
+  values.forEach((value) => {
+    if (!value) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((entry) => {
+        if (typeof entry !== 'string') {
+          return;
+        }
+        const trimmed = entry.trim();
+        if (trimmed.length > 0) {
+          entries.push(trimmed);
+        }
+      });
+      return;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        entries.push(trimmed);
+      }
+    }
+  });
+
+  if (!entries.length) {
+    return undefined;
+  }
+
+  return Array.from(new Set(entries));
+};
+
 const useSpeechToText = (
   setText: (text: string) => void,
   onTranscriptionComplete: (text: string) => void,
@@ -29,8 +65,12 @@ const useSpeechToText = (
     const audioInput = session.audio?.input ?? {};
     const audioOutput = session.audio?.output ?? {};
 
-    if (base.mode === undefined && session.mode) {
-      base.mode = session.mode;
+    if (base.type === undefined && session.type) {
+      base.type = session.type;
+    }
+
+    if (base.mode === undefined && session.type) {
+      base.mode = session.type === 'transcription' ? 'speech_to_text' : 'conversation';
     }
 
     if (base.model === undefined) {
@@ -45,8 +85,11 @@ const useSpeechToText = (
       base.instructions = session.instructions;
     }
 
-    if (base.include === undefined && include) {
-      base.include = include;
+    if (base.include === undefined) {
+      const sanitizedInclude = sanitizeInclude(include, session.include);
+      if (sanitizedInclude) {
+        base.include = sanitizedInclude;
+      }
     }
 
     if (base.turnDetection === undefined && audioInput.turnDetection) {

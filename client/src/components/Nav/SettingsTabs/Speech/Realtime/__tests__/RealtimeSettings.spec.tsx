@@ -104,11 +104,11 @@ describe('Realtime audio settings components', () => {
     });
 
     const latestState = stateSpy.mock.calls[stateSpy.mock.calls.length - 1][0] as Record<string, any>;
-    expect(latestState.session.mode).toBe('speech_to_speech');
+    expect(latestState.session.type).toBe('realtime');
     expect(latestState.session.speechToSpeech).toBe(true);
     expect(latestState.session.audio.output.voice).toBe('alloy');
     expect(latestState.session.instructions).toContain('Follow my prompts');
-    const modalities = latestState.session.output_modalities ?? [];
+    const modalities = latestState.session.modalities ?? [];
     expect(modalities).toEqual(expect.arrayContaining(['text']));
     expect(modalities.includes('audio') || latestState.session.speechToSpeech).toBe(true);
     expect(latestState.include ?? []).toHaveLength(0);
@@ -127,6 +127,6 @@ describe('Realtime audio settings components', () => {
     const stored = localStorage.getItem('realtimeSTTOptions');
     expect(stored).toBeTruthy();
     expect(stored).toContain('alloy');
-    expect(stored).toContain('speech_to_speech');
+    expect(stored).toContain('realtime');
   });
 });

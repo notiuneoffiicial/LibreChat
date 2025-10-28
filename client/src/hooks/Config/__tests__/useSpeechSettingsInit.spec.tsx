@@ -65,7 +65,7 @@ describe('useSpeechSettingsInit', () => {
     const realtimeConfig = {
       model: 'gpt-4o-realtime-preview',
       session: {
-        mode: 'conversation',
+        type: 'realtime',
         instructions: 'Keep responses brief.',
         audio: {
           input: {
@@ -78,7 +78,7 @@ describe('useSpeechSettingsInit', () => {
             voice: 'alloy',
           },
         },
-        output_modalities: ['text'],
+        modalities: ['text'],
       },
     };
 
@@ -107,6 +107,6 @@ describe('useSpeechSettingsInit', () => {
     expect(result.current.session?.audio?.input?.transcriptionDefaults).toMatchObject({
       language: 'en',
     });
-    expect(result.current.session?.output_modalities).toEqual(['text']);
+    expect(result.current.session?.modalities).toEqual(['text']);
   });
 });

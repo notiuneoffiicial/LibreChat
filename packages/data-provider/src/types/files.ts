@@ -147,11 +147,11 @@ export type RealtimeSession = {
 };
 
 export type RealtimeSessionDefaults = {
-  mode?: string;
+  type?: string;
   model?: string;
   speechToSpeech?: boolean;
   instructions?: string;
-  output_modalities?: string[];
+  modalities?: string[];
   include?: string[];
   voice?: string;
   voices?: string[];
@@ -236,10 +236,8 @@ export type RealtimeAudioConfig = {
 
 export type RealtimeSessionOverrides = {
   type?: string;
-  mode?: string;
   model?: string;
   instructions?: string;
-  output_modalities?: string[];
   modalities?: string[];
   include?: string[];
   speechToSpeech?: boolean;
@@ -252,13 +250,13 @@ export type RealtimeCallOverrides = {
   session?: RealtimeSessionOverrides;
   include?: string[];
   type?: string;
-  mode?: string;
   model?: string;
   voice?: string;
   instructions?: string;
   audio?: RealtimeAudioConfig;
   turnDetection?: RealtimeTurnDetectionConfig;
   noiseReduction?: RealtimeNoiseReduction;
+  transcription?: RealtimeTranscriptionDefaults;
   [key: string]: unknown;
 };
 
@@ -266,6 +264,7 @@ export type RealtimeCallRequest = {
   sdpOffer: string;
   session?: RealtimeSessionOverrides;
   include?: string[];
+  transcription?: RealtimeTranscriptionDefaults;
   [key: string]: unknown;
 };
 

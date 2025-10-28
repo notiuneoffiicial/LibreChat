@@ -50,8 +50,8 @@ export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
     channels: 1,
   },
   session: {
-    type: 'realtime',
-    output_modalities: ['text'],
+    type: 'transcription',
+    modalities: ['text'],
     audio: {
       input: {
         format: {
@@ -60,6 +60,7 @@ export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
           sampleRate: 24000,
           channels: 1,
         },
+        transcription: {},
       },
     },
   },

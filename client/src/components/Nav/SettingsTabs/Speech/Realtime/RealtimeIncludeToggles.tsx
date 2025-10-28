@@ -16,10 +16,14 @@ export default function RealtimeIncludeToggles() {
     realtimeOptions?.include,
   ]);
   const session = ensureSession(realtimeOptions?.session);
-  const sessionModalities = useMemo(
-    () => (Array.isArray(session.output_modalities) ? session.output_modalities : []),
-    [session.output_modalities],
-  );
+  const sessionModalities = useMemo(() => {
+    const base = Array.isArray(session.modalities)
+      ? session.modalities
+      : Array.isArray(session.output_modalities)
+        ? session.output_modalities
+        : [];
+    return base.map((entry) => entry.toLowerCase());
+  }, [session.modalities, session.output_modalities]);
   const toggledModalities = useMemo(() => {
     const selections = new Set<string>();
     sessionModalities.forEach((entry) => {
@@ -38,16 +42,32 @@ export default function RealtimeIncludeToggles() {
     });
     return selections;
   }, [include, sessionModalities]);
-  const isSpeechMode = session.mode === 'speech_to_speech' || session.speechToSpeech === true;
+  const isSpeechMode = useMemo(() => {
+    if (session.type === 'transcription') {
+      return false;
+    }
+
+    if (session.speechToSpeech === true || session.speech_to_speech === true) {
+      return true;
+    }
+
+    if (sessionModalities.some((entry) => entry === 'audio')) {
+      return true;
+    }
+
+    return include.some((entry) => typeof entry === 'string' && entry.toLowerCase() === 'audio');
+  }, [include, session.modalities, session.output_modalities, session.speechToSpeech, session.speech_to_speech, session.type, sessionModalities]);
 
   const toggleValue = useCallback(
     (value: string, enabled: boolean) => {
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
         const baseSession = ensureSession(existing.session);
-        const currentModalities = Array.isArray(baseSession.output_modalities)
-          ? baseSession.output_modalities.map((entry) => entry.toLowerCase())
-          : [];
+        const currentModalities = Array.isArray(baseSession.modalities)
+          ? baseSession.modalities.map((entry) => entry.toLowerCase())
+          : Array.isArray(baseSession.output_modalities)
+            ? baseSession.output_modalities.map((entry) => entry.toLowerCase())
+            : [];
         const nextModalities = new Set(currentModalities);
 
         if (enabled) {
@@ -68,10 +88,11 @@ export default function RealtimeIncludeToggles() {
 
         const nextSession: Record<string, unknown> = { ...baseSession };
         if (nextModalities.size > 0) {
-          nextSession.output_modalities = Array.from(nextModalities);
+          nextSession.modalities = Array.from(nextModalities);
         } else {
-          delete nextSession.output_modalities;
+          delete nextSession.modalities;
         }
+        delete nextSession.output_modalities;
 
         return {
           ...existing,
