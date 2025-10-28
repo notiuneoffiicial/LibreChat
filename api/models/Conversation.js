@@ -385,7 +385,17 @@ module.exports = {
       /** @type {{ $set: Partial<TConversation>; $unset?: Record<keyof TConversation, number> }} */
       const updateOperation = { $set: update };
       if (metadata && metadata.unsetFields && Object.keys(metadata.unsetFields).length > 0) {
-        updateOperation.$unset = metadata.unsetFields;
+        const unsetFields = { ...metadata.unsetFields };
+
+        for (const key of Object.keys(update)) {
+          if (key in unsetFields) {
+            delete unsetFields[key];
+          }
+        }
+
+        if (Object.keys(unsetFields).length > 0) {
+          updateOperation.$unset = unsetFields;
+        }
       }
 
       /** Note: the resulting Model object is necessary for Meilisearch operations */

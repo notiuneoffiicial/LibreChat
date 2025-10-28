@@ -313,6 +313,43 @@ describe('Conversation Operations', () => {
       });
       expect(savedConvo.someField).toBeUndefined();
     });
+
+    it('should not unset fields that are being updated', async () => {
+      await Conversation.create({
+        ...mockConversationData,
+        user: mockReq.user.id,
+        promptPrefixDefault: 'old-default',
+        promptPrefix: 'old-prefix',
+      });
+
+      const metadata = {
+        unsetFields: {
+          promptPrefixDefault: 1,
+          promptPrefix: 1,
+        },
+      };
+
+      const result = await saveConvo(
+        mockReq,
+        {
+          ...mockConversationData,
+          promptPrefixDefault: 'new-default',
+          promptPrefix: 'new-prefix',
+        },
+        metadata,
+      );
+
+      expect(result.promptPrefixDefault).toBe('new-default');
+      expect(result.promptPrefix).toBe('new-prefix');
+
+      const savedConvo = await Conversation.findOne({
+        conversationId: mockConversationData.conversationId,
+        user: mockReq.user.id,
+      }).lean();
+
+      expect(savedConvo.promptPrefixDefault).toBe('new-default');
+      expect(savedConvo.promptPrefix).toBe('new-prefix');
+    });
   });
 
   describe('isTemporary conversation handling', () => {
