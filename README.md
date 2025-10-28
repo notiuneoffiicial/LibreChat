@@ -37,7 +37,8 @@ speech:
             encoding: pcm16
             sampleRate: 24000
             channels: 1
-          noiseReduction: server_light   # optional – choose preset or custom object
+          noiseReduction:               # optional – choose preset or provide custom settings
+            preset: server_light
           transcriptionDefaults:         # optional – baseline Whisper/ASR preferences
             language: en
             temperature: 0
@@ -80,6 +81,9 @@ picked up.
   continue to work. When you're ready, move those settings under
   `audio.input.format` and optionally populate the new
   `noiseReduction`, `transcriptionDefaults`, and `turnDetection` blocks.
+- Noise reduction presets now use an object syntax (for example,
+  `noiseReduction: { preset: server_light }`). String values are wrapped for
+  compatibility, but update your configuration to avoid future migrations.
 - New `session` defaults (mode, model, voice, instructions, and the
   speech-to-speech toggle) are persisted for authenticated users without exposing
   your API key. The UI falls back to legacy behaviour if the block is omitted.

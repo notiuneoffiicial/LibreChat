@@ -126,6 +126,14 @@ class RealtimeCallService {
         overrideSession.model ?? overrides.model ?? sessionConfig.model ?? config.model,
     };
 
+    const mode = overrideSession.mode ?? overrides.mode ?? sessionConfig.mode;
+    if (typeof mode === 'string') {
+      const trimmedMode = mode.trim();
+      if (trimmedMode.length > 0) {
+        session.mode = trimmedMode;
+      }
+    }
+
     const instructions = overrideSession.instructions ?? overrides.instructions ?? sessionConfig.instructions;
     if (instructions) {
       session.instructions = instructions;
@@ -349,7 +357,11 @@ class RealtimeCallService {
 
     if (typeof noiseReduction === 'string') {
       const trimmed = noiseReduction.trim();
-      return trimmed.length > 0 ? trimmed : undefined;
+      if (trimmed.length === 0) {
+        return undefined;
+      }
+
+      return this.#convertKeysToSnakeCase({ preset: trimmed });
     }
 
     if (typeof noiseReduction === 'object') {
