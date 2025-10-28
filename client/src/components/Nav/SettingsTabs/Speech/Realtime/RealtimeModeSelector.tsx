@@ -14,12 +14,23 @@ const REALTIME_MODES: { value: string; labelKey: string }[] = [
 const ensureSession = (value: unknown) =>
   value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
+type SessionState = Record<string, unknown> & {
+  type?: string;
+  textOutput?: boolean;
+  audioOutput?: boolean;
+  speechToSpeech?: boolean;
+  speech_to_speech?: boolean;
+  audio?: {
+    output?: Record<string, unknown> & { enabled?: boolean };
+  };
+};
+
 export default function RealtimeModeSelector() {
   const localize = useLocalize();
   const [realtimeOptions, setRealtimeOptions] = useRecoilState(store.realtimeSTTOptions);
 
   const mode = useMemo(() => {
-    const session = realtimeOptions?.session;
+    const session = realtimeOptions?.session as SessionState | undefined;
     if (!session || typeof session !== 'object') {
       return 'conversation';
     }
@@ -40,54 +51,61 @@ export default function RealtimeModeSelector() {
 
     setRealtimeOptions((current) => {
       const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
-      const session = ensureSession(existing.session);
-      const include = Array.isArray(existing.include) ? existing.include : [];
+      const session = ensureSession(existing.session) as SessionState;
+      const nextSession: SessionState = { ...session };
 
-      const modalitySet = new Set(
-        Array.isArray(session.modalities)
-          ? session.modalities.map((entry) => entry.toLowerCase())
-          : Array.isArray(session.output_modalities)
-            ? session.output_modalities.map((entry) => entry.toLowerCase())
-            : [],
-      );
-      const includeSet = new Set(
-        include
-          .filter((entry) => typeof entry === 'string')
-          .map((entry) => entry.toLowerCase()),
-      );
-
-      let nextType: string;
+      let nextType = 'realtime';
       let enableSpeech = false;
+      let enableAudioOutput = false;
+      let enableTextOutput = true;
 
       switch (nextMode) {
-        case 'speech_to_text':
+        case 'speech_to_text': {
           nextType = 'transcription';
           enableSpeech = false;
-          modalitySet.delete('audio');
-          includeSet.delete('audio');
+          enableAudioOutput = false;
+          enableTextOutput = true;
           break;
-        case 'speech_to_speech':
+        }
+        case 'speech_to_speech': {
           nextType = 'realtime';
           enableSpeech = true;
-          modalitySet.add('audio');
-          includeSet.add('text');
+          enableAudioOutput = true;
+          enableTextOutput = true;
           break;
-        default:
+        }
+        default: {
           nextType = 'realtime';
           enableSpeech = false;
-          modalitySet.delete('audio');
-          includeSet.delete('audio');
-          break;
+          enableAudioOutput = false;
+          enableTextOutput = true;
+        }
       }
 
-      modalitySet.add('text');
-      includeSet.delete('text');
+      nextSession.type = nextType;
+      nextSession.textOutput = enableTextOutput;
+      nextSession.audioOutput = enableAudioOutput;
 
-      const nextSession: Record<string, unknown> = {
-        ...session,
-        type: nextType,
-        modalities: Array.from(modalitySet),
-      };
+      const nextAudio = { ...(nextSession.audio ?? {}) } as Record<string, unknown>;
+      const nextOutput = { ...((nextAudio.output as Record<string, unknown>) ?? {}) };
+
+      if (enableAudioOutput) {
+        nextOutput.enabled = true;
+      } else if ('enabled' in nextOutput) {
+        nextOutput.enabled = false;
+      }
+
+      if (Object.keys(nextOutput).length > 0) {
+        nextAudio.output = nextOutput;
+      } else {
+        delete nextAudio.output;
+      }
+
+      if (Object.keys(nextAudio).length > 0) {
+        nextSession.audio = nextAudio as SessionState['audio'];
+      } else {
+        delete nextSession.audio;
+      }
 
       if (enableSpeech) {
         nextSession.speechToSpeech = true;
@@ -96,12 +114,20 @@ export default function RealtimeModeSelector() {
         delete nextSession.speech_to_speech;
       }
 
-      delete nextSession.output_modalities;
+      const filteredInclude = Array.isArray(existing.include)
+        ? existing.include.filter((entry) => {
+            if (typeof entry !== 'string') {
+              return false;
+            }
+            const normalized = entry.toLowerCase();
+            return normalized !== 'text' && normalized !== 'audio';
+          })
+        : [];
 
       return {
         ...existing,
         session: nextSession,
-        include: Array.from(includeSet),
+        include: filteredInclude,
       };
     });
   };

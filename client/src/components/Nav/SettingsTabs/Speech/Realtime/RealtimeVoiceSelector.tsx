@@ -9,30 +9,41 @@ import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 const ensureSession = (value: unknown) =>
   value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
+type SessionState = Record<string, unknown> & {
+  type?: string;
+  textOutput?: boolean;
+  audioOutput?: boolean;
+  speechToSpeech?: boolean;
+  speech_to_speech?: boolean;
+  audio?: {
+    output?: Record<string, unknown> & { enabled?: boolean; voice?: string };
+  };
+};
+
 export default function RealtimeVoiceSelector() {
   const localize = useLocalize();
   const [realtimeOptions, setRealtimeOptions] = useRecoilState(store.realtimeSTTOptions);
 
-  const session = ensureSession(realtimeOptions?.session);
+  const session = ensureSession(realtimeOptions?.session) as SessionState;
   const currentVoice = session.audio?.output?.voice;
   const voice = typeof currentVoice === 'string' ? currentVoice : '';
 
-  const sessionModalities = useMemo(() => {
-    const base = Array.isArray(session.modalities)
-      ? session.modalities
-      : Array.isArray(session.output_modalities)
-        ? session.output_modalities
-        : [];
-    return base.map((entry) => entry.toLowerCase());
-  }, [session.modalities, session.output_modalities]);
+  const audioOutputEnabled = useMemo(() => {
+    if (typeof session.audioOutput === 'boolean') {
+      return session.audioOutput;
+    }
 
-  const includeValues = useMemo(() => {
-    const fromInclude = Array.isArray(realtimeOptions?.include) ? realtimeOptions.include : [];
-    const sessionInclude = Array.isArray(session.include) ? session.include : [];
-    return [...fromInclude, ...sessionInclude].map((entry) =>
-      typeof entry === 'string' ? entry.toLowerCase() : '',
-    );
-  }, [realtimeOptions?.include, session.include]);
+    const audioOutput = session.audio?.output;
+    if (!audioOutput) {
+      return false;
+    }
+
+    if (typeof audioOutput.enabled === 'boolean') {
+      return audioOutput.enabled;
+    }
+
+    return Object.keys(audioOutput).length > 0;
+  }, [session.audio?.output, session.audioOutput]);
 
   const isSpeechMode = useMemo(() => {
     if (session.type === 'transcription') {
@@ -43,12 +54,8 @@ export default function RealtimeVoiceSelector() {
       return true;
     }
 
-    if (sessionModalities.some((entry) => entry === 'audio')) {
-      return true;
-    }
-
-    return includeValues.some((entry) => entry === 'audio');
-  }, [includeValues, session.speechToSpeech, session.speech_to_speech, session.type, sessionModalities]);
+    return audioOutputEnabled;
+  }, [audioOutputEnabled, session.speechToSpeech, session.speech_to_speech, session.type]);
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -56,8 +63,8 @@ export default function RealtimeVoiceSelector() {
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
         const nextSession = ensureSession(existing.session);
-        const nextAudio = { ...(nextSession.audio ?? {}) };
-        const nextOutput = { ...(nextAudio.output ?? {}) };
+        const nextAudio = { ...(nextSession.audio ?? {}) } as Record<string, unknown>;
+        const nextOutput = { ...((nextAudio.output as Record<string, unknown>) ?? {}) };
 
         if (nextVoice.length > 0) {
           nextOutput.voice = nextVoice;
@@ -72,7 +79,7 @@ export default function RealtimeVoiceSelector() {
         }
 
         if (Object.keys(nextAudio).length > 0) {
-          nextSession.audio = nextAudio;
+          nextSession.audio = nextAudio as SessionState['audio'];
         } else {
           delete nextSession.audio;
         }

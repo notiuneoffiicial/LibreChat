@@ -51,7 +51,8 @@ export const DEFAULT_REALTIME_STT_OPTIONS: RealtimeSTTOptions = {
   },
   session: {
     type: 'transcription',
-    modalities: ['text'],
+    textOutput: true,
+    audioOutput: false,
     audio: {
       input: {
         format: {

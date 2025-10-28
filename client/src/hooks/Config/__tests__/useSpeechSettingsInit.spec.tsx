@@ -67,6 +67,8 @@ describe('useSpeechSettingsInit', () => {
       session: {
         type: 'realtime',
         instructions: 'Keep responses brief.',
+        textOutput: true,
+        audioOutput: false,
         audio: {
           input: {
             noiseReduction: 'server_light',
@@ -76,9 +78,9 @@ describe('useSpeechSettingsInit', () => {
           },
           output: {
             voice: 'alloy',
+            enabled: false,
           },
         },
-        modalities: ['text'],
       },
     };
 
@@ -107,6 +109,7 @@ describe('useSpeechSettingsInit', () => {
     expect(result.current.session?.audio?.input?.transcriptionDefaults).toMatchObject({
       language: 'en',
     });
-    expect(result.current.session?.modalities).toEqual(['text']);
+    expect(result.current.session?.textOutput).toBe(true);
+    expect(result.current.session?.audioOutput).toBe(false);
   });
 });

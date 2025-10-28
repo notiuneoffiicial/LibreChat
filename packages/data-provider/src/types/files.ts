@@ -151,7 +151,8 @@ export type RealtimeSessionDefaults = {
   model?: string;
   speechToSpeech?: boolean;
   instructions?: string;
-  modalities?: string[];
+  textOutput?: boolean;
+  audioOutput?: boolean;
   include?: string[];
   voice?: string;
   voices?: string[];
@@ -225,6 +226,7 @@ export type RealtimeAudioOutputConfig = {
   voice?: string;
   voices?: string[];
   format?: RealtimeAudioFormat;
+  enabled?: boolean;
   [key: string]: unknown;
 };
 
@@ -238,7 +240,8 @@ export type RealtimeSessionOverrides = {
   type?: string;
   model?: string;
   instructions?: string;
-  modalities?: string[];
+  textOutput?: boolean;
+  audioOutput?: boolean;
   include?: string[];
   speechToSpeech?: boolean;
   speech_to_speech?: boolean;

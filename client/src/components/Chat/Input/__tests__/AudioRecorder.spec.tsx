@@ -57,9 +57,18 @@ describe('AudioRecorder', () => {
     const realtimeState = {
       ...DEFAULT_REALTIME_STT_OPTIONS,
       session: {
+        ...DEFAULT_REALTIME_STT_OPTIONS.session,
         type: 'realtime',
         speechToSpeech: true,
-        modalities: ['text', 'audio'],
+        textOutput: true,
+        audioOutput: true,
+        audio: {
+          ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio ?? {}),
+          output: {
+            ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio?.output ?? {}),
+            enabled: true,
+          },
+        },
       },
     };
 
