@@ -496,7 +496,6 @@ const realtimeSessionSchema = z
     voices: z.array(z.string()).optional(),
     speechToSpeech: z.boolean().optional(),
     instructions: z.string().optional(),
-    instructionTemplates: z.record(z.string()).optional(),
   })
   .catchall(z.unknown());
 

@@ -136,15 +136,6 @@ class RealtimeCallService {
       session.instructions = instructions;
     }
 
-    const instructionTemplates =
-      overrideSession.instructionTemplates ??
-      overrideSession.instruction_templates ??
-      sessionConfig.instructionTemplates ??
-      sessionConfig.instruction_templates;
-    if (instructionTemplates) {
-      session.instruction_templates = { ...instructionTemplates };
-    }
-
     const baseModalities = this.#mergeInclude(
       sessionConfig.output_modalities,
       sessionConfig.modalities,

@@ -244,10 +244,6 @@ const mergeSessionOverrides = (
     target.speechToSpeech = source.speechToSpeech;
   }
 
-  if (source.instructionTemplates) {
-    target.instructionTemplates = cloneConfig(source.instructionTemplates);
-  }
-
   const modalities = sanitizeInclude(source.output_modalities, source.modalities);
   if (modalities) {
     target.output_modalities = modalities;
@@ -270,8 +266,6 @@ const mergeSessionOverrides = (
       key === 'instructions' ||
       key === 'speechToSpeech' ||
       key === 'speech_to_speech' ||
-      key === 'instructionTemplates' ||
-      key === 'instruction_templates' ||
       key === 'output_modalities' ||
       key === 'modalities' ||
       key === 'include' ||
