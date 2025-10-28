@@ -627,4 +627,25 @@ describe('OpenAIClient', () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe('getMessageMapMethod', () => {
+    it('extracts reasoning content parts and preserves text output', () => {
+      const client = new OpenAIClient('test-api-key', defaultOptions);
+      const message = {
+        role: 'assistant',
+        content: [
+          { type: 'think', think: { value: ' First thought ' } },
+          { type: 'text', text: { value: 'Visible answer.' } },
+          { type: 'think', think: 'Second thought' },
+        ],
+      };
+
+      const mapMessage = client.getMessageMapMethod();
+      const result = mapMessage(message);
+
+      expect(result.text).toBe('Visible answer.');
+      expect(result.reasoning).toBe('First thought\n\nSecond thought');
+      expect(result.content).toBeUndefined();
+    });
+  });
 });
