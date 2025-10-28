@@ -3,7 +3,10 @@ import { Providers } from '@librechat/agents';
 import { Tools } from 'librechat-data-provider';
 import type { MemoryArtifact } from 'librechat-data-provider';
 import type { BaseMessage } from '@langchain/core/messages';
-import { createMemoryTool, processMemory, classifyMemoryWindow } from '../memory';
+import * as memoryModule from '../memory';
+
+const { createMemoryTool, processMemory, classifyMemoryWindow, createMemoryProcessor } =
+  memoryModule;
 
 // Mock the logger
 jest.mock('winston', () => {
@@ -523,6 +526,50 @@ describe('processMemory - GPT-5+ handling', () => {
           }),
         }),
       }),
+    );
+  });
+});
+
+describe('createMemoryProcessor', () => {
+  it('appends custom memory instructions after the defaults', async () => {
+    const customInstructions = 'Custom instructions block.';
+    const mockMemoryMethods = {
+      setMemory: jest.fn(),
+      deleteMemory: jest.fn(),
+      getFormattedMemories: jest.fn().mockResolvedValue({
+        withKeys: 'Existing memory with keys',
+        withoutKeys: 'Existing memory without keys',
+        totalTokens: 120,
+      }),
+    };
+
+    const { Run } = jest.requireMock('@librechat/agents');
+    (Run.create as jest.Mock).mockResolvedValue({
+      processStream: jest.fn().mockResolvedValue(null),
+    });
+
+    const [, processFn] = await createMemoryProcessor({
+      res: { headersSent: false, write: jest.fn() } as unknown as Response,
+      userId: 'user-123',
+      messageId: 'message-123',
+      conversationId: 'conversation-123',
+      memoryMethods: mockMemoryMethods,
+      config: {
+        instructions: customInstructions,
+        tokenLimit: 400,
+        notableThreshold: 0.5,
+      },
+    });
+
+    await processFn([]);
+
+    expect(Run.create).toHaveBeenCalled();
+
+    const [{ graphConfig }] = (Run.create as jest.Mock).mock.calls;
+    expect(graphConfig.instructions).toContain('Use the `set_memory` tool');
+    expect(graphConfig.instructions.trim().endsWith(customInstructions)).toBe(true);
+    expect(graphConfig.instructions.indexOf('Use the `set_memory` tool')).toBeLessThan(
+      graphConfig.instructions.lastIndexOf(customInstructions),
     );
   });
 });

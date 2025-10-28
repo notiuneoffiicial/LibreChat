@@ -179,9 +179,10 @@ memory:
   agent:
     provider: "openAI"         # must be an AI Provider, not a custom endpoint name
     model: "gpt-4o-mini"       # pick any OpenAI chat model you have access to
+    # These custom instructions are appended to the built-in memory guidance rather than replacing it.
     instructions: |
-      Be open to implicitly saving information that the user has not explicitly asked to do so “remember / save / note / store,” and also save plans or commitments expressed in future tense (“I will…”, “we’ll…”, “let’s…”). 
-      Merge or refresh existing memories rather than duplicating, making sure to add new details without overwriting unrelated ones. 
+      Be open to implicitly saving information that the user has not explicitly asked to do so “remember / save / note / store,” and also save plans or commitments expressed in future tense (“I will…”, “we’ll…”, “let’s…”).
+      Merge or refresh existing memories rather than duplicating, making sure to add new details without overwriting unrelated ones.
       Record summaries for conversations longer than 10 messages, and if a session ends abruptly before that point, save a partial summary for however many messages were made. 
       Save only when confidence in relevance is medium or higher. Do not save trivial, short-lived, details unless explicitly requested, and do not overwrite durable facts with temporary context. 
       Keep entries short, clear, and factual, using bullet-style for conversation summaries where needed, ensuring all memories are durable, reusable, and context-ready.
