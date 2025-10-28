@@ -510,6 +510,7 @@ const sttRealtimeSchema = z.object({
   session: realtimeSessionSchema.optional(),
   audio: realtimeAudioSchema.optional(),
   include: z.array(z.string()).optional(),
+  disabled: z.union([z.boolean(), z.string()]).optional(),
 });
 
 const sttSchema = z.object({

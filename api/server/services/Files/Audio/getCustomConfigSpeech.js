@@ -1,4 +1,6 @@
 const { logger } = require('@librechat/data-schemas');
+const { createSafeUser } = require('@librechat/api');
+const { evaluateBooleanExpression } = require('~/server/utils/evaluateBooleanExpression');
 const { getAppConfig } = require('~/server/services/Config');
 
 /**
@@ -47,35 +49,65 @@ const normalizeInputFormat = (inputFormat) => {
   };
 };
 
-const buildRealtimeSettings = (realtimeConfig) => {
+const buildRealtimeSettings = (realtimeConfig, { user } = {}) => {
   if (!realtimeConfig) {
     return null;
   }
 
+  const { disabled, ...config } = realtimeConfig;
+
+  try {
+    if (typeof disabled === 'boolean') {
+      if (disabled) {
+        return null;
+      }
+    } else if (typeof disabled === 'string') {
+      const safeUser = createSafeUser(user);
+      const userContext = { ...safeUser };
+
+      if (user?.ui) {
+        userContext.ui = user.ui;
+      }
+
+      const context = {
+        user: userContext,
+        ui: user?.ui ?? {},
+      };
+
+      const isDisabled = evaluateBooleanExpression(disabled, context);
+
+      if (isDisabled) {
+        return null;
+      }
+    }
+  } catch (error) {
+    logger.warn?.('Failed to evaluate realtime.disabled expression', error);
+  }
+
   const formatSource =
-    realtimeConfig.session?.audio?.input?.format ??
-    realtimeConfig.audio?.input?.format ??
-    realtimeConfig.inputAudioFormat;
+    config.session?.audio?.input?.format ??
+    config.audio?.input?.format ??
+    config.inputAudioFormat;
 
   const normalizedFormat = normalizeInputFormat(formatSource);
 
   const realtimeSettings = {
-    model: realtimeConfig.model,
-    transport: realtimeConfig.transport ?? 'websocket',
-    stream: typeof realtimeConfig.stream === 'boolean' ? realtimeConfig.stream : true,
+    model: config.model,
+    transport: config.transport ?? 'websocket',
+    stream: typeof config.stream === 'boolean' ? config.stream : true,
     inputAudioFormat: normalizedFormat,
-    ...(realtimeConfig.ffmpegPath ? { ffmpegPath: realtimeConfig.ffmpegPath } : {}),
+    ...(config.ffmpegPath ? { ffmpegPath: config.ffmpegPath } : {}),
   };
 
-  const sessionConfig = { ...(realtimeConfig.session ?? {}) };
+  const sessionConfig = { ...(config.session ?? {}) };
   const sessionAudio = { ...(sessionConfig.audio ?? {}) };
   const sessionAudioInput = {
     ...(sessionAudio.input ?? {}),
-    ...(realtimeConfig.audio?.input ?? {}),
+    ...(config.audio?.input ?? {}),
   };
   const sessionAudioOutput = {
     ...(sessionAudio.output ?? {}),
-    ...(realtimeConfig.audio?.output ?? {}),
+    ...(config.audio?.output ?? {}),
   };
 
   if (Object.keys(sessionAudioInput).length > 0 || normalizedFormat) {
@@ -95,7 +127,7 @@ const buildRealtimeSettings = (realtimeConfig) => {
     realtimeSettings.session = sessionConfig;
   }
 
-  const topLevelAudio = { ...(realtimeConfig.audio ?? {}) };
+  const topLevelAudio = { ...(config.audio ?? {}) };
   if (Object.keys(sessionAudioInput).length > 0 || normalizedFormat) {
     topLevelAudio.input = {
       ...(topLevelAudio.input ?? {}),
@@ -115,8 +147,8 @@ const buildRealtimeSettings = (realtimeConfig) => {
     realtimeSettings.audio = topLevelAudio;
   }
 
-  if (Array.isArray(realtimeConfig.include)) {
-    realtimeSettings.include = [...realtimeConfig.include];
+  if (Array.isArray(config.include)) {
+    realtimeSettings.include = [...config.include];
   }
 
   return realtimeSettings;
@@ -142,7 +174,9 @@ async function getCustomConfigSpeech(req, res) {
     };
 
     if (!appConfig.speech?.speechTab) {
-      const realtimeConfig = buildRealtimeSettings(appConfig.speech?.stt?.realtime);
+      const realtimeConfig = buildRealtimeSettings(appConfig.speech?.stt?.realtime, {
+        user: req.user,
+      });
 
       if (realtimeConfig) {
         settings = {
@@ -172,7 +206,9 @@ async function getCustomConfigSpeech(req, res) {
       }
     }
 
-    const realtimeConfig = buildRealtimeSettings(appConfig.speech?.stt?.realtime);
+    const realtimeConfig = buildRealtimeSettings(appConfig.speech?.stt?.realtime, {
+      user: req.user,
+    });
 
     if (realtimeConfig) {
       settings.realtime = realtimeConfig;

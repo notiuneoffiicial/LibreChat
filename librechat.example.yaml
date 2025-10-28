@@ -155,6 +155,10 @@ registration:
 #       model: 'gpt-4o-realtime-preview'
 #       transport: websocket  # websocket | webrtc
 #       stream: true
+#       # Optionally disable the realtime engine based on a boolean expression evaluated per user.
+#       # Available variables include `user` (safe profile fields) and `ui` (custom UI flags).
+#       # Example below disables realtime whenever a UI toggle named `disableRealtime` is true.
+#       disabled: "{{ ui.disableRealtime === true }}"
 #       # url: 'wss://api.openai.com/v1/realtime'
 #       # Optional: set a custom ffmpeg binary path if ffmpeg is not on PATH
 #       # ffmpegPath: '/usr/local/bin/ffmpeg'
