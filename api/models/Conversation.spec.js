@@ -183,11 +183,18 @@ describe('Conversation Operations', () => {
 
       await Conversation.create({
         ...mockConversationData,
+        conversationId: newConversationId,
         user: mockReq.user.id,
         messages: existingMessages,
       });
 
-      getMessages.mockResolvedValue(existingMessages);
+      getMessages.mockImplementation(async ({ conversationId }) => {
+        if (conversationId === mockConversationData.conversationId) {
+          return existingMessages;
+        }
+
+        return [];
+      });
 
       const sortMock = jest.fn().mockReturnThis();
       const limitMock = jest.fn().mockReturnThis();
@@ -216,6 +223,50 @@ describe('Conversation Operations', () => {
       } finally {
         findSpy.mockRestore();
       }
+    });
+
+    it('preserves messages when a rename retry references the original conversationId', async () => {
+      const originalConversationId = mockConversationData.conversationId;
+      const newConversationId = uuidv4();
+      const existingMessages = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+
+      await Conversation.create({
+        ...mockConversationData,
+        conversationId: newConversationId,
+        user: mockReq.user.id,
+        messages: existingMessages,
+      });
+
+      getMessages.mockImplementation(async ({ conversationId }) => {
+        if (conversationId === originalConversationId) {
+          return existingMessages;
+        }
+
+        return [];
+      });
+
+      const result = await saveConvo(mockReq, {
+        ...mockConversationData,
+        conversationId: originalConversationId,
+        newConversationId,
+      });
+
+      expect(getMessages).toHaveBeenCalledWith(
+        { conversationId: originalConversationId },
+        '_id',
+      );
+
+      expect(result.conversationId).toBe(newConversationId);
+
+      const storedConversation = await Conversation.findOne({
+        conversationId: newConversationId,
+        user: mockReq.user.id,
+      }).lean();
+
+      expect(storedConversation).not.toBeNull();
+      expect(storedConversation.messages.map((id) => id.toString())).toEqual(
+        existingMessages.map((id) => id.toString()),
+      );
     });
 
     it('returns the original conversationId when newConversationId is not provided', async () => {

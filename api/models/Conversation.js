@@ -227,7 +227,10 @@ module.exports = {
         return existingConversation ?? null;
       }
 
-      const messageConversationId = sourceConversationId ?? newConversationId ?? null;
+      const messageConversationId =
+        conversationId && conversationId !== persistedConversationId
+          ? conversationId
+          : sourceConversationId ?? newConversationId ?? null;
 
       const messages = messageConversationId
         ? await getMessages({ conversationId: messageConversationId }, '_id')
