@@ -131,12 +131,7 @@ export async function updateInterfacePermissions({
         return existingPermMap ? !(key in existingPermMap) : true;
       });
 
-      const hasMismatchedValue = requiredEntries.some(([key, value]) => {
-        return existingPermMap ? existingPermMap[key] !== value : true;
-      });
-
-      const shouldSeedPermissions =
-        !permTypeExists || !hasEntries || isMissingRequiredKey || hasMismatchedValue;
+      const shouldSeedPermissions = !permTypeExists || !hasEntries || isMissingRequiredKey;
 
       // Only update if: doesn't exist OR explicitly configured OR memory state change
       if (
@@ -156,7 +151,7 @@ export async function updateInterfacePermissions({
           logger.debug(`Role '${roleName}': Setting up default permissions for '${permType}'`);
         } else if (isExplicitlyConfigured) {
           logger.debug(`Role '${roleName}': Applying explicit config for '${permType}'`);
-        } else if (isMissingRequiredKey || hasMismatchedValue) {
+        } else if (isMissingRequiredKey) {
           logger.debug(`Role '${roleName}': Correcting permissions for '${permType}'`);
         }
       } else {
