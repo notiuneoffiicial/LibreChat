@@ -125,6 +125,7 @@ const buildMemoryConfig = (memoryConfig, agent) => {
 async function initializeMemoryContext({ req, res, conversationId, messageId, currentAgent }) {
   const user = req.user;
   if (user?.personalization?.memories === false) {
+    logger.warn('[Memory] Skipping initialization: user personalization memories disabled');
     return null;
   }
 
@@ -136,6 +137,7 @@ async function initializeMemoryContext({ req, res, conversationId, messageId, cu
   });
 
   if (!hasAccess) {
+    logger.warn('[Memory] Skipping initialization: user lacks MEMORIES.USE permission');
     return null;
   }
 
