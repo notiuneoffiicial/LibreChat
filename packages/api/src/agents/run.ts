@@ -82,15 +82,17 @@ export async function createRun({
     agent.model_parameters,
   );
 
-  // Provider-specific base path requirements should be normalized here (e.g. Deepseek needs `/v1`).
-  if (provider === Providers.DEEPSEEK && llmConfig.configuration?.baseURL) {
-    const trimmedBaseURL = llmConfig.configuration.baseURL.replace(/\/+$/, '');
+  // Provider-specific base path requirements should be normalized here (e.g. Deepseek always ends with `/v1`).
+  // If a Deepseek agent omits the base URL, default to the public endpoint so new providers can follow the pattern.
+  if (provider === Providers.DEEPSEEK) {
+    const baseURL = llmConfig.configuration?.baseURL ?? 'https://api.deepseek.com/v1';
+    const trimmedBaseURL = baseURL.replace(/\/+$/, '');
     const normalizedBaseURL = trimmedBaseURL.endsWith('/v1')
       ? trimmedBaseURL
       : `${trimmedBaseURL}/v1`;
 
     llmConfig.configuration = {
-      ...llmConfig.configuration,
+      ...(llmConfig.configuration ?? {}),
       baseURL: normalizedBaseURL,
     };
   }
