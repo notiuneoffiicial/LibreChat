@@ -132,29 +132,13 @@ class RealtimeCallService {
     const instructions =
       overrideSession.instructions ?? overrides.instructions ?? sessionConfig.instructions;
 
-    const baseModalities = this.#mergeInclude(
-      sessionConfig.modalities,
-      sessionConfig.output_modalities,
-      overrideSession.modalities,
-      overrideSession.output_modalities,
+    const includeValues = this.#mergeInclude(
+      config.include,
+      overrides.include,
+      sessionConfig.include,
+      overrideSession.include,
     );
-    const includeValues = this.#mergeInclude(config.include, overrides.include);
-    const includeItems = this.#mergeInclude(sessionConfig.include, overrideSession.include);
-    const { modalities: initialModalities, include } = this.#partitionInclude({
-      baseModalities,
-      includeValues,
-      speechToSpeech,
-      includeItems,
-    });
-
-    const modalities = [...new Set(initialModalities)];
-    if (sessionType === 'transcription' && !modalities.includes('text')) {
-      modalities.push('text');
-    }
-
-    if (speechToSpeech && !modalities.includes('audio')) {
-      modalities.push('audio');
-    }
+    const include = this.#normalizeIncludeList(includeValues);
 
     const voice =
       overrideSession?.audio?.output?.voice ??
@@ -167,6 +151,13 @@ class RealtimeCallService {
       sessionConfig.audio?.output?.voices ??
       sessionConfig.voices ??
       overrides?.audio?.output?.voices;
+
+    const requestAudioOutput = this.#shouldRequestAudioOutput({
+      sessionType,
+      speechToSpeech,
+      voice,
+      configuredVoices,
+    });
 
     const audio = {};
     const inputAudio = {};
@@ -222,7 +213,7 @@ class RealtimeCallService {
       outputAudio.voices = [...configuredVoices];
     }
 
-    if (voice && modalities.includes('audio')) {
+    if (requestAudioOutput && voice) {
       outputAudio.voice = voice;
     }
 
@@ -237,10 +228,6 @@ class RealtimeCallService {
 
     if (instructions) {
       sanitizedSession.instructions = instructions;
-    }
-
-    if (modalities.length > 0) {
-      sanitizedSession.modalities = modalities;
     }
 
     if (include.length > 0) {
@@ -313,53 +300,71 @@ class RealtimeCallService {
     return normalized;
   }
 
-  #partitionInclude({ baseModalities = [], includeValues = [], speechToSpeech, includeItems = [] }) {
-    const modalitiesSet = new Set();
-    const includeSet = new Set();
+  #normalizeIncludeList(values = []) {
+    const include = [];
+    const seen = new Set();
 
-    (Array.isArray(baseModalities) ? baseModalities : []).forEach((entry) => {
-      const normalized = entry.toLowerCase();
-      if (normalized === 'text' || normalized === 'audio') {
-        modalitiesSet.add(normalized);
+    (Array.isArray(values) ? values : []).forEach((entry) => {
+      const normalized = this.#normalizeIncludeEntry(entry);
+      if (!normalized || seen.has(normalized)) {
+        return;
       }
+
+      seen.add(normalized);
+      include.push(normalized);
     });
 
-    includeValues.forEach((entry) => {
-      const normalized = entry.toLowerCase();
-      if (normalized === 'text' || normalized === 'audio') {
-        modalitiesSet.add(normalized);
-        return;
-      }
+    return include;
+  }
 
-      includeSet.add(entry);
-    });
-
-    includeItems.forEach((entry) => {
-      if (typeof entry !== 'string') {
-        return;
-      }
-
-      const trimmed = entry.trim();
-      if (trimmed.length === 0) {
-        return;
-      }
-
-      const normalized = trimmed.toLowerCase();
-      if (normalized === 'text' || normalized === 'audio') {
-        return;
-      }
-
-      includeSet.add(trimmed);
-    });
-
-    if (speechToSpeech) {
-      modalitiesSet.add('audio');
+  #normalizeIncludeEntry(entry) {
+    if (typeof entry !== 'string') {
+      return undefined;
     }
 
-    return {
-      modalities: [...modalitiesSet],
-      include: [...includeSet],
-    };
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) {
+      return undefined;
+    }
+
+    const normalized = trimmed.toLowerCase();
+    if (normalized === 'text' || normalized === 'audio') {
+      return undefined;
+    }
+
+    if (normalized === 'logprobs' || normalized === 'transcription.logprobs') {
+      return 'item.input_audio_transcription.logprobs';
+    }
+
+    if (normalized === 'input_audio_transcription.logprobs') {
+      return 'item.input_audio_transcription.logprobs';
+    }
+
+    if (normalized === 'item.input_audio_transcription.logprobs') {
+      return 'item.input_audio_transcription.logprobs';
+    }
+
+    return trimmed;
+  }
+
+  #shouldRequestAudioOutput({ sessionType, speechToSpeech, voice, configuredVoices }) {
+    if (sessionType === 'transcription') {
+      return false;
+    }
+
+    if (speechToSpeech) {
+      return true;
+    }
+
+    if (voice && typeof voice === 'string' && voice.trim().length > 0) {
+      return true;
+    }
+
+    if (Array.isArray(configuredVoices) && configuredVoices.length > 0) {
+      return true;
+    }
+
+    return false;
   }
 
   #resolveNoiseReduction(config, overrides, sessionConfig, overrideSession) {

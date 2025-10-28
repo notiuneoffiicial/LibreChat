@@ -66,7 +66,7 @@ describe('RealtimeCallService', () => {
             realtime: {
               apiKey: '${REALTIME_KEY}',
               model: 'gpt-realtime-mini',
-              include: ['text'],
+              include: ['logprobs'],
               session: {
                 type: 'transcription',
                 audio: {
@@ -102,7 +102,6 @@ describe('RealtimeCallService', () => {
       sdpOffer: 'offer',
       session: {
         instructions: 'Transcribe clearly',
-        modalities: ['audio'],
         audio: {
           input: { turnDetection: { type: 'server_vad', serverVad: { threshold: 0.5 } } },
         },
@@ -151,13 +150,15 @@ describe('RealtimeCallService', () => {
         },
       },
     });
-    expect(new Set(sessionPayload.modalities)).toEqual(new Set(['text', 'audio']));
+    expect(sessionPayload).not.toHaveProperty('modalities');
+    expect(sessionPayload.include).toEqual(['item.input_audio_transcription.logprobs']);
     expect(sessionPayload).not.toHaveProperty('speech_to_speech');
+    expect(sessionPayload.audio).not.toHaveProperty('output');
 
     expect(payload).toEqual({ sdpAnswer: 'answer', expiresAt: 1234 });
   });
 
-  it('omits modal entries when rebuilding include list', async () => {
+  it('retains telemetry include entries and drops legacy modality values', async () => {
     process.env.REALTIME_KEY = 'test-key';
     const req = {
       config: {
@@ -167,7 +168,7 @@ describe('RealtimeCallService', () => {
               apiKey: '${REALTIME_KEY}',
               model: 'gpt-realtime-mini',
               session: {
-                include: ['text', 'logprobs'],
+                include: ['text', ' item.input_audio_transcription.logprobs '],
                 modalities: ['text'],
               },
             },
@@ -183,14 +184,14 @@ describe('RealtimeCallService', () => {
     const service = new RealtimeCallService({ httpClient });
     await service.createCall(req, {
       sdpOffer: 'offer',
-      include: ['audio'],
+      include: ['audio', 'transcription.logprobs'],
     });
 
     const sessionCall = appendSpy.mock.calls.find(([field]) => field === 'session');
     const sessionPayload = JSON.parse(sessionCall[1]);
 
-    expect(sessionPayload.modalities).toEqual(expect.arrayContaining(['text', 'audio']));
-    expect(sessionPayload.include).toEqual(['logprobs']);
+    expect(sessionPayload).not.toHaveProperty('modalities');
+    expect(sessionPayload.include).toEqual(['item.input_audio_transcription.logprobs']);
   });
 
   it('includes speech-to-speech voice parameters and omits transcription defaults', async () => {
@@ -246,7 +247,6 @@ describe('RealtimeCallService', () => {
     expect(sessionPayload).toMatchObject({
       type: 'realtime',
       model: 'gpt-realtime-mini',
-      modalities: ['audio'],
       audio: {
         input: {
           format: {
@@ -266,6 +266,7 @@ describe('RealtimeCallService', () => {
         },
       },
     });
+    expect(sessionPayload).not.toHaveProperty('modalities');
     expect(sessionPayload).not.toHaveProperty('speech_to_speech');
     expect(sessionPayload.audio.input).not.toHaveProperty('transcription');
     expect(payload).toEqual({ sdpAnswer: 'answer' });

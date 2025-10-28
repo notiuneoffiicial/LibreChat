@@ -81,7 +81,21 @@ describe('POST /api/files/speech/stt/realtime/call', () => {
 
     expect(audioServices.createRealtimeCall).toHaveBeenCalledWith(
       expect.objectContaining({ user: { id: 'user-123' } }),
-      body,
+      expect.objectContaining({
+        sdpOffer: 'offer',
+        include: ['text'],
+        session: expect.objectContaining({
+          model: 'gpt-realtime',
+          instructions: 'Be brief',
+          audio: expect.objectContaining({
+            output: { voice: 'alloy' },
+            input: expect.objectContaining({
+              turnDetection: { type: 'server_vad' },
+              noiseReduction: 'server_light',
+            }),
+          }),
+        }),
+      }),
     );
     expect(response.status).toBe(200);
     expect(response.body).toEqual(payload);
