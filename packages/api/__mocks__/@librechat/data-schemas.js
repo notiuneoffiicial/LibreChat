@@ -1,17 +1,11 @@
-const EModelEndpoint = {
-  openAI: 'openAI',
-  azureOpenAI: 'azureOpenAI',
-  anthropic: 'anthropic',
-  custom: 'custom',
-  agents: 'agents',
-  assistants: 'assistants',
-};
+const noop = () => {};
 
-const KnownEndpoints = {
-  openrouter: 'openrouter',
-  vercel: 'vercel',
-  deepseek: 'deepseek',
-  openai: 'openai',
+const logger = {
+  error: noop,
+  warn: noop,
+  info: noop,
+  debug: noop,
+  child: () => logger,
 };
 
 const removeNullishValues = (obj, removeEmptyStrings = false) => {
@@ -58,12 +52,9 @@ const ReasoningSummary = {
 };
 
 module.exports = {
-  librechat: {
-    resendFiles: { default: true },
-  },
-  EModelEndpoint,
-  KnownEndpoints,
+  logger,
   removeNullishValues,
+  webSearchAuth: { categories: [], keys: {} },
   Verbosity,
   ReasoningEffort,
   ReasoningSummary,

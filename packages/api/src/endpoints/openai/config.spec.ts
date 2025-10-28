@@ -259,6 +259,44 @@ describe('getOpenAIConfig', () => {
     expect(result.llmConfig.modelKwargs).toEqual({ customParam1: 'value1' });
   });
 
+  it('should not force Responses API for custom endpoints while keeping web search tool', () => {
+    const modelOptions = {
+      model: 'deepseek-chat',
+      web_search: true,
+    };
+
+    const result = getOpenAIConfig(
+      mockApiKey,
+      {
+        modelOptions,
+        reverseProxyUrl: 'https://api.deepseek.com/v1',
+      },
+      'deepseek',
+    );
+
+    expect(result.llmConfig.useResponsesApi).toBeUndefined();
+    expect(result.tools).toEqual([{ type: 'web_search_preview' }]);
+  });
+
+  it('should enable Responses API for OpenAI endpoints with recognizable hints', () => {
+    const modelOptions = {
+      model: 'gpt-4o-mini',
+      web_search: true,
+    };
+
+    const result = getOpenAIConfig(
+      mockApiKey,
+      {
+        modelOptions,
+        reverseProxyUrl: 'https://proxy.example.com/openai/v1',
+      },
+      'openAI',
+    );
+
+    expect(result.llmConfig.useResponsesApi).toBe(true);
+    expect(result.tools).toEqual([{ type: 'web_search_preview' }]);
+  });
+
   it('should drop params for search models', () => {
     const modelOptions = {
       model: 'gpt-4o-search',
@@ -1054,11 +1092,11 @@ describe('getOpenAIConfig', () => {
         model: 'gpt-4-turbo',
         temperature: 0.8, // From addParams
         streaming: false,
-        useResponsesApi: true, // From web_search
       });
+      expect(result.llmConfig.useResponsesApi).toBeUndefined();
       expect(result.llmConfig.maxTokens).toBe(2000);
       expect(result.llmConfig.modelKwargs).toEqual({
-        text: { verbosity: Verbosity.medium },
+        verbosity: Verbosity.medium,
         customParam: 'custom-value',
       });
       expect(result.tools).toEqual([{ type: 'web_search_preview' }]);

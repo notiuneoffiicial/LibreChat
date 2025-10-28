@@ -83,6 +83,7 @@ export function getOpenAILLMConfig({
   addParams,
   dropParams,
   useOpenRouter,
+  supportsResponsesApi,
   modelOptions: _modelOptions,
 }: {
   apiKey: string;
@@ -92,6 +93,7 @@ export function getOpenAILLMConfig({
   addParams?: Record<string, unknown>;
   dropParams?: string[];
   useOpenRouter?: boolean;
+  supportsResponsesApi?: boolean;
   azure?: false | t.AzureOptions;
 }): Pick<t.LLMConfigResult, 'llmConfig' | 'tools'> & {
   azure?: t.AzureOptions;
@@ -180,13 +182,17 @@ export function getOpenAILLMConfig({
     enableWebSearch = false;
   }
 
+  const allowResponsesApi = supportsResponsesApi ?? true;
+
   if (useOpenRouter && enableWebSearch) {
     /** OpenRouter expects web search as a plugins parameter */
     modelKwargs.plugins = [{ id: 'web' }];
     hasModelKwargs = true;
   } else if (enableWebSearch) {
     /** Standard OpenAI web search uses tools API */
-    llmConfig.useResponsesApi = true;
+    if (allowResponsesApi) {
+      llmConfig.useResponsesApi = true;
+    }
     tools.push({ type: 'web_search_preview' });
   }
 
