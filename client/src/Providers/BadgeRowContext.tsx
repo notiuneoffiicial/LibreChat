@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { useSetRecoilState } from 'recoil';
 import { Tools, Constants, LocalStorageKeys, AgentCapabilities } from 'librechat-data-provider';
 import type { TAgentsEndpoint } from 'librechat-data-provider';
@@ -12,6 +19,37 @@ import {
 import useReasonToggle from '~/hooks/Input/useReasonToggle';
 import { getTimestampedValue, setTimestamp } from '~/utils/timestamps';
 import { ephemeralAgentByConvoId } from '~/store';
+import { useChatContext } from './ChatContext';
+
+const MANUAL_TOGGLE_GRACE_PERIOD = 2000;
+
+function normalizeToggleValue(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+
+    return normalized.length > 0;
+  }
+
+  if (value && typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
+    return normalizeToggleValue((value as Record<string, unknown>).value);
+  }
+
+  return undefined;
+}
 
 interface BadgeRowContextType {
   conversationId?: string | null;
@@ -50,9 +88,14 @@ export default function BadgeRowProvider({
   const lastKeyRef = useRef<string>('');
   const hasInitializedRef = useRef(false);
   const { agentsConfig } = useGetAgentsConfig();
+  const { conversation } = useChatContext();
   const key = conversationId ?? Constants.NEW_CONVO;
 
   const setEphemeralAgent = useSetRecoilState(ephemeralAgentByConvoId(key));
+  const manualWebSearchToggleRef = useRef<{
+    timestamp: number;
+    target: boolean;
+  } | null>(null);
 
   /** Initialize ephemeralAgent from localStorage on mount and when conversation changes */
   useEffect(() => {
@@ -172,6 +215,67 @@ export default function BadgeRowProvider({
     },
   });
 
+  const trackManualWebSearchToggle = useCallback((value: unknown) => {
+    const normalized = normalizeToggleValue(value);
+    if (typeof normalized === 'boolean') {
+      manualWebSearchToggleRef.current = {
+        timestamp: Date.now(),
+        target: normalized,
+      };
+    }
+  }, []);
+
+  const enhancedWebSearch = useMemo(() => {
+    const wrapHandleChange =
+      <T extends (...args: any[]) => any>(handler: T) =>
+      (...args: Parameters<T>) => {
+        trackManualWebSearchToggle(args[0]);
+        return handler(...args);
+      };
+
+    return {
+      ...webSearch,
+      handleChange: wrapHandleChange(webSearch.handleChange),
+      setToggleState: wrapHandleChange(webSearch.setToggleState),
+      debouncedChange: wrapHandleChange(webSearch.debouncedChange),
+    };
+  }, [trackManualWebSearchToggle, webSearch]);
+
+  useEffect(() => {
+    const conversationKey = conversation?.conversationId ?? Constants.NEW_CONVO;
+    if (conversationKey !== key) {
+      return;
+    }
+
+    const serverWebSearch = normalizeToggleValue(conversation?.web_search);
+    if (typeof serverWebSearch !== 'boolean') {
+      return;
+    }
+
+    const manualToggle = manualWebSearchToggleRef.current;
+    const isManualToggleRecent =
+      manualToggle != null && Date.now() - manualToggle.timestamp < MANUAL_TOGGLE_GRACE_PERIOD;
+
+    if (isManualToggleRecent && manualToggle.target !== serverWebSearch) {
+      return;
+    }
+
+    const ephemeralValue = normalizeToggleValue(
+      enhancedWebSearch.ephemeralAgent?.[Tools.web_search],
+    );
+
+    if (ephemeralValue !== serverWebSearch) {
+      setEphemeralAgent((prev) => ({
+        ...(prev || {}),
+        [Tools.web_search]: serverWebSearch,
+      }));
+    }
+
+    if (!isManualToggleRecent || manualToggle?.target === serverWebSearch) {
+      manualWebSearchToggleRef.current = null;
+    }
+  }, [conversation?.conversationId, conversation?.web_search, enhancedWebSearch.ephemeralAgent, key, setEphemeralAgent]);
+
   /** FileSearch hook */
   const fileSearch = useToolToggle({
     conversationId,
@@ -193,7 +297,7 @@ export default function BadgeRowProvider({
   const mcpServerManager = useMCPServerManager({ conversationId });
 
   const value: BadgeRowContextType = {
-    webSearch,
+    webSearch: enhancedWebSearch,
     artifacts,
     fileSearch,
     agentsConfig,

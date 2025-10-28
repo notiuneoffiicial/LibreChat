@@ -9,6 +9,7 @@ jest.mock('librechat-data-provider', () => ({
     });
     return result;
   },
+  Tools: { web_search: 'web_search' },
 }), { virtual: true });
 
 jest.mock('@librechat/data-schemas', () => ({
@@ -92,6 +93,22 @@ describe('applyAutoRouting', () => {
     expect(result.candidate.autoWebSearch).toBe(true);
     expect(req.body.web_search).toBe(true);
     expect(req.body.spec).toBe('optimism_researcher');
+  });
+
+  it('enables the ephemeral agent web search flag when auto toggled', () => {
+    const req = createRequest({
+      body: {
+        text: 'Please search the web for the latest optimism news.',
+        web_search: false,
+        ephemeralAgent: null,
+      },
+    });
+
+    applyAutoRouting(req);
+
+    expect(req.body.web_search).toBe(true);
+    expect(req.body.ephemeralAgent).toBeDefined();
+    expect(req.body.ephemeralAgent.web_search).toBe(true);
   });
 
   it('auto enables web search when toggle strings disable it explicitly', () => {
