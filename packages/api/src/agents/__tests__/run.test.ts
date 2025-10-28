@@ -73,4 +73,44 @@ describe('createRun provider configuration normalization', () => {
       'https://api.deepseek.com/v1',
     );
   });
+
+  it('defaults Deepseek base URL when configuration is missing', async () => {
+    const controller = new AbortController();
+    const agent = {
+      id: 'agent-deepseek',
+      name: 'Deepseek Agent',
+      description: null,
+      created_at: Date.now(),
+      avatar: null,
+      instructions: null,
+      additional_instructions: null,
+      provider: Providers.DEEPSEEK,
+      endpoint: Providers.DEEPSEEK,
+      model: 'deepseek-chat',
+      model_parameters: {
+        temperature: 0,
+        maxContextTokens: null,
+        max_context_tokens: null,
+        max_output_tokens: null,
+        top_p: null,
+        frequency_penalty: null,
+        presence_penalty: null,
+      },
+    } as unknown as Agent;
+
+    (Run.create as jest.Mock).mockResolvedValue({ runId: 'test-run' });
+
+    await createRun({
+      agent,
+      signal: controller.signal,
+      streaming: true,
+      streamUsage: true,
+    });
+
+    expect(Run.create).toHaveBeenCalledTimes(1);
+    const runCall = (Run.create as jest.Mock).mock.calls[0][0];
+    expect(runCall.graphConfig.llmConfig.configuration.baseURL).toBe(
+      'https://api.deepseek.com/v1',
+    );
+  });
 });
