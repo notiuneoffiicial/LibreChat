@@ -191,20 +191,45 @@ describe('applyAutoRouting', () => {
     expect(req.body.spec).toBe('optimism_quick');
   });
 
-  it('skips auto routing when a spec is already provided', () => {
+  it('skips auto routing when opted out with an explicit spec', () => {
     const req = createRequest({
       body: {
         text: 'Quickly outline a go-to-market strategy.',
         max_tokens: 256,
         spec: 'optimism_strategy',
         model: 'deepseek-reasoner',
+        auto_router_opt_out: true,
       },
     });
 
-    applyAutoRouting(req);
+    const result = applyAutoRouting(req);
 
+    expect(result).toBeNull();
     expect(req.body.spec).toBe('optimism_strategy');
     expect(req.body.model).toBe('deepseek-reasoner');
     expect(req.autoRoutedConversation).toEqual(expect.objectContaining({ spec: 'optimism_strategy' }));
+  });
+
+  it('continues auto routing when the default spec is provided without opt-out', () => {
+    const req = createRequest({
+      body: {
+        text: 'Please draft a heartfelt blog post announcing our latest optimism milestone.',
+        spec: 'optimism_companion',
+        model: 'deepseek-chat',
+      },
+    });
+
+    const result = applyAutoRouting(req);
+
+    expect(result).toBeTruthy();
+    expect(result.intent).toBe('writing');
+    expect(result.spec).toBe('optimism_writer');
+    expect(req.body.spec).toBe('optimism_writer');
+    expect(req.autoRoutedConversation).toEqual(
+      expect.objectContaining({
+        spec: 'optimism_writer',
+        model: 'deepseek-chat',
+      }),
+    );
   });
 });
