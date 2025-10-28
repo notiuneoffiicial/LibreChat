@@ -129,9 +129,6 @@ class RealtimeCallService {
     }
 
     const voice = overrides.voice ?? sessionConfig.voice;
-    if (voice) {
-      session.voice = voice;
-    }
 
     if (Array.isArray(sessionConfig.voices) && sessionConfig.voices.length > 0) {
       session.voices = [...sessionConfig.voices];
@@ -159,6 +156,10 @@ class RealtimeCallService {
 
     if (include.length > 0) {
       session.include = include;
+    }
+
+    if (voice && modalities.includes('audio')) {
+      session.voice = voice;
     }
 
     const inputAudioFormat = this.#normalizeInputFormat(config.audio?.input?.format);
