@@ -155,12 +155,16 @@ registration:
 #       model: 'gpt-4o-realtime-preview'
 #       transport: websocket  # websocket | webrtc
 #       stream: true
+#       # Optionally disable the realtime engine based on a boolean expression evaluated per user.
+#       # Available variables include `user` (safe profile fields) and `ui` (custom UI flags).
+#       # Example below disables realtime whenever a UI toggle named `disableRealtime` is true.
+#       disabled: "{{ ui.disableRealtime === true }}"
 #       # url: 'wss://api.openai.com/v1/realtime'
 #       # Optional: set a custom ffmpeg binary path if ffmpeg is not on PATH
 #       # ffmpegPath: '/usr/local/bin/ffmpeg'
 #       session:
-#         mode: conversation
-#         speechToSpeech: false
+#         type: realtime          # required by GA – use `transcription` for STT-only sessions
+#         speechToSpeech: false   # set true to request spoken responses from the model
 #         model: 'gpt-4o-realtime-preview'
 #         voice: alloy
 #         voices: ['alloy', 'nova', 'verse']
@@ -169,6 +173,9 @@ registration:
 #           You are LibreChat's realtime assistant. Respond briefly, confirm key
 #           details back to the user, and close with a concise follow-up.
 #       audio:
+#         output:
+#           voice: alloy          # required when speechToSpeech is true – selects the TTS voice
+#           voices: ['alloy', 'nova', 'verse'] # optional – surfaces allowed voices in the UI
 #         input:
 #           format:
 #             encoding: pcm16
@@ -188,7 +195,8 @@ registration:
 #             semantic:
 #               enabled: false
 #               minDecisionIntervalMs: 750
-#       include: ['text', 'audio']
+#       include:
+#         - item.input_audio_transcription.logprobs # GA-supported telemetry fields
 
 # rateLimits:
 #   fileUploads:

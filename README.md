@@ -23,16 +23,16 @@ speech:
       stream: true                   # optional – whether to request server-side streaming
       url: wss://api.openai.com/v1/realtime # optional – override the realtime base URL
       session:                       # optional – defaults for the realtime session envelope
-        type: realtime               # `realtime` or `transcription`
-        speechToSpeech: false        # enable to request spoken responses from the model
+        type: realtime               # required by GA – set to `transcription` for STT-only sessions
+        speechToSpeech: false        # set true to request spoken responses from the model
         model: gpt-4o-realtime-preview # override the session model when it differs from `model`
-        modalities: [text, audio]    # optional – preselect GA realtime modalities
-        voice: alloy                 # pre-select the realtime voice
-        voices: [alloy, nova, verse] # optional – surface allowed voices in the UI
         instructions: |              # GA-compliant realtime session prompt
           You are LibreChat's realtime assistant. Respond briefly and confirm
           important details back to the user.
       audio:
+        output:
+          voice: alloy               # required when speechToSpeech is true – selects the TTS voice
+          voices: [alloy, nova, verse] # optional – surface allowed voices in the UI
         input:
           format:                    # optional – overrides fallback audio format defaults
             encoding: pcm16
@@ -54,7 +54,8 @@ speech:
             semantic:
               enabled: false
               minDecisionIntervalMs: 750
-      include: [text, audio]        # optional – mapped to session.modalities (others go to session.include)
+      include:
+        - item.input_audio_transcription.logprobs # GA-supported telemetry fields forwarded to the API
       ffmpegPath: /usr/local/bin/ffmpeg # optional – set if ffmpeg is not on PATH
 ```
 
@@ -86,12 +87,18 @@ picked up.
 - Noise reduction presets now use an object syntax (for example,
   `noiseReduction: { preset: server_light }`). String values are wrapped for
   compatibility, but update your configuration to avoid future migrations.
-- New `session` defaults (mode, model, voice, instructions, and the
-  speech-to-speech toggle) are persisted for authenticated users without exposing
-  your API key. The UI falls back to legacy behaviour if the block is omitted.
-- The optional `include` list narrows which modalities are requested when the
-  realtime session is created (for example, `['text']` to disable audio
-  responses). Entries that match `text`/`audio` become the session's
-  `modalities` array, while values such as
-  `item.input_audio_transcription.logprobs` are forwarded to the API's
-  `include` list.
+- New `session` defaults (type, model, voice, instructions, and the
+  speech-to-speech toggle) are persisted for authenticated users without
+  exposing your API key. The UI falls back to legacy behaviour if the block is
+  omitted.
+- Audio responses are now driven by the GA contract: keep `session.type`
+  set to `realtime`, enable `session.speechToSpeech`, and choose a voice under
+  `session.audio.output.voice`. LibreChat automatically requests the audio
+  modality when these settings are active.
+- The optional `include` list should be reserved for GA-supported telemetry
+  fields (for example, `item.input_audio_transcription.logprobs`). Do not send
+  legacy modality names; the server will inject the correct audio modality when
+  speech-to-speech is enabled.
+- OpenAI's GA endpoint for SDP negotiation is now `/v1/realtime/calls`. Ensure
+  your outbound firewall allows this host and remove references to the
+  deprecated session endpoints.

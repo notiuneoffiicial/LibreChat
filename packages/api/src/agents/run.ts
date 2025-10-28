@@ -82,6 +82,19 @@ export async function createRun({
     agent.model_parameters,
   );
 
+  // Provider-specific base path requirements should be normalized here (e.g. Deepseek needs `/v1`).
+  if (provider === Providers.DEEPSEEK && llmConfig.configuration?.baseURL) {
+    const trimmedBaseURL = llmConfig.configuration.baseURL.replace(/\/+$/, '');
+    const normalizedBaseURL = trimmedBaseURL.endsWith('/v1')
+      ? trimmedBaseURL
+      : `${trimmedBaseURL}/v1`;
+
+    llmConfig.configuration = {
+      ...llmConfig.configuration,
+      baseURL: normalizedBaseURL,
+    };
+  }
+
   /** Resolves issues with new OpenAI usage field */
   if (
     customProviders.has(agent.provider) ||
