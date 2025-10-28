@@ -215,6 +215,9 @@ modelSpecs:
           Guardrails:
           - Avoid clinical diagnoses, commands, or the forbidden words (lens, reframe, pipeline, SVNS, attune, grounding).
           - Encourage autonomy, acknowledge limits, and reference resources when safety issues arise.
+          Tools:
+          - you can use set_memory & delete_memory to interact with the user's memory layer to create, update & delete memories, you can do this both of your own accord
+          when you feel something ought to be saved and when the user explicitly asks you.
     - name: "optimism_reasoner"
       label: "OptimismAI · Deep Reasoning"
       preset:
