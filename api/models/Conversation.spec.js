@@ -106,6 +106,37 @@ describe('Conversation Operations', () => {
       expect(result.conversationId).toBe(newConversationId);
     });
 
+    it('updates the existing conversation when newConversationId differs', async () => {
+      const newConversationId = uuidv4();
+      const existingMessages = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+
+      await Conversation.create({
+        ...mockConversationData,
+        user: mockReq.user.id,
+        messages: existingMessages,
+      });
+
+      getMessages.mockResolvedValue(existingMessages);
+
+      const result = await saveConvo(mockReq, {
+        ...mockConversationData,
+        newConversationId,
+      });
+
+      expect(result.conversationId).toBe(newConversationId);
+      expect(getMessages).toHaveBeenCalledWith(
+        { conversationId: mockConversationData.conversationId },
+        '_id',
+      );
+
+      const storedConversations = await Conversation.find({ user: mockReq.user.id });
+      expect(storedConversations).toHaveLength(1);
+      expect(storedConversations[0].conversationId).toBe(newConversationId);
+      expect(storedConversations[0].messages.map((id) => id.toString())).toEqual(
+        existingMessages.map((id) => id.toString()),
+      );
+    });
+
     it('returns the original conversationId when newConversationId is not provided', async () => {
       const originalConversationId = mockConversationData.conversationId;
 
