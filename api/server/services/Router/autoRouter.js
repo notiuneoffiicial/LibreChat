@@ -1,5 +1,5 @@
 const { logger } = require('@librechat/data-schemas');
-const { parseCompactConvo, removeNullishValues } = require('librechat-data-provider');
+const { parseCompactConvo, removeNullishValues, Tools } = require('librechat-data-provider');
 const { DEFAULT_INTENT, updateGauge, getState } = require('./intentGauge');
 
 const AUTO_ROUTED_ENDPOINTS = new Set(['Deepseek', 'agents']);
@@ -584,6 +584,11 @@ function applyAutoRouting(req) {
 
   if (togglesAfterRouting.web_search) {
     body.web_search = true;
+    if (typeof body.ephemeralAgent !== 'object' || body.ephemeralAgent === null) {
+      body.ephemeralAgent = {};
+    }
+
+    body.ephemeralAgent[Tools.web_search] = true;
   }
 
   let sanitized;
