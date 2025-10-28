@@ -8,6 +8,11 @@ import { constructAzureURL } from '~/utils/azure';
 import { createFetch } from '~/utils/generators';
 import { getOpenAILLMConfig } from './llm';
 
+const RESPONSES_API_HINTS = ['openai', 'azure', 'assistants', 'vercel'];
+
+const hasResponsesApiHint = (value?: string | null) =>
+  typeof value === 'string' && RESPONSES_API_HINTS.some((hint) => value.includes(hint));
+
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 /**
@@ -45,6 +50,20 @@ export function getOpenAIConfig(
     (baseURL && baseURL.includes('ai-gateway.vercel.sh')) ||
     (endpoint != null && endpoint.toLowerCase().includes(KnownEndpoints.vercel));
 
+  const normalizedEndpoint = endpoint?.toLowerCase() ?? null;
+  const normalizedBaseURL = baseURL?.toLowerCase() ?? null;
+  const normalizedDefaultParamsEndpoint = options.customParams?.defaultParamsEndpoint
+    ? options.customParams.defaultParamsEndpoint.toLowerCase()
+    : null;
+
+  const supportsResponsesApi =
+    !useOpenRouter &&
+    (Boolean(options.azure) ||
+      (!normalizedEndpoint && !normalizedBaseURL && !normalizedDefaultParamsEndpoint) ||
+      hasResponsesApiHint(normalizedEndpoint) ||
+      hasResponsesApiHint(normalizedDefaultParamsEndpoint) ||
+      hasResponsesApiHint(normalizedBaseURL));
+
   let azure = options.azure;
   let headers = options.headers;
   if (isAnthropic) {
@@ -73,6 +92,7 @@ export function getOpenAIConfig(
       dropParams,
       modelOptions,
       useOpenRouter,
+      supportsResponsesApi,
     });
     llmConfig = openaiResult.llmConfig;
     azure = openaiResult.azure;
