@@ -56,7 +56,7 @@ speech:
             semantic:
               enabled: false
               minDecisionIntervalMs: 750
-      include: [text, audio]        # optional – limit which modalities are requested
+      include: [text, audio]        # optional – mapped to session.modalities (others go to session.include)
       ffmpegPath: /usr/local/bin/ffmpeg # optional – set if ffmpeg is not on PATH
 ```
 
@@ -90,4 +90,7 @@ picked up.
   your API key. The UI falls back to legacy behaviour if the block is omitted.
 - The optional `include` list narrows which modalities are requested when the
   realtime session is created (for example, `['text']` to disable audio
-  responses).
+  responses). Entries that match `text`/`audio` become the session's
+  `modalities` array, while values such as
+  `item.input_audio_transcription.logprobs` are forwarded to the API's
+  `include` list.

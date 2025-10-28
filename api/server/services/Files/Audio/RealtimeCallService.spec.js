@@ -119,33 +119,65 @@ describe('RealtimeCallService', () => {
 
     expect(sessionPayload).toMatchObject({
       model: 'gpt-realtime-mini',
-      type: 'transcription',
       instructions: 'Transcribe clearly',
-      speech_to_speech: false,
-      include: ['text', 'audio'],
-      audio: {
-        input: {
-          format: {
-            type: 'pcm16',
-            rate: 16000,
-            channels: 1,
-          },
-          transcriptionDefaults: {
-            language: 'en',
-            temperature: 0,
-          },
-          turnDetection: {
-            type: 'server_vad',
-            serverVad: {
-              enabled: true,
-              threshold: 0.5,
+      modalities: ['text', 'audio'],
+      input_audio_format: {
+        type: 'pcm16',
+        sample_rate: 16000,
+        channels: 1,
+      },
+      input_audio_transcription: {
+        language: 'en',
+        temperature: 0,
+      },
+      turn_detection: {
+        type: 'server_vad',
+        server_vad: {
+          enabled: true,
+          threshold: 0.5,
+        },
+      },
+    });
+    expect(sessionPayload).not.toHaveProperty('type');
+    expect(sessionPayload).not.toHaveProperty('speech_to_speech');
+
+    expect(payload).toEqual({ sdpAnswer: 'answer', expiresAt: 1234 });
+  });
+
+  it('omits modal entries when rebuilding include list', async () => {
+    process.env.REALTIME_KEY = 'test-key';
+    const req = {
+      config: {
+        speech: {
+          stt: {
+            realtime: {
+              apiKey: '${REALTIME_KEY}',
+              model: 'gpt-realtime-mini',
+              session: {
+                include: ['text', 'logprobs'],
+                modalities: ['text'],
+              },
             },
           },
         },
       },
+    };
+
+    const httpClient = {
+      post: jest.fn().mockResolvedValue({ data: { sdp: 'answer' } }),
+    };
+
+    const service = new RealtimeCallService({ httpClient });
+    await service.createCall(req, {
+      sdpOffer: 'offer',
+      include: ['audio'],
     });
 
-    expect(payload).toEqual({ sdpAnswer: 'answer', expiresAt: 1234 });
+    const sessionCall = appendSpy.mock.calls.find(([field]) => field === 'session');
+    const sessionPayload = JSON.parse(sessionCall[1]);
+
+    expect(sessionPayload.modalities).toEqual(expect.arrayContaining(['text', 'audio']));
+    expect(sessionPayload.include).toEqual(['logprobs']);
   });
 
   it('includes speech-to-speech voice parameters and omits transcription defaults', async () => {
@@ -194,27 +226,24 @@ describe('RealtimeCallService', () => {
 
     expect(sessionPayload).toMatchObject({
       model: 'gpt-realtime-mini',
-      type: 'realtime',
       mode: 'conversation',
-      speech_to_speech: true,
       voice: 'nova',
       voices: ['alloy', 'nova'],
-      audio: {
-        input: {
-          format: {
-            type: 'pcm16',
-            rate: 24000,
-            channels: 1,
-          },
-          noiseReduction: 'server_light',
-          turnDetection: {
-            type: 'server_vad',
-            serverVad: { enabled: true },
-          },
-        },
+      modalities: ['audio'],
+      input_audio_format: {
+        type: 'pcm16',
+        sample_rate: 24000,
+        channels: 1,
+      },
+      input_audio_noise_reduction: 'server_light',
+      turn_detection: {
+        type: 'server_vad',
+        server_vad: { enabled: true },
       },
     });
-    expect(sessionPayload.audio.input).not.toHaveProperty('transcriptionDefaults');
+    expect(sessionPayload).not.toHaveProperty('type');
+    expect(sessionPayload).not.toHaveProperty('speech_to_speech');
+    expect(sessionPayload).not.toHaveProperty('input_audio_transcription');
     expect(payload).toEqual({ sdpAnswer: 'answer' });
   });
 
