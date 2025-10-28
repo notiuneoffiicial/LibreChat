@@ -1098,7 +1098,37 @@ ${convo}
           msg.text = msg.text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         }
       } else if (msg.content != null) {
-        msg.text = parseTextParts(msg.content, true);
+        const contentParts = Array.isArray(msg.content) ? msg.content : [msg.content];
+        const reasoningParts = contentParts
+          .filter((part) => part?.type === ContentTypes.THINK)
+          .map((part) => {
+            const candidate =
+              (part && typeof part === 'object' && 'think' in part && part.think != null
+                ? part.think
+                : part?.[ContentTypes.THINK]) ?? null;
+
+            if (typeof candidate === 'string') {
+              return candidate.trim();
+            }
+
+            if (candidate && typeof candidate === 'object') {
+              if (typeof candidate.value === 'string') {
+                return candidate.value.trim();
+              }
+              if (typeof candidate.text === 'string') {
+                return candidate.text.trim();
+              }
+            }
+
+            return '';
+          })
+          .filter((text) => text.length > 0);
+
+        if (reasoningParts.length > 0) {
+          msg.reasoning = reasoningParts.join('\n\n').trim();
+        }
+
+        msg.text = parseTextParts(contentParts, true);
         delete msg.content;
       }
 
