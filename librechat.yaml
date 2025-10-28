@@ -19,6 +19,7 @@ endpoints:
         fetch: true
       titleConvo: true
       titleModel: "deepseek/deepseek-v3.2-exp"
+      summarize: true
       # Recommended: Drop the stop parameter from the request as Openrouter models use a variety of stop tokens.
       dropParams: ["stop"]
       modelDisplayLabel: "OptimismAI"
@@ -31,6 +32,7 @@ endpoints:
         fetch: true
       titleConvo: true
       titleModel: "deepseek-chat"
+      summarize: true
       modelDisplayLabel: "Deepseek"
       iconURL: "/assets/logo.svg"
 # ---- Interface / UI ----
