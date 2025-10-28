@@ -125,6 +125,19 @@ describe('Conversation Operations', () => {
       expect(storedConversation.conversationId).toBe(originalConversationId);
     });
 
+    it('should bail out when no conversationId is provided', async () => {
+      const result = await saveConvo(mockReq, {
+        title: 'Missing ID',
+        endpoint: EModelEndpoint.openAI,
+      });
+
+      expect(result).toBeNull();
+      expect(getMessages).not.toHaveBeenCalled();
+
+      const storedCount = await Conversation.countDocuments();
+      expect(storedCount).toBe(0);
+    });
+
     it('should handle unsetFields metadata', async () => {
       const metadata = {
         unsetFields: { someField: 1 },

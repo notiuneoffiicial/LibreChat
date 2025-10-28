@@ -202,11 +202,31 @@ module.exports = {
         logger.debug(`[saveConvo] ${metadata.context}`);
       }
 
-      const messages = await getMessages({ conversationId }, '_id');
-      const existingConversation = await Conversation.findOne({
-        conversationId,
-        user: req.user.id,
-      }).lean();
+      const candidateConversationIds = [conversationId, newConversationId].filter(Boolean);
+      let existingConversation = null;
+
+      if (candidateConversationIds.length > 0) {
+        existingConversation = await Conversation.findOne({
+          conversationId: { $in: candidateConversationIds },
+          user: req.user.id,
+        }).lean();
+      }
+
+      const targetConversationId =
+        newConversationId ?? conversationId ?? existingConversation?.conversationId ?? null;
+
+      if (!targetConversationId) {
+        logger.error('[saveConvo] Missing conversationId for save operation', {
+          conversationId,
+          newConversationId,
+          existingConversationId: existingConversation?.conversationId,
+          userId: req?.user?.id,
+          context: metadata?.context,
+        });
+        return existingConversation ?? null;
+      }
+
+      const messages = await getMessages({ conversationId: targetConversationId }, '_id');
 
       const shouldRunComposer = shouldApplyMetaPrompt(convo, metadata);
       const now = new Date();
@@ -240,7 +260,10 @@ module.exports = {
 
       if (shouldRunComposer) {
         try {
-          const recentMessages = await Message.find({ conversationId, user: req.user.id })
+          const recentMessages = await Message.find({
+            conversationId: targetConversationId,
+            user: req.user.id,
+          })
             .sort({ createdAt: -1 })
             .limit(6)
             .lean();
@@ -253,7 +276,7 @@ module.exports = {
             const orderedMessages = recentMessages.reverse();
             const composerInput = {
               conversation: {
-                conversationId,
+                conversationId: targetConversationId,
                 defaultPrefix: defaultPrefix ?? undefined,
                 currentPrefix: promptPrefixCurrent ?? undefined,
                 tags: Array.isArray(convo.tags) ? convo.tags : existingConversation?.tags,
@@ -301,7 +324,7 @@ module.exports = {
               }
 
               logger.debug('[saveConvo] meta prompt update', {
-                conversationId,
+                conversationId: targetConversationId,
                 revision,
                 guardrailStatus: composerResult.guardrailStatus,
                 appliedRules: composerResult.diagnostics?.appliedRules ?? [],
@@ -318,7 +341,7 @@ module.exports = {
         ...convo,
         messages,
         user: req.user.id,
-        conversationId: newConversationId ?? conversationId,
+        conversationId: targetConversationId,
       };
 
       if (defaultPrefix != null) {
@@ -359,7 +382,7 @@ module.exports = {
 
       /** Note: the resulting Model object is necessary for Meilisearch operations */
       const conversation = await Conversation.findOneAndUpdate(
-        { conversationId, user: req.user.id },
+        { conversationId: targetConversationId, user: req.user.id },
         updateOperation,
         {
           new: true,
