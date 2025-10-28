@@ -17,9 +17,38 @@ export default function RealtimeVoiceSelector() {
   const currentVoice = session.audio?.output?.voice;
   const voice = typeof currentVoice === 'string' ? currentVoice : '';
 
+  const sessionModalities = useMemo(() => {
+    const base = Array.isArray(session.modalities)
+      ? session.modalities
+      : Array.isArray(session.output_modalities)
+        ? session.output_modalities
+        : [];
+    return base.map((entry) => entry.toLowerCase());
+  }, [session.modalities, session.output_modalities]);
+
+  const includeValues = useMemo(() => {
+    const fromInclude = Array.isArray(realtimeOptions?.include) ? realtimeOptions.include : [];
+    const sessionInclude = Array.isArray(session.include) ? session.include : [];
+    return [...fromInclude, ...sessionInclude].map((entry) =>
+      typeof entry === 'string' ? entry.toLowerCase() : '',
+    );
+  }, [realtimeOptions?.include, session.include]);
+
   const isSpeechMode = useMemo(() => {
-    return session.mode === 'speech_to_speech' || session.speechToSpeech === true;
-  }, [session.mode, session.speechToSpeech]);
+    if (session.type === 'transcription') {
+      return false;
+    }
+
+    if (session.speechToSpeech === true || session.speech_to_speech === true) {
+      return true;
+    }
+
+    if (sessionModalities.some((entry) => entry === 'audio')) {
+      return true;
+    }
+
+    return includeValues.some((entry) => entry === 'audio');
+  }, [includeValues, session.speechToSpeech, session.speech_to_speech, session.type, sessionModalities]);
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {

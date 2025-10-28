@@ -57,9 +57,9 @@ describe('AudioRecorder', () => {
     const realtimeState = {
       ...DEFAULT_REALTIME_STT_OPTIONS,
       session: {
-        mode: 'speech_to_speech',
+        type: 'realtime',
         speechToSpeech: true,
-        output_modalities: ['text', 'audio'],
+        modalities: ['text', 'audio'],
       },
     };
 

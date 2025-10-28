@@ -116,53 +116,44 @@ class RealtimeCallService {
       overrides.session && typeof overrides.session === 'object'
         ? { ...overrides.session }
         : {};
-    const speechToSpeech = Boolean(
-      overrideSession.speechToSpeech ?? overrideSession.speech_to_speech ?? sessionConfig.speechToSpeech,
-    );
 
-    const session = {
-      type: overrideSession.type ?? overrides.type ?? sessionConfig.type ?? 'realtime',
-      model:
-        overrideSession.model ?? overrides.model ?? sessionConfig.model ?? config.model,
-    };
+    const sessionType = this.#resolveSessionType({ sessionConfig, overrideSession, overrides });
+    const speechToSpeech =
+      sessionType !== 'transcription' &&
+      Boolean(
+        overrideSession.speechToSpeech ??
+          overrideSession.speech_to_speech ??
+          sessionConfig.speechToSpeech,
+      );
 
-    const mode = overrideSession.mode ?? overrides.mode ?? sessionConfig.mode;
-    if (typeof mode === 'string') {
-      const trimmedMode = mode.trim();
-      if (trimmedMode.length > 0) {
-        session.mode = trimmedMode;
-      }
-    }
+    const resolvedModel =
+      overrideSession.model ?? overrides.model ?? sessionConfig.model ?? config.model;
 
-    const instructions = overrideSession.instructions ?? overrides.instructions ?? sessionConfig.instructions;
-    if (instructions) {
-      session.instructions = instructions;
-    }
+    const instructions =
+      overrideSession.instructions ?? overrides.instructions ?? sessionConfig.instructions;
 
     const baseModalities = this.#mergeInclude(
-      sessionConfig.output_modalities,
       sessionConfig.modalities,
+      sessionConfig.output_modalities,
+      overrideSession.modalities,
+      overrideSession.output_modalities,
     );
-    const overrideModalities = this.#mergeInclude(overrideSession.output_modalities);
-    const includeValues = this.#mergeInclude(
-      config.include,
-      overrides.include,
-      baseModalities,
-      overrideModalities,
-    );
+    const includeValues = this.#mergeInclude(config.include, overrides.include);
     const includeItems = this.#mergeInclude(sessionConfig.include, overrideSession.include);
-    const { modalities, include } = this.#partitionInclude(
+    const { modalities: initialModalities, include } = this.#partitionInclude({
+      baseModalities,
       includeValues,
       speechToSpeech,
       includeItems,
-    );
+    });
 
-    if (modalities.length > 0) {
-      session.output_modalities = modalities;
+    const modalities = [...new Set(initialModalities)];
+    if (sessionType === 'transcription' && !modalities.includes('text')) {
+      modalities.push('text');
     }
 
-    if (include.length > 0) {
-      session.include = include;
+    if (speechToSpeech && !modalities.includes('audio')) {
+      modalities.push('audio');
     }
 
     const voice =
@@ -200,11 +191,16 @@ class RealtimeCallService {
       inputAudio.noise_reduction = inputAudioNoiseReduction;
     }
 
-    if (!speechToSpeech) {
-      const transcriptionDefaults = this.#resolveTranscriptionDefaults(config, sessionConfig);
-      if (transcriptionDefaults) {
-        inputAudio.transcription = transcriptionDefaults;
-      }
+    const transcriptionConfig = this.#resolveTranscriptionConfig(
+      config,
+      overrides,
+      sessionConfig,
+      overrideSession,
+      sessionType,
+      resolvedModel,
+    );
+    if (transcriptionConfig) {
+      inputAudio.transcription = transcriptionConfig;
     }
 
     const turnDetection = this.#resolveTurnDetection(
@@ -234,11 +230,28 @@ class RealtimeCallService {
       audio.output = outputAudio;
     }
 
-    if (Object.keys(audio).length > 0) {
-      session.audio = audio;
+    const sanitizedSession = {
+      type: sessionType,
+      model: resolvedModel,
+    };
+
+    if (instructions) {
+      sanitizedSession.instructions = instructions;
     }
 
-    return session;
+    if (modalities.length > 0) {
+      sanitizedSession.modalities = modalities;
+    }
+
+    if (include.length > 0) {
+      sanitizedSession.include = include;
+    }
+
+    if (Object.keys(audio).length > 0) {
+      sanitizedSession.audio = audio;
+    }
+
+    return sanitizedSession;
   }
 
   #mergeInclude(...lists) {
@@ -300,11 +313,18 @@ class RealtimeCallService {
     return normalized;
   }
 
-  #partitionInclude(values, speechToSpeech, includeItems = []) {
+  #partitionInclude({ baseModalities = [], includeValues = [], speechToSpeech, includeItems = [] }) {
     const modalitiesSet = new Set();
     const includeSet = new Set();
 
-    values.forEach((entry) => {
+    (Array.isArray(baseModalities) ? baseModalities : []).forEach((entry) => {
+      const normalized = entry.toLowerCase();
+      if (normalized === 'text' || normalized === 'audio') {
+        modalitiesSet.add(normalized);
+      }
+    });
+
+    includeValues.forEach((entry) => {
       const normalized = entry.toLowerCase();
       if (normalized === 'text' || normalized === 'audio') {
         modalitiesSet.add(normalized);
@@ -371,18 +391,81 @@ class RealtimeCallService {
     return undefined;
   }
 
-  #resolveTranscriptionDefaults(config, sessionConfig) {
-    const transcriptionDefaults =
-      sessionConfig.audio?.input?.transcriptionDefaults ?? config.audio?.input?.transcriptionDefaults;
-    if (!transcriptionDefaults || typeof transcriptionDefaults !== 'object') {
+  #resolveTranscriptionConfig(
+    config,
+    overrides,
+    sessionConfig,
+    overrideSession,
+    sessionType,
+    resolvedModel,
+  ) {
+    const sources = [];
+
+    const baseAudioInput = sessionConfig.audio?.input ?? config.audio?.input ?? {};
+    if (baseAudioInput.transcription && typeof baseAudioInput.transcription === 'object') {
+      sources.push(baseAudioInput.transcription);
+    }
+
+    if (baseAudioInput.transcriptionDefaults && typeof baseAudioInput.transcriptionDefaults === 'object') {
+      sources.push(baseAudioInput.transcriptionDefaults);
+    }
+
+    const overrideAudioInput = overrideSession?.audio?.input ?? {};
+    if (overrideAudioInput.transcription && typeof overrideAudioInput.transcription === 'object') {
+      sources.push(overrideAudioInput.transcription);
+    }
+
+    if (
+      overrideAudioInput.transcriptionDefaults &&
+      typeof overrideAudioInput.transcriptionDefaults === 'object'
+    ) {
+      sources.push(overrideAudioInput.transcriptionDefaults);
+    }
+
+    const overrideCallAudioInput = overrides?.audio?.input ?? {};
+    if (overrideCallAudioInput.transcription && typeof overrideCallAudioInput.transcription === 'object') {
+      sources.push(overrideCallAudioInput.transcription);
+    }
+
+    if (
+      overrideCallAudioInput.transcriptionDefaults &&
+      typeof overrideCallAudioInput.transcriptionDefaults === 'object'
+    ) {
+      sources.push(overrideCallAudioInput.transcriptionDefaults);
+    }
+
+    if (overrides?.transcription && typeof overrides.transcription === 'object') {
+      sources.push(overrides.transcription);
+    }
+
+    let merged;
+    sources.forEach((source) => {
+      if (!source || typeof source !== 'object') {
+        return;
+      }
+
+      if (!merged) {
+        merged = this.#mergeDeep({}, source);
+        return;
+      }
+
+      merged = this.#mergeDeep(merged, source);
+    });
+
+    if (!merged || Object.keys(merged).length === 0) {
+      if (sessionType === 'transcription' && typeof resolvedModel === 'string' && resolvedModel.length > 0) {
+        return this.#convertKeysToSnakeCase({ model: resolvedModel });
+      }
       return undefined;
     }
 
-    if (Object.keys(transcriptionDefaults).length === 0) {
-      return undefined;
+    if (sessionType === 'transcription' && typeof resolvedModel === 'string' && resolvedModel.length > 0) {
+      if (!merged.model) {
+        merged.model = resolvedModel;
+      }
     }
 
-    return this.#convertKeysToSnakeCase(transcriptionDefaults);
+    return this.#convertKeysToSnakeCase(merged);
   }
 
   #resolveTurnDetection(config, overrides, sessionConfig, overrideSession) {
@@ -405,6 +488,45 @@ class RealtimeCallService {
     }
 
     return this.#convertKeysToSnakeCase(vadSource);
+  }
+
+  #resolveSessionType({ sessionConfig, overrideSession, overrides }) {
+    const typeCandidates = [
+      overrideSession?.type,
+      overrides?.type,
+      sessionConfig?.type,
+    ];
+
+    for (const candidate of typeCandidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate.trim();
+      }
+    }
+
+    const legacyModeCandidates = [
+      overrideSession?.mode,
+      overrides?.mode,
+      sessionConfig?.mode,
+    ];
+
+    for (const candidate of legacyModeCandidates) {
+      if (typeof candidate !== 'string') {
+        continue;
+      }
+
+      const normalized = candidate.trim().toLowerCase();
+      if (!normalized) {
+        continue;
+      }
+
+      if (normalized === 'speech_to_text' || normalized === 'transcription') {
+        return 'transcription';
+      }
+
+      return 'realtime';
+    }
+
+    return 'realtime';
   }
 
   #convertKeysToSnakeCase(value) {

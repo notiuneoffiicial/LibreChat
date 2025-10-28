@@ -38,13 +38,14 @@ const handleRealtimeCall = async (req, res) => {
     sdpOffer,
     session,
     include,
-    mode,
     model,
+    type,
     voice,
     instructions,
     audio,
     turnDetection,
     noiseReduction,
+    transcription,
   } = req.body ?? {};
 
   if (typeof sdpOffer !== 'string' || sdpOffer.trim().length === 0) {
@@ -68,12 +69,12 @@ const handleRealtimeCall = async (req, res) => {
     overrides.include = include;
   }
 
-  if (typeof mode === 'string') {
-    ensureSession().mode = mode;
-  }
-
   if (typeof model === 'string') {
     ensureSession().model = model;
+  }
+
+  if (typeof type === 'string') {
+    ensureSession().type = type;
   }
 
   if (typeof instructions === 'string') {
@@ -107,6 +108,13 @@ const handleRealtimeCall = async (req, res) => {
   if (audio && typeof audio === 'object') {
     const sessionConfig = ensureSession();
     sessionConfig.audio = mergeAudioConfig(sessionConfig.audio, audio);
+  }
+
+  if (transcription && typeof transcription === 'object') {
+    const sessionConfig = ensureSession();
+    sessionConfig.audio = mergeAudioConfig(sessionConfig.audio, {
+      input: { transcription },
+    });
   }
 
   try {

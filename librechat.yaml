@@ -93,7 +93,7 @@ speech:
       stream: true
       url: 'https://api.openai.com/v1/realtime'
       session:
-        mode: conversation
+        type: realtime
         speechToSpeech: false
         model: "gpt-realtime-mini"
         instructions: |
@@ -107,7 +107,8 @@ speech:
               channels: 1
             noiseReduction:
               preset: server_light
-            transcriptionDefaults:
+            transcription:
+              model: "gpt-4o-mini-transcribe"
               language: en
               temperature: 0
               diarization: true
@@ -126,7 +127,7 @@ speech:
               - alloy
               - ash
               - nova
-        output_modalities:
+        modalities:
           - text
           - audio
 

@@ -180,16 +180,30 @@ export default function AudioRecorder({
 
   const realtimeSession = realtime?.session ?? {};
   const realtimeInclude = Array.isArray(realtime?.include) ? realtime.include : [];
+  const sessionModalities = useMemo(() => {
+    const base = Array.isArray(realtimeSession.modalities)
+      ? realtimeSession.modalities
+      : Array.isArray(realtimeSession.output_modalities)
+        ? realtimeSession.output_modalities
+        : [];
+    return base.map((entry) => entry.toLowerCase());
+  }, [realtimeSession.modalities, realtimeSession.output_modalities]);
 
   const speechToSpeechActive = useMemo(() => {
-    if (realtimeSession.mode === 'speech_to_speech') {
+    if (realtimeSession.type === 'transcription') {
+      return false;
+    }
+
+    if (realtimeSession.speechToSpeech || realtimeSession.speech_to_speech) {
       return true;
     }
-    if (realtimeSession.speechToSpeech) {
+
+    if (sessionModalities.includes('audio')) {
       return true;
     }
-    return realtimeInclude.includes('audio');
-  }, [realtimeInclude, realtimeSession.mode, realtimeSession.speechToSpeech]);
+
+    return realtimeInclude.some((entry) => typeof entry === 'string' && entry.toLowerCase() === 'audio');
+  }, [realtimeInclude, realtimeSession.speechToSpeech, realtimeSession.speech_to_speech, realtimeSession.type, sessionModalities]);
 
   const resetSpeechPlayback = useCallback(() => {
     speechSamplesRef.current = [];

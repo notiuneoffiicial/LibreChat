@@ -89,7 +89,7 @@ describe('useSpeechToTextRealtime', () => {
       channels: 1,
     },
     session: {
-      mode: 'conversation',
+      type: 'realtime',
       instructions: 'Be brief',
       speechToSpeech: false,
       audio: {
@@ -104,7 +104,7 @@ describe('useSpeechToTextRealtime', () => {
           voice: 'alloy',
         },
       },
-      output_modalities: ['text'],
+      modalities: ['text'],
     },
   } as const;
 
@@ -173,7 +173,7 @@ describe('useSpeechToTextRealtime', () => {
     const payload = mockMutateAsync.mock.calls[0][0];
     expect(payload.sdpOffer).toContain('v=0');
     expect(payload.session).toMatchObject({
-      mode: 'conversation',
+      type: 'realtime',
       model: 'gpt-4o-realtime-preview',
       instructions: 'Be brief',
       audio: {
@@ -183,7 +183,7 @@ describe('useSpeechToTextRealtime', () => {
           turnDetection: { type: 'server_vad', serverVad: { enabled: true } },
         },
       },
-      output_modalities: ['text'],
+      modalities: ['text'],
     });
     expect(payload.include).toBeUndefined();
 
@@ -259,7 +259,7 @@ describe('useSpeechToTextRealtime', () => {
 
     const payload = mockMutateAsync.mock.calls[0][0];
     expect(payload.session).toMatchObject({
-      mode: 'speech_to_text',
+      type: 'transcription',
       model: 'gpt-4o-mini',
       instructions: 'Keep it short',
       audio: {
@@ -270,7 +270,7 @@ describe('useSpeechToTextRealtime', () => {
         },
       },
     });
-    expect(payload.session?.output_modalities).toEqual(expect.arrayContaining(['text', 'audio']));
+    expect(payload.session?.modalities).toEqual(expect.arrayContaining(['text', 'audio']));
     expect(payload.include).toBeUndefined();
   });
 

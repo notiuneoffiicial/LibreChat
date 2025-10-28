@@ -228,10 +228,6 @@ const mergeSessionOverrides = (
     target.type = source.type;
   }
 
-  if (typeof source.mode === 'string') {
-    target.mode = source.mode;
-  }
-
   if (typeof source.model === 'string') {
     target.model = source.model;
   }
@@ -244,10 +240,13 @@ const mergeSessionOverrides = (
     target.speechToSpeech = source.speechToSpeech;
   }
 
-  const modalities = sanitizeInclude(source.output_modalities, source.modalities);
+  const modalities = sanitizeInclude(source.modalities, source.output_modalities);
   if (modalities) {
-    target.output_modalities = modalities;
+    target.modalities = modalities;
+  } else {
+    delete target.modalities;
   }
+  delete (target as Record<string, unknown>).output_modalities;
 
   const include = sanitizeInclude(source.include);
   if (include) {
@@ -261,13 +260,12 @@ const mergeSessionOverrides = (
   Object.entries(source).forEach(([key, value]) => {
     if (
       key === 'type' ||
-      key === 'mode' ||
       key === 'model' ||
       key === 'instructions' ||
       key === 'speechToSpeech' ||
       key === 'speech_to_speech' ||
-      key === 'output_modalities' ||
       key === 'modalities' ||
+      key === 'output_modalities' ||
       key === 'include' ||
       key === 'audio'
     ) {
@@ -348,7 +346,7 @@ const applyCallOverrides = (
       return;
     }
 
-    if (key === 'mode' || key === 'model' || key === 'instructions' || key === 'type') {
+    if (key === 'model' || key === 'instructions' || key === 'type') {
       target.session ??= {};
       (target.session as Record<string, unknown>)[key] = cloneConfig(value);
       return;
@@ -375,6 +373,12 @@ const applyCallOverrides = (
     if (key === 'audio' && typeof value === 'object') {
       target.session ??= {};
       target.session.audio = mergeAudioConfig(target.session.audio, value as RealtimeAudioConfig);
+      return;
+    }
+
+    if (key === 'transcription' && typeof value === 'object') {
+      target.session ??= {};
+      ensureAudioInputConfig(target.session).transcription = cloneConfig(value);
       return;
     }
 
@@ -521,12 +525,37 @@ const useSpeechToTextRealtime = (
     const config: RealtimeCallConfig = {};
     const session: RealtimeSessionOverrides = mergeSessionOverrides({}, cloneConfig(defaults.session ?? {}));
 
-    if (!session.type) {
-      session.type = defaults.session?.type ?? 'realtime';
+    const normalizeModeToType = (mode?: string) => {
+      if (typeof mode !== 'string') {
+        return;
+      }
+
+      const trimmed = mode.trim().toLowerCase();
+      if (!trimmed) {
+        return;
+      }
+
+      if (trimmed === 'speech_to_text' || trimmed === 'transcription') {
+        session.type = 'transcription';
+        delete session.speechToSpeech;
+        delete (session as Record<string, unknown>).speech_to_speech;
+        return;
+      }
+
+      session.type = 'realtime';
+      if (trimmed === 'speech_to_speech') {
+        session.speechToSpeech = true;
+      }
+    };
+
+    if (currentOptions?.type) {
+      session.type = currentOptions.type;
+    } else {
+      normalizeModeToType(currentOptions?.mode);
     }
 
-    if (currentOptions?.mode) {
-      session.mode = currentOptions.mode;
+    if (!session.type) {
+      session.type = defaults.session?.type ?? 'transcription';
     }
 
     const resolvedModel = currentOptions?.model ?? session.model ?? defaults.model;
@@ -570,11 +599,15 @@ const useSpeechToTextRealtime = (
     }
 
     const mergedSession = config.session ?? session;
-    const modalities = sanitizeInclude(mergedSession.output_modalities);
+    const modalities = sanitizeInclude(mergedSession.modalities, mergedSession.output_modalities);
     const includeValues = sanitizeInclude(config.include, mergedSession.include);
+    const hasAudioModality =
+      modalities?.includes('audio') || includeValues?.includes('audio') || false;
+    const sessionType = mergedSession.type ?? defaults.session?.type ?? 'transcription';
     const speechToSpeech =
-      mergedSession.mode === 'speech_to_speech' ||
       mergedSession.speechToSpeech === true ||
+      mergedSession.speech_to_speech === true ||
+      (sessionType !== 'transcription' && hasAudioModality) ||
       defaults.session?.speechToSpeech === true;
 
     const { modalities: outputModalities, include } = partitionInclude({
@@ -584,10 +617,11 @@ const useSpeechToTextRealtime = (
     });
 
     if (outputModalities.length) {
-      mergedSession.output_modalities = outputModalities;
+      mergedSession.modalities = outputModalities;
     } else {
-      delete mergedSession.output_modalities;
+      delete mergedSession.modalities;
     }
+    delete (mergedSession as Record<string, unknown>).output_modalities;
 
     if (include.length) {
       config.include = include;
@@ -624,7 +658,7 @@ const useSpeechToTextRealtime = (
   const shouldReceiveAudio = useCallback(() => {
     const config = resolveCallConfig();
     const session = config.session ?? {};
-    const modalities = sanitizeInclude(session.output_modalities);
+    const modalities = sanitizeInclude(session.modalities, session.output_modalities);
     if (modalities?.includes('audio')) {
       return true;
     }
@@ -634,7 +668,7 @@ const useSpeechToTextRealtime = (
       return true;
     }
 
-    if (session.mode === 'speech_to_speech' || session.speechToSpeech === true) {
+    if (session.speechToSpeech === true || session.speech_to_speech === true) {
       return true;
     }
 

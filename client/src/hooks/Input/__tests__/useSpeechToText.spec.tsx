@@ -55,7 +55,7 @@ describe('useSpeechToText', () => {
       ...DEFAULT_REALTIME_STT_OPTIONS,
       model: 'gpt-4o-realtime-preview',
       session: {
-        mode: 'speech_to_speech',
+        type: 'realtime',
         instructions: 'Keep responses concise',
         speechToSpeech: true,
         audio: {
@@ -74,7 +74,7 @@ describe('useSpeechToText', () => {
             voice: 'verse',
           },
         },
-        output_modalities: ['text', 'audio'],
+        modalities: ['text', 'audio'],
       },
     };
 
@@ -94,13 +94,14 @@ describe('useSpeechToText', () => {
     expect(mockRealtime).toHaveBeenCalledTimes(1);
     const options = mockRealtime.mock.calls[0][2] as Record<string, unknown>;
     expect(options).toMatchObject({
-      mode: 'speech_to_speech',
+      type: 'realtime',
+      mode: 'conversation',
       model: 'gpt-4o-realtime-preview',
       voice: 'verse',
       instructions: 'Keep responses concise',
       noiseReduction: 'server_light',
     });
-    expect(options.include).toEqual([]);
+    expect(options.include).toBeUndefined();
     expect(options.turnDetection).toEqual({
       type: 'server_vad',
       serverVad: { enabled: true, threshold: -45 },
