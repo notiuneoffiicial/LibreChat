@@ -86,51 +86,51 @@ speech:
     openai:
       apiKey: "${OPENAI_API_KEY}"
       model: "gpt-4o-mini-transcribe"
-    realtime:
-      apiKey: "${OPENAI_API_KEY}"
-      model: "gpt-realtime-mini"
-      transport: webrtc
-      stream: true
-      disabled: "{{ ui.disableRealtime === true }}"
-      url: 'https://api.openai.com/v1/realtime'
-      session:
-        type: realtime
-        speechToSpeech: false
-        model: "gpt-realtime-mini"
-        instructions: |
-          You are OptimismAi's Agent. Respond briefly, confirm key
-          details, and provide follow-up suggestions when helpful.
-        audio:
-          input:
-            format:
-              encoding: pcm16
-              rate: 24000
-              channels: 1
-            noiseReduction:
-              preset: server_light
-            transcription:
-              model: "gpt-4o-mini-transcribe"
-              language: en
-              temperature: 0
-              diarization: true
-            turnDetection:
-              type: server_vad
-              serverVad:
-                enabled: true
-                threshold: 0.5
-                silenceDurationMs: 500
-              semantic:
-                enabled: false
-                minDecisionIntervalMs: 750
-          output:
-            voice: alloy
-            voices:
-              - alloy
-              - ash
-              - nova
-        modalities:
-          - text
-          - audio
+  #  realtime:
+  #    apiKey: "${OPENAI_API_KEY}"
+  #    model: "gpt-realtime-mini"
+  #    transport: webrtc
+  #    stream: true
+  #    disabled: "{{ ui.disableRealtime === true }}"
+  #    url: 'https://api.openai.com/v1/realtime'
+  #    session:
+  #      type: realtime
+  #      speechToSpeech: false
+  #      model: "gpt-realtime-mini"
+  #      instructions: |
+  #        You are OptimismAi's Agent. Respond briefly, confirm key
+  #        details, and provide follow-up suggestions when helpful.
+  #      audio:
+  #        input:
+  #          format:
+  #            encoding: pcm16
+  #            rate: 24000
+  #            channels: 1
+  #          noiseReduction:
+  #            preset: server_light
+  #          transcription:
+  #            model: "gpt-4o-mini-transcribe"
+  #            language: en
+  #            temperature: 0
+  #            diarization: true
+  #          turnDetection:
+  #            type: server_vad
+  #            serverVad:
+  #             enabled: true
+  #              threshold: 0.5
+  #              silenceDurationMs: 500
+  #            semantic:
+  #              enabled: false
+  #              minDecisionIntervalMs: 750
+  #        output:
+  #          voice: alloy
+  #          voices:
+  #            - alloy
+  #            - ash
+  #            - nova
+  #      modalities:
+  #        - text
+  #        - audio
 
 # ---- Web Search Configuration ----
 webSearch:
