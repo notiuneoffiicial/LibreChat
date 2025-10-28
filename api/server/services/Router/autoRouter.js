@@ -598,7 +598,9 @@ function applyAutoRouting(req) {
     logger.warn('[AutoRouter] Failed to sanitize routed conversation', error);
   }
 
-  logger.info('[AutoRouter] Routed request', {
+  const routedModel = body.model ?? 'unknown model';
+
+  logger.info(`[AutoRouter] Routed to ${targetSpec.name} (${routedModel})`, {
     userId,
     conversationId,
     intent: finalIntent,
