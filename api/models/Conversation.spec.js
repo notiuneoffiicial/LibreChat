@@ -2,6 +2,25 @@ const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const { EModelEndpoint } = require('librechat-data-provider');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+
+jest.mock(
+  '@librechat/api',
+  () => ({
+    createTempChatExpirationDate: jest.fn((interfaceConfig = {}) => {
+      const retention = interfaceConfig?.temporaryChatRetention ?? 24;
+      const expiration = new Date();
+      expiration.setHours(expiration.getHours() + retention);
+      return expiration;
+    }),
+    composeMetaPrompt: jest.fn(() => ({
+      promptPrefix: null,
+      guardrailStatus: 'accepted',
+      diagnostics: { appliedRules: [] },
+    })),
+  }),
+  { virtual: true },
+);
+
 const {
   deleteNullOrEmptyConversations,
   searchConversation,
@@ -16,8 +35,9 @@ const {
 jest.mock('~/server/services/Config/app');
 jest.mock('./Message');
 const { getMessages, deleteMessages } = require('./Message');
+const { composeMetaPrompt } = require('@librechat/api');
 
-const { Conversation } = require('~/db/models');
+const { Conversation, Message } = require('~/db/models');
 
 describe('Conversation Operations', () => {
   let mongoServer;
@@ -41,6 +61,12 @@ describe('Conversation Operations', () => {
 
     // Reset mocks
     jest.clearAllMocks();
+
+    composeMetaPrompt.mockReturnValue({
+      promptPrefix: null,
+      guardrailStatus: 'accepted',
+      diagnostics: { appliedRules: [] },
+    });
 
     // Default mock implementations
     getMessages.mockResolvedValue([]);
@@ -106,6 +132,143 @@ describe('Conversation Operations', () => {
       expect(result.conversationId).toBe(newConversationId);
     });
 
+    it('updates the existing conversation when newConversationId differs', async () => {
+      const newConversationId = uuidv4();
+      const existingMessages = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+
+      await Conversation.create({
+        ...mockConversationData,
+        user: mockReq.user.id,
+        messages: existingMessages,
+      });
+
+      getMessages.mockResolvedValue(existingMessages);
+
+      const result = await saveConvo(mockReq, {
+        ...mockConversationData,
+        newConversationId,
+      });
+
+      expect(result.conversationId).toBe(newConversationId);
+      expect(getMessages).toHaveBeenCalledWith(
+        { conversationId: mockConversationData.conversationId },
+        '_id',
+      );
+
+      const storedConversations = await Conversation.find({ user: mockReq.user.id });
+      expect(storedConversations).toHaveLength(1);
+      expect(storedConversations[0].conversationId).toBe(newConversationId);
+      expect(storedConversations[0].messages.map((id) => id.toString())).toEqual(
+        existingMessages.map((id) => id.toString()),
+      );
+    });
+
+    it('uses the original conversationId for meta prompt lookups during a rename', async () => {
+      const newConversationId = uuidv4();
+      const existingMessages = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+      const messageDocs = [
+        {
+          _id: existingMessages[0],
+          isCreatedByUser: true,
+          text: 'Hello',
+          createdAt: new Date(),
+        },
+        {
+          _id: existingMessages[1],
+          isCreatedByUser: false,
+          text: 'Hi there',
+          createdAt: new Date(),
+        },
+      ];
+
+      await Conversation.create({
+        ...mockConversationData,
+        conversationId: newConversationId,
+        user: mockReq.user.id,
+        messages: existingMessages,
+      });
+
+      getMessages.mockImplementation(async ({ conversationId }) => {
+        if (conversationId === mockConversationData.conversationId) {
+          return existingMessages;
+        }
+
+        return [];
+      });
+
+      const sortMock = jest.fn().mockReturnThis();
+      const limitMock = jest.fn().mockReturnThis();
+      const leanMock = jest.fn().mockResolvedValue(messageDocs);
+      const findSpy = jest.spyOn(Message, 'find').mockReturnValue({
+        sort: sortMock,
+        limit: limitMock,
+        lean: leanMock,
+      });
+
+      try {
+        await saveConvo(
+          mockReq,
+          {
+            ...mockConversationData,
+            isCreatedByUser: true,
+            newConversationId,
+          },
+          { context: 'saveUserMessage' },
+        );
+
+        expect(findSpy).toHaveBeenCalledWith({
+          conversationId: mockConversationData.conversationId,
+          user: mockReq.user.id,
+        });
+      } finally {
+        findSpy.mockRestore();
+      }
+    });
+
+    it('preserves messages when a rename retry references the original conversationId', async () => {
+      const originalConversationId = mockConversationData.conversationId;
+      const newConversationId = uuidv4();
+      const existingMessages = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+
+      await Conversation.create({
+        ...mockConversationData,
+        conversationId: newConversationId,
+        user: mockReq.user.id,
+        messages: existingMessages,
+      });
+
+      getMessages.mockImplementation(async ({ conversationId }) => {
+        if (conversationId === originalConversationId) {
+          return existingMessages;
+        }
+
+        return [];
+      });
+
+      const result = await saveConvo(mockReq, {
+        ...mockConversationData,
+        conversationId: originalConversationId,
+        newConversationId,
+      });
+
+      expect(getMessages).toHaveBeenCalledWith(
+        { conversationId: originalConversationId },
+        '_id',
+      );
+
+      expect(result.conversationId).toBe(newConversationId);
+
+      const storedConversation = await Conversation.findOne({
+        conversationId: newConversationId,
+        user: mockReq.user.id,
+      }).lean();
+
+      expect(storedConversation).not.toBeNull();
+      expect(storedConversation.messages.map((id) => id.toString())).toEqual(
+        existingMessages.map((id) => id.toString()),
+      );
+    });
+
     it('returns the original conversationId when newConversationId is not provided', async () => {
       const originalConversationId = mockConversationData.conversationId;
 
@@ -123,6 +286,19 @@ describe('Conversation Operations', () => {
 
       expect(storedConversation).not.toBeNull();
       expect(storedConversation.conversationId).toBe(originalConversationId);
+    });
+
+    it('should bail out when no conversationId is provided', async () => {
+      const result = await saveConvo(mockReq, {
+        title: 'Missing ID',
+        endpoint: EModelEndpoint.openAI,
+      });
+
+      expect(result).toBeNull();
+      expect(getMessages).not.toHaveBeenCalled();
+
+      const storedCount = await Conversation.countDocuments();
+      expect(storedCount).toBe(0);
     });
 
     it('should handle unsetFields metadata', async () => {
