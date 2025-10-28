@@ -26,7 +26,8 @@ const useSpeechToText = (
     const base: SpeechToTextOptions = { ...(options ?? {}) };
     const session = defaults.session ?? {};
     const include = Array.isArray(defaults.include) ? defaults.include : undefined;
-    const audioInput = defaults.audio?.input ?? {};
+    const audioInput = session.audio?.input ?? {};
+    const audioOutput = session.audio?.output ?? {};
 
     if (base.mode === undefined && session.mode) {
       base.mode = session.mode;
@@ -36,8 +37,8 @@ const useSpeechToText = (
       base.model = session.model ?? defaults.model;
     }
 
-    if (base.voice === undefined && session.voice) {
-      base.voice = session.voice;
+    if (base.voice === undefined && audioOutput?.voice) {
+      base.voice = audioOutput.voice;
     }
 
     if (base.instructions === undefined && session.instructions) {

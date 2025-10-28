@@ -11,7 +11,8 @@ const REALTIME_MODES: { value: string; labelKey: string }[] = [
   { value: 'speech_to_speech', labelKey: 'com_nav_realtime_mode_speech' },
 ];
 
-const ensureSession = (value: unknown) => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
+const ensureSession = (value: unknown) =>
+  value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
 export default function RealtimeModeSelector() {
   const localize = useLocalize();

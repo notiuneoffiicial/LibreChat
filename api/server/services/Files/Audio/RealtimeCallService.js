@@ -112,41 +112,51 @@ class RealtimeCallService {
 
   #buildSessionPayload(config, overrides) {
     const sessionConfig = config.session ?? {};
-    const speechToSpeech = Boolean(sessionConfig.speechToSpeech);
+    const overrideSession =
+      overrides.session && typeof overrides.session === 'object'
+        ? { ...overrides.session }
+        : {};
+    const speechToSpeech = Boolean(
+      overrideSession.speechToSpeech ?? overrideSession.speech_to_speech ?? sessionConfig.speechToSpeech,
+    );
+
     const session = {
-      type: overrides.type ?? sessionConfig.type ?? 'realtime',
-      model: overrides.model ?? sessionConfig.model ?? config.model,
+      type: overrideSession.type ?? overrides.type ?? sessionConfig.type ?? 'realtime',
+      model:
+        overrideSession.model ?? overrides.model ?? sessionConfig.model ?? config.model,
     };
 
-    const mode = overrides.mode ?? sessionConfig.mode;
+    const mode = overrideSession.mode ?? overrides.mode ?? sessionConfig.mode;
     if (mode) {
       session.mode = mode;
     }
 
-    const instructions = overrides.instructions ?? sessionConfig.instructions;
+    const instructions = overrideSession.instructions ?? overrides.instructions ?? sessionConfig.instructions;
     if (instructions) {
       session.instructions = instructions;
     }
 
-    const voice =
-      overrides?.audio?.output?.voice ??
-      overrides.voice ??
-      sessionConfig.audio?.output?.voice ??
-      sessionConfig.voice;
-
-    const configuredVoices =
-      sessionConfig.audio?.output?.voices ?? sessionConfig.voices ?? overrides?.audio?.output?.voices;
-
-    if (sessionConfig.instructionTemplates) {
-      session.instruction_templates = { ...sessionConfig.instructionTemplates };
+    const instructionTemplates =
+      overrideSession.instructionTemplates ??
+      overrideSession.instruction_templates ??
+      sessionConfig.instructionTemplates ??
+      sessionConfig.instruction_templates;
+    if (instructionTemplates) {
+      session.instruction_templates = { ...instructionTemplates };
     }
 
+    const baseModalities = this.#mergeInclude(
+      sessionConfig.output_modalities,
+      sessionConfig.modalities,
+    );
+    const overrideModalities = this.#mergeInclude(overrideSession.output_modalities);
     const includeValues = this.#mergeInclude(
       config.include,
       overrides.include,
-      sessionConfig.modalities,
+      baseModalities,
+      overrideModalities,
     );
-    const includeItems = this.#mergeInclude(sessionConfig.include);
+    const includeItems = this.#mergeInclude(sessionConfig.include, overrideSession.include);
     const { modalities, include } = this.#partitionInclude(
       includeValues,
       speechToSpeech,
@@ -161,27 +171,54 @@ class RealtimeCallService {
       session.include = include;
     }
 
+    const voice =
+      overrideSession?.audio?.output?.voice ??
+      overrides.voice ??
+      sessionConfig.audio?.output?.voice ??
+      sessionConfig.voice;
+
+    const configuredVoices =
+      overrideSession?.audio?.output?.voices ??
+      sessionConfig.audio?.output?.voices ??
+      sessionConfig.voices ??
+      overrides?.audio?.output?.voices;
+
     const audio = {};
     const inputAudio = {};
 
-    const inputAudioFormat = this.#normalizeInputFormat(config.audio?.input?.format);
+    const formatSource =
+      overrideSession?.audio?.input?.format ??
+      overrides?.audio?.input?.format ??
+      sessionConfig.audio?.input?.format ??
+      config.audio?.input?.format;
+    const inputAudioFormat = this.#normalizeInputFormat(formatSource);
     if (inputAudioFormat) {
       inputAudio.format = inputAudioFormat;
     }
 
-    const inputAudioNoiseReduction = this.#resolveNoiseReduction(config, overrides);
+    const inputAudioNoiseReduction = this.#resolveNoiseReduction(
+      config,
+      overrides,
+      sessionConfig,
+      overrideSession,
+    );
     if (inputAudioNoiseReduction !== undefined) {
       inputAudio.noise_reduction = inputAudioNoiseReduction;
     }
 
     if (!speechToSpeech) {
-      const transcriptionDefaults = this.#resolveTranscriptionDefaults(config);
+      const transcriptionDefaults = this.#resolveTranscriptionDefaults(config, sessionConfig);
       if (transcriptionDefaults) {
         inputAudio.transcription = transcriptionDefaults;
       }
     }
 
-    const turnDetection = this.#resolveTurnDetection(config, overrides);
+    const turnDetection = this.#resolveTurnDetection(
+      config,
+      overrides,
+      sessionConfig,
+      overrideSession,
+    );
     if (turnDetection) {
       inputAudio.turn_detection = turnDetection;
     }
@@ -230,7 +267,7 @@ class RealtimeCallService {
       return defaults;
     }
 
-    const { encoding, sampleRate, channels, ...rest } = format;
+    const { encoding, sampleRate, sample_rate: sampleRateSnake, rate, channels, ...rest } = format;
     let type = defaults.type;
     const extra = {};
 
@@ -245,7 +282,14 @@ class RealtimeCallService {
 
     const normalized = {
       type,
-      sample_rate: typeof sampleRate === 'number' ? sampleRate : defaults.sample_rate,
+      sample_rate:
+        typeof rate === 'number'
+          ? rate
+          : typeof sampleRate === 'number'
+            ? sampleRate
+            : typeof sampleRateSnake === 'number'
+              ? sampleRateSnake
+              : defaults.sample_rate,
       channels: typeof channels === 'number' ? channels : defaults.channels,
       ...this.#convertKeysToSnakeCase(rest),
       ...extra,
@@ -304,10 +348,12 @@ class RealtimeCallService {
     };
   }
 
-  #resolveNoiseReduction(config, overrides) {
-    const audioInput = config.audio?.input ?? {};
+  #resolveNoiseReduction(config, overrides, sessionConfig, overrideSession) {
+    const audioInput = sessionConfig.audio?.input ?? config.audio?.input ?? {};
     const overrideNoiseReduction =
-      overrides?.audio?.input?.noiseReduction ?? overrides.noiseReduction;
+      overrideSession?.audio?.input?.noiseReduction ??
+      overrides?.audio?.input?.noiseReduction ??
+      overrides.noiseReduction;
     const noiseReduction =
       overrideNoiseReduction !== undefined ? overrideNoiseReduction : audioInput.noiseReduction;
 
@@ -327,8 +373,9 @@ class RealtimeCallService {
     return undefined;
   }
 
-  #resolveTranscriptionDefaults(config) {
-    const transcriptionDefaults = config.audio?.input?.transcriptionDefaults;
+  #resolveTranscriptionDefaults(config, sessionConfig) {
+    const transcriptionDefaults =
+      sessionConfig.audio?.input?.transcriptionDefaults ?? config.audio?.input?.transcriptionDefaults;
     if (!transcriptionDefaults || typeof transcriptionDefaults !== 'object') {
       return undefined;
     }
@@ -340,8 +387,8 @@ class RealtimeCallService {
     return this.#convertKeysToSnakeCase(transcriptionDefaults);
   }
 
-  #resolveTurnDetection(config, overrides) {
-    const audioInput = config.audio?.input ?? {};
+  #resolveTurnDetection(config, overrides, sessionConfig, overrideSession) {
+    const audioInput = sessionConfig.audio?.input ?? config.audio?.input ?? {};
     let vadSource;
 
     if (audioInput.turnDetection && typeof audioInput.turnDetection === 'object') {
@@ -349,7 +396,7 @@ class RealtimeCallService {
     }
 
     const overrideTurnDetection =
-      overrides?.audio?.input?.turnDetection ?? overrides.turnDetection;
+      overrideSession?.audio?.input?.turnDetection ?? overrides?.audio?.input?.turnDetection ?? overrides.turnDetection;
 
     if (overrideTurnDetection && typeof overrideTurnDetection === 'object') {
       vadSource = this.#mergeDeep(vadSource ?? {}, overrideTurnDetection);

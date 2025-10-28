@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRecoilValue } from 'recoil';
-import type { RealtimeCallRequest, RealtimeCallResponse } from 'librechat-data-provider';
+import type {
+  RealtimeCallOverrides,
+  RealtimeCallRequest,
+  RealtimeCallResponse,
+} from 'librechat-data-provider';
 import { useToastContext } from '@librechat/client';
 import { useRealtimeSessionMutation } from '~/data-provider';
 import store from '~/store';
@@ -24,20 +28,40 @@ const cloneConfig = <T>(value: T): T => {
   return value;
 };
 
-const sanitizeInclude = (values?: unknown): string[] | undefined => {
-  if (!Array.isArray(values)) {
+const sanitizeInclude = (...values: unknown[]): string[] | undefined => {
+  const entries: string[] = [];
+
+  values.forEach((value) => {
+    if (!value) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((entry) => {
+        if (typeof entry !== 'string') {
+          return;
+        }
+        const trimmed = entry.trim();
+        if (trimmed.length > 0) {
+          entries.push(trimmed);
+        }
+      });
+      return;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        entries.push(trimmed);
+      }
+    }
+  });
+
+  if (!entries.length) {
     return undefined;
   }
 
-  const trimmed = values
-    .map((value) => (typeof value === 'string' ? value.trim() : ''))
-    .filter((value) => value.length > 0);
-
-  if (!trimmed.length) {
-    return undefined;
-  }
-
-  return Array.from(new Set(trimmed));
+  return Array.from(new Set(entries));
 };
 
 const stopTracks = (stream: MediaStream | null) => {
@@ -54,9 +78,315 @@ const stopTracks = (stream: MediaStream | null) => {
   });
 };
 
-type RealtimeCallConfig = Partial<Omit<RealtimeCallRequest, 'sdpOffer'>>;
+type RealtimeCallConfig = RealtimeCallOverrides;
 
 const isString = (value: unknown): value is string => typeof value === 'string';
+
+const ensureAudioConfig = (session: RealtimeSessionOverrides) => {
+  session.audio ??= {};
+  return session.audio;
+};
+
+const ensureAudioInputConfig = (session: RealtimeSessionOverrides) => {
+  const audio = ensureAudioConfig(session);
+  audio.input ??= {};
+  return audio.input;
+};
+
+const ensureAudioOutputConfig = (session: RealtimeSessionOverrides) => {
+  const audio = ensureAudioConfig(session);
+  audio.output ??= {};
+  return audio.output;
+};
+
+const mergeAudioInputConfig = (
+  target: RealtimeAudioInputConfig | undefined,
+  source: RealtimeAudioInputConfig | undefined,
+): RealtimeAudioInputConfig | undefined => {
+  if (!source) {
+    return target;
+  }
+
+  const next: RealtimeAudioInputConfig = target ? cloneConfig(target) : {};
+
+  if (source.format) {
+    next.format = { ...(next.format ?? {}), ...cloneConfig(source.format) };
+  }
+
+  if (source.noiseReduction !== undefined) {
+    next.noiseReduction = cloneConfig(source.noiseReduction);
+  }
+
+  if (source.turnDetection !== undefined) {
+    next.turnDetection = cloneConfig(source.turnDetection);
+  }
+
+  if (source.transcriptionDefaults !== undefined) {
+    next.transcriptionDefaults = cloneConfig(source.transcriptionDefaults);
+  }
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (key === 'format' || key === 'noiseReduction' || key === 'turnDetection' || key === 'transcriptionDefaults') {
+      return;
+    }
+
+    if (value === undefined) {
+      return;
+    }
+
+    (next as Record<string, unknown>)[key] = cloneConfig(value);
+  });
+
+  return Object.keys(next).length ? next : undefined;
+};
+
+const mergeAudioOutputConfig = (
+  target: RealtimeAudioOutputConfig | undefined,
+  source: RealtimeAudioOutputConfig | undefined,
+): RealtimeAudioOutputConfig | undefined => {
+  if (!source) {
+    return target;
+  }
+
+  const next: RealtimeAudioOutputConfig = target ? cloneConfig(target) : {};
+
+  if (source.voice !== undefined) {
+    next.voice = cloneConfig(source.voice);
+  }
+
+  if (source.voices !== undefined) {
+    next.voices = cloneConfig(source.voices);
+  }
+
+  if (source.format) {
+    next.format = { ...(next.format ?? {}), ...cloneConfig(source.format) };
+  }
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (key === 'voice' || key === 'voices' || key === 'format') {
+      return;
+    }
+
+    if (value === undefined) {
+      return;
+    }
+
+    (next as Record<string, unknown>)[key] = cloneConfig(value);
+  });
+
+  return Object.keys(next).length ? next : undefined;
+};
+
+const mergeAudioConfig = (
+  target: RealtimeAudioConfig | undefined,
+  source: RealtimeAudioConfig | undefined,
+): RealtimeAudioConfig | undefined => {
+  if (!source) {
+    return target;
+  }
+
+  const next: RealtimeAudioConfig = target ? cloneConfig(target) : {};
+
+  const input = mergeAudioInputConfig(next.input, source.input);
+  if (input) {
+    next.input = input;
+  } else {
+    delete next.input;
+  }
+
+  const output = mergeAudioOutputConfig(next.output, source.output);
+  if (output) {
+    next.output = output;
+  } else {
+    delete next.output;
+  }
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (key === 'input' || key === 'output') {
+      return;
+    }
+
+    if (value === undefined) {
+      return;
+    }
+
+    (next as Record<string, unknown>)[key] = cloneConfig(value);
+  });
+
+  return Object.keys(next).length ? next : undefined;
+};
+
+const mergeSessionOverrides = (
+  target: RealtimeSessionOverrides,
+  source?: RealtimeSessionOverrides,
+): RealtimeSessionOverrides => {
+  if (!source) {
+    return target;
+  }
+
+  if (typeof source.type === 'string') {
+    target.type = source.type;
+  }
+
+  if (typeof source.mode === 'string') {
+    target.mode = source.mode;
+  }
+
+  if (typeof source.model === 'string') {
+    target.model = source.model;
+  }
+
+  if (typeof source.instructions === 'string') {
+    target.instructions = source.instructions;
+  }
+
+  if (typeof source.speechToSpeech === 'boolean') {
+    target.speechToSpeech = source.speechToSpeech;
+  }
+
+  if (source.instructionTemplates) {
+    target.instructionTemplates = cloneConfig(source.instructionTemplates);
+  }
+
+  const modalities = sanitizeInclude(source.output_modalities, source.modalities);
+  if (modalities) {
+    target.output_modalities = modalities;
+  }
+
+  const include = sanitizeInclude(source.include);
+  if (include) {
+    target.include = include;
+  }
+
+  if (source.audio) {
+    target.audio = mergeAudioConfig(target.audio, source.audio);
+  }
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (
+      key === 'type' ||
+      key === 'mode' ||
+      key === 'model' ||
+      key === 'instructions' ||
+      key === 'speechToSpeech' ||
+      key === 'speech_to_speech' ||
+      key === 'instructionTemplates' ||
+      key === 'instruction_templates' ||
+      key === 'output_modalities' ||
+      key === 'modalities' ||
+      key === 'include' ||
+      key === 'audio'
+    ) {
+      return;
+    }
+
+    if (value === undefined) {
+      return;
+    }
+
+    (target as Record<string, unknown>)[key] = cloneConfig(value);
+  });
+
+  return target;
+};
+
+const partitionInclude = ({
+  baseModalities,
+  includeValues,
+  speechToSpeech,
+}: {
+  baseModalities?: string[];
+  includeValues?: string[];
+  speechToSpeech: boolean;
+}): { modalities: string[]; include: string[] } => {
+  const modalitySet = new Set<string>();
+  const includeSet = new Set<string>();
+
+  (baseModalities ?? []).forEach((entry) => {
+    const normalized = entry.toLowerCase();
+    if (normalized === 'text' || normalized === 'audio') {
+      modalitySet.add(normalized);
+    }
+  });
+
+  (includeValues ?? []).forEach((entry) => {
+    const normalized = entry.toLowerCase();
+    if (normalized === 'text' || normalized === 'audio') {
+      modalitySet.add(normalized);
+      return;
+    }
+
+    includeSet.add(entry);
+  });
+
+  if (speechToSpeech) {
+    modalitySet.add('audio');
+  }
+
+  return {
+    modalities: Array.from(modalitySet),
+    include: Array.from(includeSet),
+  };
+};
+
+const applyCallOverrides = (
+  target: RealtimeCallConfig,
+  overrides: Partial<RealtimeCallOverrides>,
+) => {
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+
+    if (key === 'include') {
+      const overrideInclude = sanitizeInclude(value);
+      if (overrideInclude) {
+        target.include = overrideInclude;
+      } else {
+        delete target.include;
+      }
+      return;
+    }
+
+    if (key === 'session' && typeof value === 'object') {
+      target.session ??= {};
+      mergeSessionOverrides(target.session, value as RealtimeSessionOverrides);
+      return;
+    }
+
+    if (key === 'mode' || key === 'model' || key === 'instructions' || key === 'type') {
+      target.session ??= {};
+      (target.session as Record<string, unknown>)[key] = cloneConfig(value);
+      return;
+    }
+
+    if (key === 'voice') {
+      target.session ??= {};
+      ensureAudioOutputConfig(target.session).voice = cloneConfig(value);
+      return;
+    }
+
+    if (key === 'turnDetection') {
+      target.session ??= {};
+      ensureAudioInputConfig(target.session).turnDetection = cloneConfig(value);
+      return;
+    }
+
+    if (key === 'noiseReduction') {
+      target.session ??= {};
+      ensureAudioInputConfig(target.session).noiseReduction = cloneConfig(value);
+      return;
+    }
+
+    if (key === 'audio' && typeof value === 'object') {
+      target.session ??= {};
+      target.session.audio = mergeAudioConfig(target.session.audio, value as RealtimeAudioConfig);
+      return;
+    }
+
+    (target as Record<string, unknown>)[key] = cloneConfig(value);
+  });
+};
 
 const extractNestedText = (value: unknown, keys: string[] = ['text']): string => {
   if (isString(value)) {
@@ -192,73 +522,90 @@ const useSpeechToTextRealtime = (
 
   const resolveCallConfig = useCallback((): RealtimeCallConfig => {
     const defaults = realtimeDefaults ?? DEFAULT_REALTIME_STT_OPTIONS;
-    const sessionDefaults = defaults.session ?? {};
     const currentOptions = optionsRef.current;
 
     const config: RealtimeCallConfig = {};
+    const session: RealtimeSessionOverrides = mergeSessionOverrides({}, cloneConfig(defaults.session ?? {}));
 
-    const resolvedMode = currentOptions?.mode ?? sessionDefaults.mode;
-    if (resolvedMode) {
-      config.mode = resolvedMode;
+    if (!session.type) {
+      session.type = defaults.session?.type ?? 'realtime';
     }
 
-    const resolvedModel = currentOptions?.model ?? sessionDefaults.model ?? defaults.model;
+    if (currentOptions?.mode) {
+      session.mode = currentOptions.mode;
+    }
+
+    const resolvedModel = currentOptions?.model ?? session.model ?? defaults.model;
     if (resolvedModel) {
-      config.model = resolvedModel;
+      session.model = resolvedModel;
     }
 
-    const resolvedVoice = currentOptions?.voice ?? sessionDefaults.voice;
-    if (resolvedVoice) {
-      config.voice = resolvedVoice;
+    if (currentOptions?.instructions) {
+      session.instructions = currentOptions.instructions;
     }
 
-    const resolvedInstructions = currentOptions?.instructions ?? sessionDefaults.instructions;
-    if (resolvedInstructions) {
-      config.instructions = resolvedInstructions;
+    if (currentOptions?.voice) {
+      ensureAudioOutputConfig(session).voice = cloneConfig(currentOptions.voice);
     }
 
-    const includeSource =
-      currentOptions?.include ?? (Array.isArray(defaults.include) ? defaults.include : undefined);
-    const sanitizedInclude = sanitizeInclude(includeSource);
-    if (sanitizedInclude) {
-      config.include = sanitizedInclude;
+    if (currentOptions?.turnDetection) {
+      ensureAudioInputConfig(session).turnDetection = cloneConfig(currentOptions.turnDetection);
     }
 
-    const resolvedTurnDetection =
-      currentOptions?.turnDetection ?? defaults.audio?.input?.turnDetection;
-    if (resolvedTurnDetection) {
-      config.turnDetection = cloneConfig(resolvedTurnDetection);
+    if (currentOptions?.noiseReduction !== undefined) {
+      ensureAudioInputConfig(session).noiseReduction = cloneConfig(currentOptions.noiseReduction);
     }
 
-    const resolvedNoiseReduction =
-      currentOptions?.noiseReduction ?? defaults.audio?.input?.noiseReduction;
-    if (resolvedNoiseReduction !== undefined) {
-      config.noiseReduction = cloneConfig(resolvedNoiseReduction);
+    const defaultInclude = sanitizeInclude(defaults.include);
+    if (defaultInclude) {
+      config.include = defaultInclude;
     }
+
+    if (currentOptions?.include) {
+      const overrideInclude = sanitizeInclude(currentOptions.include);
+      if (overrideInclude) {
+        config.include = overrideInclude;
+      }
+    }
+
+    config.session = session;
 
     const overrides = currentOptions?.callOverrides;
     if (overrides) {
-      Object.entries(overrides).forEach(([key, value]) => {
-        if (value === undefined || value === null) {
-          return;
-        }
-
-        if (key === 'include') {
-          const overrideInclude = sanitizeInclude(value);
-          if (overrideInclude) {
-            config.include = overrideInclude;
-          }
-          return;
-        }
-
-        if (key === 'turnDetection' || key === 'noiseReduction') {
-          (config as Record<string, unknown>)[key] = cloneConfig(value);
-          return;
-        }
-
-        (config as Record<string, unknown>)[key] = cloneConfig(value);
-      });
+      applyCallOverrides(config, overrides);
     }
+
+    const mergedSession = config.session ?? session;
+    const modalities = sanitizeInclude(mergedSession.output_modalities);
+    const includeValues = sanitizeInclude(config.include, mergedSession.include);
+    const speechToSpeech =
+      mergedSession.mode === 'speech_to_speech' ||
+      mergedSession.speechToSpeech === true ||
+      defaults.session?.speechToSpeech === true;
+
+    const { modalities: outputModalities, include } = partitionInclude({
+      baseModalities: modalities,
+      includeValues,
+      speechToSpeech,
+    });
+
+    if (outputModalities.length) {
+      mergedSession.output_modalities = outputModalities;
+    } else {
+      delete mergedSession.output_modalities;
+    }
+
+    if (include.length) {
+      config.include = include;
+    } else {
+      delete config.include;
+    }
+
+    if ('include' in mergedSession) {
+      delete (mergedSession as Record<string, unknown>).include;
+    }
+
+    config.session = mergedSession;
 
     return config;
   }, [realtimeDefaults]);
@@ -282,12 +629,18 @@ const useSpeechToTextRealtime = (
 
   const shouldReceiveAudio = useCallback(() => {
     const config = resolveCallConfig();
+    const session = config.session ?? {};
+    const modalities = sanitizeInclude(session.output_modalities);
+    if (modalities?.includes('audio')) {
+      return true;
+    }
+
     const includeList = sanitizeInclude(config.include);
     if (includeList?.includes('audio')) {
       return true;
     }
 
-    if (config.mode === 'speech_to_speech') {
+    if (session.mode === 'speech_to_speech' || session.speechToSpeech === true) {
       return true;
     }
 

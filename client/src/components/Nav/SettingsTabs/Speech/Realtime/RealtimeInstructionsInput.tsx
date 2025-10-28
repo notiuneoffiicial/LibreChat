@@ -6,7 +6,8 @@ import { useLocalize } from '~/hooks';
 import store from '~/store';
 import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 
-const ensureSession = (value: unknown) => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
+const ensureSession = (value: unknown) =>
+  value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
 export default function RealtimeInstructionsInput() {
   const localize = useLocalize();

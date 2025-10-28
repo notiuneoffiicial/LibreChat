@@ -67,20 +67,22 @@ describe('RealtimeCallService', () => {
               apiKey: '${REALTIME_KEY}',
               model: 'gpt-realtime-mini',
               include: ['text'],
-              audio: {
-                input: {
-                  format: {
-                    encoding: 'pcm16',
-                    sampleRate: 16000,
-                    channels: 1,
-                  },
-                  transcriptionDefaults: {
-                    language: 'en',
-                    temperature: 0,
-                  },
-                  turnDetection: {
-                    type: 'server_vad',
-                    serverVad: { enabled: true },
+              session: {
+                audio: {
+                  input: {
+                    format: {
+                      encoding: 'pcm16',
+                      rate: 16000,
+                      channels: 1,
+                    },
+                    transcriptionDefaults: {
+                      language: 'en',
+                      temperature: 0,
+                    },
+                    turnDetection: {
+                      type: 'server_vad',
+                      serverVad: { enabled: true },
+                    },
                   },
                 },
               },
@@ -97,9 +99,13 @@ describe('RealtimeCallService', () => {
     const service = new RealtimeCallService({ httpClient });
     const payload = await service.createCall(req, {
       sdpOffer: 'offer',
-      instructions: 'Transcribe clearly',
-      include: ['audio'],
-      turnDetection: { type: 'server_vad', serverVad: { threshold: 0.5 } },
+      session: {
+        instructions: 'Transcribe clearly',
+        output_modalities: ['audio'],
+        audio: {
+          input: { turnDetection: { type: 'server_vad', serverVad: { threshold: 0.5 } } },
+        },
+      },
     });
 
     expect(httpClient.post).toHaveBeenCalledWith(
@@ -162,7 +168,7 @@ describe('RealtimeCallService', () => {
               model: 'gpt-realtime-mini',
               session: {
                 include: ['text', 'logprobs'],
-                modalities: ['text'],
+                output_modalities: ['text'],
               },
             },
           },
@@ -198,16 +204,18 @@ describe('RealtimeCallService', () => {
               model: 'gpt-realtime-mini',
               session: {
                 speechToSpeech: true,
-                voice: 'alloy',
-                voices: ['alloy', 'nova'],
                 mode: 'conversation',
-              },
-              audio: {
-                input: {
-                  noiseReduction: 'server_heavy',
-                  turnDetection: {
-                    type: 'server_vad',
-                    serverVad: { enabled: true },
+                audio: {
+                  output: {
+                    voice: 'alloy',
+                    voices: ['alloy', 'nova'],
+                  },
+                  input: {
+                    noiseReduction: 'server_heavy',
+                    turnDetection: {
+                      type: 'server_vad',
+                      serverVad: { enabled: true },
+                    },
                   },
                 },
               },
@@ -224,8 +232,12 @@ describe('RealtimeCallService', () => {
     const service = new RealtimeCallService({ httpClient });
     const payload = await service.createCall(req, {
       sdpOffer: 'offer',
-      voice: 'nova',
-      noiseReduction: 'server_light',
+      session: {
+        audio: {
+          output: { voice: 'nova' },
+          input: { noiseReduction: 'server_light' },
+        },
+      },
     });
 
     const sessionCall = appendSpy.mock.calls.find(([field]) => field === 'session');

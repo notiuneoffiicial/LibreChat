@@ -18,7 +18,7 @@ export default function RealtimeVADSettings() {
   const localize = useLocalize();
   const [realtimeOptions, setRealtimeOptions] = useRecoilState(store.realtimeSTTOptions);
 
-  const turnDetection = realtimeOptions?.audio?.input?.turnDetection;
+  const turnDetection = realtimeOptions?.session?.audio?.input?.turnDetection;
   const mode = useMemo(() => {
     if (!turnDetection || typeof turnDetection !== 'object') {
       return 'disabled';
@@ -44,21 +44,33 @@ export default function RealtimeVADSettings() {
     (updater: (current: RealtimeSTTTurnDetectionConfig | undefined) => RealtimeSTTTurnDetectionConfig | undefined) => {
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
-        const audio = existing.audio ?? {};
-        const input = { ...(audio.input ?? {}) };
-        const nextTurnDetection = updater(input.turnDetection);
+        const nextSession = existing.session ? { ...existing.session } : {};
+        const audioConfig = { ...(nextSession.audio ?? {}) };
+        const inputConfig = { ...(audioConfig.input ?? {}) };
+        const nextTurnDetection = updater(inputConfig.turnDetection as RealtimeSTTTurnDetectionConfig | undefined);
 
         if (nextTurnDetection === undefined) {
-          delete input.turnDetection;
+          delete inputConfig.turnDetection;
         } else {
-          input.turnDetection = nextTurnDetection;
+          inputConfig.turnDetection = nextTurnDetection;
+        }
+
+        if (Object.keys(inputConfig).length > 0) {
+          audioConfig.input = inputConfig;
+        } else {
+          delete audioConfig.input;
+        }
+
+        if (Object.keys(audioConfig).length > 0) {
+          nextSession.audio = audioConfig;
+        } else {
+          delete nextSession.audio;
         }
 
         return {
           ...existing,
-          audio: {
-            ...audio,
-            input,
+          session: {
+            ...nextSession,
           },
         };
       });

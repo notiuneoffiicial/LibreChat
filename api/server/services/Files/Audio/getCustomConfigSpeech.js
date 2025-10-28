@@ -15,24 +15,49 @@ const { getAppConfig } = require('~/server/services/Config');
  */
 const DEFAULT_INPUT_FORMAT = {
   encoding: 'pcm16',
+  rate: 24000,
   sampleRate: 24000,
   channels: 1,
 };
 
-const normalizeInputFormat = (inputFormat) => ({
-  encoding: inputFormat?.encoding ?? DEFAULT_INPUT_FORMAT.encoding,
-  sampleRate: inputFormat?.sampleRate ?? DEFAULT_INPUT_FORMAT.sampleRate,
-  channels: inputFormat?.channels ?? DEFAULT_INPUT_FORMAT.channels,
-});
+const normalizeInputFormat = (inputFormat) => {
+  const resolvedRate = (() => {
+    if (typeof inputFormat?.rate === 'number') {
+      return inputFormat.rate;
+    }
+    if (typeof inputFormat?.sampleRate === 'number') {
+      return inputFormat.sampleRate;
+    }
+    if (typeof inputFormat?.sample_rate === 'number') {
+      return inputFormat.sample_rate;
+    }
+    return DEFAULT_INPUT_FORMAT.rate;
+  })();
+
+  return {
+    encoding: inputFormat?.encoding ?? DEFAULT_INPUT_FORMAT.encoding,
+    rate: resolvedRate,
+    sampleRate: resolvedRate,
+    channels: inputFormat?.channels ?? DEFAULT_INPUT_FORMAT.channels,
+    ...Object.fromEntries(
+      Object.entries(inputFormat ?? {})
+        .filter(([key]) => !['encoding', 'rate', 'sampleRate', 'sample_rate', 'channels'].includes(key))
+        .map(([key, value]) => [key, value]),
+    ),
+  };
+};
 
 const buildRealtimeSettings = (realtimeConfig) => {
   if (!realtimeConfig) {
     return null;
   }
 
-  const normalizedFormat = normalizeInputFormat(
-    realtimeConfig.audio?.input?.format ?? realtimeConfig.inputAudioFormat,
-  );
+  const formatSource =
+    realtimeConfig.session?.audio?.input?.format ??
+    realtimeConfig.audio?.input?.format ??
+    realtimeConfig.inputAudioFormat;
+
+  const normalizedFormat = normalizeInputFormat(formatSource);
 
   const realtimeSettings = {
     model: realtimeConfig.model,
@@ -42,19 +67,53 @@ const buildRealtimeSettings = (realtimeConfig) => {
     ...(realtimeConfig.ffmpegPath ? { ffmpegPath: realtimeConfig.ffmpegPath } : {}),
   };
 
-  if (realtimeConfig.session) {
-    realtimeSettings.session = { ...realtimeConfig.session };
+  const sessionConfig = { ...(realtimeConfig.session ?? {}) };
+  const sessionAudio = { ...(sessionConfig.audio ?? {}) };
+  const sessionAudioInput = {
+    ...(sessionAudio.input ?? {}),
+    ...(realtimeConfig.audio?.input ?? {}),
+  };
+  const sessionAudioOutput = {
+    ...(sessionAudio.output ?? {}),
+    ...(realtimeConfig.audio?.output ?? {}),
+  };
+
+  if (Object.keys(sessionAudioInput).length > 0 || normalizedFormat) {
+    sessionAudioInput.format = normalizedFormat;
+    sessionAudio.input = sessionAudioInput;
   }
 
-  const audioInputConfig = {
-    ...(realtimeConfig.audio?.input ? { ...realtimeConfig.audio.input } : {}),
-    format: normalizedFormat,
-  };
+  if (Object.keys(sessionAudioOutput).length > 0) {
+    sessionAudio.output = sessionAudioOutput;
+  }
 
-  realtimeSettings.audio = {
-    ...(realtimeConfig.audio ? { ...realtimeConfig.audio, input: undefined } : {}),
-    input: audioInputConfig,
-  };
+  if (Object.keys(sessionAudio).length > 0) {
+    sessionConfig.audio = sessionAudio;
+  }
+
+  if (Object.keys(sessionConfig).length > 0) {
+    realtimeSettings.session = sessionConfig;
+  }
+
+  const topLevelAudio = { ...(realtimeConfig.audio ?? {}) };
+  if (Object.keys(sessionAudioInput).length > 0 || normalizedFormat) {
+    topLevelAudio.input = {
+      ...(topLevelAudio.input ?? {}),
+      ...sessionAudioInput,
+      format: normalizedFormat,
+    };
+  }
+
+  if (Object.keys(sessionAudioOutput).length > 0) {
+    topLevelAudio.output = {
+      ...(topLevelAudio.output ?? {}),
+      ...sessionAudioOutput,
+    };
+  }
+
+  if (Object.keys(topLevelAudio).length > 0) {
+    realtimeSettings.audio = topLevelAudio;
+  }
 
   if (Array.isArray(realtimeConfig.include)) {
     realtimeSettings.include = [...realtimeConfig.include];

@@ -629,6 +629,7 @@ export type TSpeechRealtimeConfig = {
   stream?: boolean;
   inputAudioFormat?: {
     encoding?: string;
+    rate?: number;
     sampleRate?: number;
     channels?: number;
   };

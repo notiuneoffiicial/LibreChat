@@ -6,22 +6,14 @@ import store from '~/store';
 import {
   DEFAULT_REALTIME_STT_OPTIONS,
   type RealtimeSTTOptions,
-  type RealtimeSTTAudioOptions,
   type RealtimeSTTSessionDefaults,
 } from '~/store/settings';
 
-type RealtimeAudioUpdate = Partial<RealtimeSTTAudioOptions> & {
-  input?: Partial<NonNullable<RealtimeSTTAudioOptions['input']>> & {
-    format?: Partial<RealtimeSTTOptions['inputAudioFormat']>;
-  };
-};
-
 type RealtimeSettingsUpdate = Partial<
-  Omit<RealtimeSTTOptions, 'inputAudioFormat' | 'audio' | 'session'>
+  Omit<RealtimeSTTOptions, 'inputAudioFormat' | 'session'>
 > & {
   inputAudioFormat?: Partial<RealtimeSTTOptions['inputAudioFormat']>;
   session?: Partial<RealtimeSTTSessionDefaults>;
-  audio?: RealtimeAudioUpdate;
 };
 
 const mergeRealtimeDefaults = (
@@ -39,41 +31,63 @@ const mergeRealtimeDefaults = (
     },
   };
 
-  const mergedSession = {
-    ...(DEFAULT_REALTIME_STT_OPTIONS.session ?? {}),
-    ...(previous?.session ?? {}),
-    ...(update.session ?? {}),
+  const sessionDefaults = DEFAULT_REALTIME_STT_OPTIONS.session ?? {};
+  const previousSession = previous?.session ?? {};
+  const updateSession = update.session ?? {};
+
+  const mergedSession: RealtimeSTTSessionDefaults = {
+    ...sessionDefaults,
+    ...previousSession,
+    ...updateSession,
   };
 
-  base.session = Object.keys(mergedSession).length ? mergedSession : undefined;
-
   const mergedAudioInputFormat = {
-    ...(DEFAULT_REALTIME_STT_OPTIONS.audio?.input?.format ?? {}),
-    ...(previous?.audio?.input?.format ?? {}),
-    ...(update.audio?.input?.format ?? {}),
+    ...(sessionDefaults.audio?.input?.format ?? {}),
+    ...(previousSession.audio?.input?.format ?? {}),
+    ...(updateSession.audio?.input?.format ?? {}),
   };
 
   const mergedAudioInput = {
-    ...(DEFAULT_REALTIME_STT_OPTIONS.audio?.input ?? {}),
-    ...(previous?.audio?.input ?? {}),
-    ...(update.audio?.input ?? {}),
+    ...(sessionDefaults.audio?.input ?? {}),
+    ...(previousSession.audio?.input ?? {}),
+    ...(updateSession.audio?.input ?? {}),
   };
 
   if (Object.keys(mergedAudioInputFormat).length) {
     mergedAudioInput.format = mergedAudioInputFormat;
   }
 
+  const mergedAudioOutput = {
+    ...(sessionDefaults.audio?.output ?? {}),
+    ...(previousSession.audio?.output ?? {}),
+    ...(updateSession.audio?.output ?? {}),
+  };
+
   const mergedAudio = {
-    ...(DEFAULT_REALTIME_STT_OPTIONS.audio ?? {}),
-    ...(previous?.audio ?? {}),
-    ...(update.audio ?? {}),
+    ...(sessionDefaults.audio ?? {}),
+    ...(previousSession.audio ?? {}),
+    ...(updateSession.audio ?? {}),
   };
 
   if (Object.keys(mergedAudioInput).length) {
     mergedAudio.input = mergedAudioInput;
+  } else if (mergedAudio.input && Object.keys(mergedAudio.input).length === 0) {
+    delete mergedAudio.input;
   }
 
-  base.audio = Object.keys(mergedAudio).length ? mergedAudio : undefined;
+  if (Object.keys(mergedAudioOutput).length) {
+    mergedAudio.output = mergedAudioOutput;
+  } else if (mergedAudio.output && Object.keys(mergedAudio.output).length === 0) {
+    delete mergedAudio.output;
+  }
+
+  if (Object.keys(mergedAudio).length) {
+    mergedSession.audio = mergedAudio;
+  } else if (mergedSession.audio) {
+    delete mergedSession.audio;
+  }
+
+  base.session = Object.keys(mergedSession).length ? mergedSession : undefined;
   const includeSource =
     update.include ?? previous?.include ?? DEFAULT_REALTIME_STT_OPTIONS.include;
   base.include = includeSource ? [...includeSource] : includeSource;

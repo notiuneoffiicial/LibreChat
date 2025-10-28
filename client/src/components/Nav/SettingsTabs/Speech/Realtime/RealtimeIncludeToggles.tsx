@@ -5,7 +5,8 @@ import { useLocalize } from '~/hooks';
 import store from '~/store';
 import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 
-const ensureSession = (value: unknown) => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
+const ensureSession = (value: unknown) =>
+  value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
 export default function RealtimeIncludeToggles() {
   const localize = useLocalize();
@@ -15,22 +16,67 @@ export default function RealtimeIncludeToggles() {
     realtimeOptions?.include,
   ]);
   const session = ensureSession(realtimeOptions?.session);
+  const sessionModalities = useMemo(
+    () => (Array.isArray(session.output_modalities) ? session.output_modalities : []),
+    [session.output_modalities],
+  );
+  const toggledModalities = useMemo(() => {
+    const selections = new Set<string>();
+    sessionModalities.forEach((entry) => {
+      if (typeof entry === 'string') {
+        selections.add(entry.toLowerCase());
+      }
+    });
+    include.forEach((entry) => {
+      if (typeof entry !== 'string') {
+        return;
+      }
+      const normalized = entry.toLowerCase();
+      if (normalized === 'text' || normalized === 'audio') {
+        selections.add(normalized);
+      }
+    });
+    return selections;
+  }, [include, sessionModalities]);
   const isSpeechMode = session.mode === 'speech_to_speech' || session.speechToSpeech === true;
 
   const toggleValue = useCallback(
     (value: string, enabled: boolean) => {
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
-        const currentInclude = Array.isArray(existing.include) ? existing.include : [];
-        const next = new Set(currentInclude);
+        const baseSession = ensureSession(existing.session);
+        const currentModalities = Array.isArray(baseSession.output_modalities)
+          ? baseSession.output_modalities.map((entry) => entry.toLowerCase())
+          : [];
+        const nextModalities = new Set(currentModalities);
+
         if (enabled) {
-          next.add(value);
+          nextModalities.add(value);
         } else {
-          next.delete(value);
+          nextModalities.delete(value);
         }
+
+        const filteredInclude = Array.isArray(existing.include)
+          ? existing.include.filter((entry) => {
+              if (typeof entry !== 'string') {
+                return false;
+              }
+              const normalized = entry.toLowerCase();
+              return normalized !== 'text' && normalized !== 'audio';
+            })
+          : [];
+
+        const nextSession: Record<string, unknown> = { ...baseSession };
+        if (nextModalities.size > 0) {
+          nextSession.output_modalities = Array.from(nextModalities);
+        } else {
+          delete nextSession.output_modalities;
+        }
+
         return {
           ...existing,
-          include: Array.from(next),
+          session: nextSession,
+          include: filteredInclude,
         };
       });
     },
@@ -58,7 +104,7 @@ export default function RealtimeIncludeToggles() {
         <Checkbox
           id="realtime-include-text"
           data-testid="realtime-include-text"
-          checked={include.includes('text')}
+          checked={toggledModalities.has('text')}
           onCheckedChange={handleText}
         />
         {localize('com_nav_realtime_include_text')}
@@ -67,7 +113,7 @@ export default function RealtimeIncludeToggles() {
         <Checkbox
           id="realtime-include-audio"
           data-testid="realtime-include-audio"
-          checked={include.includes('audio')}
+          checked={toggledModalities.has('audio')}
           onCheckedChange={handleAudio}
           disabled={!isSpeechMode}
         />

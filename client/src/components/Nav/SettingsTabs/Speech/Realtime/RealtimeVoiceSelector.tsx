@@ -6,14 +6,16 @@ import { useLocalize } from '~/hooks';
 import store from '~/store';
 import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 
-const ensureSession = (value: unknown) => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
+const ensureSession = (value: unknown) =>
+  value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
 export default function RealtimeVoiceSelector() {
   const localize = useLocalize();
   const [realtimeOptions, setRealtimeOptions] = useRecoilState(store.realtimeSTTOptions);
 
   const session = ensureSession(realtimeOptions?.session);
-  const voice = (session.voice as string | undefined) ?? '';
+  const currentVoice = session.audio?.output?.voice;
+  const voice = typeof currentVoice === 'string' ? currentVoice : '';
 
   const isSpeechMode = useMemo(() => {
     return session.mode === 'speech_to_speech' || session.speechToSpeech === true;
@@ -25,11 +27,31 @@ export default function RealtimeVoiceSelector() {
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
         const nextSession = ensureSession(existing.session);
+        const nextAudio = { ...(nextSession.audio ?? {}) };
+        const nextOutput = { ...(nextAudio.output ?? {}) };
+
+        if (nextVoice.length > 0) {
+          nextOutput.voice = nextVoice;
+        } else {
+          delete nextOutput.voice;
+        }
+
+        if (Object.keys(nextOutput).length > 0) {
+          nextAudio.output = nextOutput;
+        } else {
+          delete nextAudio.output;
+        }
+
+        if (Object.keys(nextAudio).length > 0) {
+          nextSession.audio = nextAudio;
+        } else {
+          delete nextSession.audio;
+        }
+
         return {
           ...existing,
           session: {
             ...nextSession,
-            voice: nextVoice,
           },
         };
       });
