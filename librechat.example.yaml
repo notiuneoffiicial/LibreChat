@@ -284,6 +284,7 @@ endpoints:
         fetch: false
       titleConvo: true
       titleModel: 'mixtral-8x7b-32768'
+      summarize: true
       modelDisplayLabel: 'groq'
 
     # Mistral AI Example
@@ -311,8 +312,8 @@ endpoints:
       # Title Model: Specify the model to use for titles.
       titleModel: 'mistral-tiny' # Defaults to "gpt-3.5-turbo" if omitted.
 
-      # Summarize setting: Set to true to enable summarization.
-      # summarize: false
+      # Summarize setting: Enable summarization support for this endpoint.
+      summarize: true
 
       # Summary Model: Specify the model to use if summarization is enabled.
       # summaryModel: "mistral-tiny"  # Defaults to "gpt-3.5-turbo" if omitted.
@@ -344,6 +345,7 @@ endpoints:
         fetch: true
       titleConvo: true
       titleModel: 'meta-llama/llama-3-70b-instruct'
+      summarize: true
       # Recommended: Drop the stop parameter from the request as Openrouter models use a variety of stop tokens.
       dropParams: ['stop']
       modelDisplayLabel: 'OpenRouter'
@@ -360,7 +362,7 @@ endpoints:
         fetch: true
       titleConvo: true
       titleModel: 'current_model'
-      summarize: false
+      summarize: true
       summaryModel: 'current_model'
       forcePrompt: false
       modelDisplayLabel: 'Portkey'
