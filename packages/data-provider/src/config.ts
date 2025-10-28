@@ -532,6 +532,7 @@ const speechTab = z
           autoTranscribeAudio: z.boolean().optional(),
           decibelValue: z.number().optional(),
           autoSendText: z.number().optional(),
+          realtimeDisableExpression: z.string().optional(),
         }),
       )
       .optional(),

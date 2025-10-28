@@ -658,6 +658,7 @@ export type TCustomConfigSpeechResponse = {
   playbackRate?: number | null;
   cacheTTS?: boolean;
   realtime?: TSpeechRealtimeConfig;
+  realtimeDisableExpression?: string;
   [key: string]: unknown;
 };
 
