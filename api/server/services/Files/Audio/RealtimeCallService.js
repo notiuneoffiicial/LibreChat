@@ -126,11 +126,6 @@ class RealtimeCallService {
         overrideSession.model ?? overrides.model ?? sessionConfig.model ?? config.model,
     };
 
-    const mode = overrideSession.mode ?? overrides.mode ?? sessionConfig.mode;
-    if (mode) {
-      session.mode = mode;
-    }
-
     const instructions = overrideSession.instructions ?? overrides.instructions ?? sessionConfig.instructions;
     if (instructions) {
       session.instructions = instructions;
