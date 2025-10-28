@@ -149,11 +149,14 @@ export type RealtimeSession = {
 export type RealtimeSessionDefaults = {
   mode?: string;
   model?: string;
-  voice?: string;
-  voices?: string[];
   speechToSpeech?: boolean;
   instructions?: string;
   instructionTemplates?: Record<string, string>;
+  output_modalities?: string[];
+  include?: string[];
+  voice?: string;
+  voices?: string[];
+  audio?: RealtimeAudioConfig;
   [key: string]: unknown;
 };
 
@@ -200,33 +203,73 @@ export type RealtimeNoiseReduction =
       [key: string]: unknown;
     } & Record<string, unknown>);
 
+export type RealtimeAudioFormat = {
+  encoding?: string | { codec?: string; [key: string]: unknown };
+  rate?: number;
+  sampleRate?: number;
+  channels?: number;
+  [key: string]: unknown;
+};
+
 export type RealtimeAudioInputConfig = {
-  format?: {
-    encoding?: string;
-    sampleRate?: number;
-    channels?: number;
-    [key: string]: unknown;
-  };
+  format?: RealtimeAudioFormat;
   noiseReduction?: RealtimeNoiseReduction;
+  noise_reduction?: RealtimeNoiseReduction;
   transcriptionDefaults?: RealtimeTranscriptionDefaults;
+  transcription?: RealtimeTranscriptionDefaults;
   turnDetection?: RealtimeTurnDetectionConfig;
+  turn_detection?: RealtimeTurnDetectionConfig;
+  [key: string]: unknown;
+};
+
+export type RealtimeAudioOutputConfig = {
+  voice?: string;
+  voices?: string[];
+  format?: RealtimeAudioFormat;
   [key: string]: unknown;
 };
 
 export type RealtimeAudioConfig = {
   input?: RealtimeAudioInputConfig;
+  output?: RealtimeAudioOutputConfig;
+  [key: string]: unknown;
+};
+
+export type RealtimeSessionOverrides = {
+  type?: string;
+  mode?: string;
+  model?: string;
+  instructions?: string;
+  instructionTemplates?: Record<string, string>;
+  instruction_templates?: Record<string, string>;
+  output_modalities?: string[];
+  modalities?: string[];
+  include?: string[];
+  speechToSpeech?: boolean;
+  speech_to_speech?: boolean;
+  audio?: RealtimeAudioConfig;
+  [key: string]: unknown;
+};
+
+export type RealtimeCallOverrides = {
+  session?: RealtimeSessionOverrides;
+  include?: string[];
+  type?: string;
+  mode?: string;
+  model?: string;
+  voice?: string;
+  instructions?: string;
+  audio?: RealtimeAudioConfig;
+  turnDetection?: RealtimeTurnDetectionConfig;
+  noiseReduction?: RealtimeNoiseReduction;
   [key: string]: unknown;
 };
 
 export type RealtimeCallRequest = {
   sdpOffer: string;
-  mode?: string;
-  model?: string;
-  voice?: string;
-  instructions?: string;
+  session?: RealtimeSessionOverrides;
   include?: string[];
-  turnDetection?: RealtimeTurnDetectionConfig;
-  noiseReduction?: RealtimeNoiseReduction;
+  [key: string]: unknown;
 };
 
 export type RealtimeCallResponse = {

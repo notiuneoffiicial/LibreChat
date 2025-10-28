@@ -10,7 +10,7 @@ export default function RealtimeNoiseReductionSelector() {
   const [realtimeOptions, setRealtimeOptions] = useRecoilState(store.realtimeSTTOptions);
 
   const value = (() => {
-    const noise = realtimeOptions?.audio?.input?.noiseReduction;
+    const noise = realtimeOptions?.session?.audio?.input?.noiseReduction;
     if (typeof noise === 'string') {
       return noise;
     }
@@ -25,15 +25,19 @@ export default function RealtimeNoiseReductionSelector() {
       const nextValue = event.target.value;
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
-        const audio = existing.audio ?? {};
-        const input = audio.input ?? {};
+        const nextSession = existing.session ? { ...existing.session } : {};
+        const audioConfig = { ...(nextSession.audio ?? {}) };
+        const inputConfig = { ...(audioConfig.input ?? {}) };
         return {
           ...existing,
-          audio: {
-            ...audio,
-            input: {
-              ...input,
-              noiseReduction: nextValue === '' ? undefined : nextValue,
+          session: {
+            ...nextSession,
+            audio: {
+              ...audioConfig,
+              input: {
+                ...inputConfig,
+                noiseReduction: nextValue === '' ? undefined : nextValue,
+              },
             },
           },
         };

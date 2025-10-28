@@ -56,23 +56,25 @@ describe('useSpeechToText', () => {
       model: 'gpt-4o-realtime-preview',
       session: {
         mode: 'speech_to_speech',
-        voice: 'verse',
         instructions: 'Keep responses concise',
         speechToSpeech: true,
-      },
-      include: ['text', 'audio'],
-      audio: {
-        input: {
-          format: DEFAULT_REALTIME_STT_OPTIONS.audio?.input?.format,
-          noiseReduction: 'server_light',
-          turnDetection: {
-            type: 'server_vad',
-            serverVad: {
-              enabled: true,
-              threshold: -45,
+        audio: {
+          input: {
+            format: DEFAULT_REALTIME_STT_OPTIONS.session?.audio?.input?.format,
+            noiseReduction: 'server_light',
+            turnDetection: {
+              type: 'server_vad',
+              serverVad: {
+                enabled: true,
+                threshold: -45,
+              },
             },
           },
+          output: {
+            voice: 'verse',
+          },
         },
+        output_modalities: ['text', 'audio'],
       },
     };
 
@@ -96,9 +98,9 @@ describe('useSpeechToText', () => {
       model: 'gpt-4o-realtime-preview',
       voice: 'verse',
       instructions: 'Keep responses concise',
-      include: ['text', 'audio'],
       noiseReduction: 'server_light',
     });
+    expect(options.include).toEqual([]);
     expect(options.turnDetection).toEqual({
       type: 'server_vad',
       serverVad: { enabled: true, threshold: -45 },

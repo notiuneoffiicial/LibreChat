@@ -94,11 +94,6 @@ speech:
         mode: conversation
         speechToSpeech: false
         model: "gpt-realtime-mini"
-        voice: alloy
-        voices:
-          - alloy
-          - ash
-          - nova
         instructions: |
           You are LibreChat's realtime assistant. Follow the configured
           instruction template when responding to microphone input.
@@ -107,29 +102,35 @@ speech:
             Please summarize the user's request before responding.
           handsfree: |
             Keep replies short (max 2 sentences) while in hands-free mode.
-      audio:
-        input:
-          format:
-            encoding: pcm16
-            sampleRate: 24000
-            channels: 1
-          noiseReduction: server_light
-          transcriptionDefaults:
-            language: en
-            temperature: 0
-            diarization: true
-          turnDetection:
-            type: server_vad
-            serverVad:
-              enabled: true
-              threshold: 0.5
-              silenceDurationMs: 500
-            semantic:
-              enabled: false
-              minDecisionIntervalMs: 750
-      include:
-        - text
-        - audio
+        audio:
+          input:
+            format:
+              encoding: pcm16
+              rate: 24000
+              channels: 1
+            noiseReduction: server_light
+            transcriptionDefaults:
+              language: en
+              temperature: 0
+              diarization: true
+            turnDetection:
+              type: server_vad
+              serverVad:
+                enabled: true
+                threshold: 0.5
+                silenceDurationMs: 500
+              semantic:
+                enabled: false
+                minDecisionIntervalMs: 750
+          output:
+            voice: alloy
+            voices:
+              - alloy
+              - ash
+              - nova
+        output_modalities:
+          - text
+          - audio
 
 # ---- Web Search Configuration ----
 webSearch:

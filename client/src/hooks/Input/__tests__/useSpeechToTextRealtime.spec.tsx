@@ -85,25 +85,27 @@ describe('useSpeechToTextRealtime', () => {
     stream: true,
     inputAudioFormat: {
       encoding: 'pcm16',
-      sampleRate: 24000,
+      rate: 24000,
       channels: 1,
     },
     session: {
       mode: 'conversation',
       instructions: 'Be brief',
-      voice: 'alloy',
       speechToSpeech: false,
-    },
-    audio: {
-      input: {
-        noiseReduction: 'server_light',
-        turnDetection: {
-          type: 'server_vad',
-          serverVad: { enabled: true },
+      audio: {
+        input: {
+          noiseReduction: 'server_light',
+          turnDetection: {
+            type: 'server_vad',
+            serverVad: { enabled: true },
+          },
+        },
+        output: {
+          voice: 'alloy',
         },
       },
+      output_modalities: ['text'],
     },
-    include: ['text'],
   } as const;
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -170,18 +172,20 @@ describe('useSpeechToTextRealtime', () => {
 
     const payload = mockMutateAsync.mock.calls[0][0];
     expect(payload.sdpOffer).toContain('v=0');
-    expect(payload).toMatchObject({
+    expect(payload.session).toMatchObject({
       mode: 'conversation',
       model: 'gpt-4o-realtime-preview',
-      voice: 'alloy',
       instructions: 'Be brief',
-      include: ['text'],
+      audio: {
+        output: { voice: 'alloy' },
+        input: {
+          noiseReduction: 'server_light',
+          turnDetection: { type: 'server_vad', serverVad: { enabled: true } },
+        },
+      },
+      output_modalities: ['text'],
     });
-    expect(payload.turnDetection).toEqual({
-      type: 'server_vad',
-      serverVad: { enabled: true },
-    });
-    expect(payload.noiseReduction).toEqual('server_light');
+    expect(payload.include).toBeUndefined();
 
     act(() => {
       mockChannel.open();
@@ -254,13 +258,20 @@ describe('useSpeechToTextRealtime', () => {
     });
 
     const payload = mockMutateAsync.mock.calls[0][0];
-    expect(payload.mode).toBe('speech_to_text');
-    expect(payload.model).toBe('gpt-4o-mini');
-    expect(payload.voice).toBe('nova');
-    expect(payload.instructions).toBe('Keep it short');
-    expect(payload.include).toEqual(['audio']);
-    expect(payload.turnDetection).toEqual({ type: 'semantic', semantic: { enabled: true } });
-    expect(payload.noiseReduction).toEqual({ type: 'server', preset: 'medium' });
+    expect(payload.session).toMatchObject({
+      mode: 'speech_to_text',
+      model: 'gpt-4o-mini',
+      instructions: 'Keep it short',
+      audio: {
+        output: { voice: 'nova' },
+        input: {
+          noiseReduction: { type: 'server', preset: 'medium' },
+          turnDetection: { type: 'semantic', semantic: { enabled: true } },
+        },
+      },
+    });
+    expect(payload.session?.output_modalities).toEqual(expect.arrayContaining(['text', 'audio']));
+    expect(payload.include).toBeUndefined();
   });
 
   it('surfaces microphone errors via status and error callbacks', async () => {

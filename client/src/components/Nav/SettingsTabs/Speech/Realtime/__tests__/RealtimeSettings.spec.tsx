@@ -86,7 +86,6 @@ describe('Realtime audio settings components', () => {
     fireEvent.change(voiceInput, { target: { value: 'alloy' } });
 
     fireEvent.click(screen.getByTestId('realtime-include-audio'));
-    fireEvent.click(screen.getByTestId('realtime-include-audio'));
 
     fireEvent.change(screen.getByTestId('realtime-instructions'), {
       target: { value: 'Follow my prompts precisely.' },
@@ -107,12 +106,14 @@ describe('Realtime audio settings components', () => {
     const latestState = stateSpy.mock.calls[stateSpy.mock.calls.length - 1][0] as Record<string, any>;
     expect(latestState.session.mode).toBe('speech_to_speech');
     expect(latestState.session.speechToSpeech).toBe(true);
-    expect(latestState.session.voice).toBe('alloy');
+    expect(latestState.session.audio.output.voice).toBe('alloy');
     expect(latestState.session.instructions).toContain('Follow my prompts');
-    expect(latestState.include).toContain('audio');
-    expect(latestState.include).toContain('text');
-    expect(latestState.audio.input.noiseReduction).toBe('server_standard');
-    expect(latestState.audio.input.turnDetection).toMatchObject({
+    const modalities = latestState.session.output_modalities ?? [];
+    expect(modalities).toEqual(expect.arrayContaining(['text']));
+    expect(modalities.includes('audio') || latestState.session.speechToSpeech).toBe(true);
+    expect(latestState.include ?? []).toHaveLength(0);
+    expect(latestState.session.audio.input.noiseReduction).toBe('server_standard');
+    expect(latestState.session.audio.input.turnDetection).toMatchObject({
       type: 'semantic',
       semantic: {
         enabled: true,

@@ -1,4 +1,8 @@
-import type { RealtimeCallRequest, RealtimeCallResponse } from 'librechat-data-provider';
+import type {
+  RealtimeCallOverrides,
+  RealtimeCallRequest,
+  RealtimeCallResponse,
+} from 'librechat-data-provider';
 import type {
   RealtimeSTTNoiseReduction,
   RealtimeSTTTurnDetectionConfig,
@@ -76,7 +80,7 @@ export interface SpeechToTextOptions {
    * here win over all other derived defaults with the exception of the
    * required `sdpOffer` field.
    */
-  callOverrides?: Partial<Omit<RealtimeCallRequest, 'sdpOffer'>>;
+  callOverrides?: Partial<RealtimeCallOverrides>;
   /**
    * Observe realtime recorder status changes. The hook invokes this callback
    * whenever the internal status changes.

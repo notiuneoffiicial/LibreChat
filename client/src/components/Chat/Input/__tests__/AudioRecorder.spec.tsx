@@ -59,8 +59,8 @@ describe('AudioRecorder', () => {
       session: {
         mode: 'speech_to_speech',
         speechToSpeech: true,
+        output_modalities: ['text', 'audio'],
       },
-      include: ['text', 'audio'],
     };
 
     let capturedSetText: ((text: string) => void) | undefined;

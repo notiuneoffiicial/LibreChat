@@ -30,7 +30,7 @@ describe('useSpeechSettingsInit', () => {
       stream: false,
       inputAudioFormat: {
         encoding: 'pcm16',
-        sampleRate: 16000,
+        rate: 16000,
         channels: 1,
       },
     };
@@ -58,7 +58,7 @@ describe('useSpeechSettingsInit', () => {
 
     expect(result.current.model).toBe('gpt-4o-realtime-preview');
     expect(result.current.stream).toBe(false);
-    expect(result.current.inputAudioFormat.sampleRate).toBe(16000);
+    expect(result.current.inputAudioFormat.rate).toBe(16000);
   });
 
   it('persists extended realtime metadata', async () => {
@@ -66,18 +66,20 @@ describe('useSpeechSettingsInit', () => {
       model: 'gpt-4o-realtime-preview',
       session: {
         mode: 'conversation',
-        voice: 'alloy',
         instructions: 'Keep responses brief.',
-      },
-      audio: {
-        input: {
-          noiseReduction: 'server_light',
-          transcriptionDefaults: {
-            language: 'en',
+        audio: {
+          input: {
+            noiseReduction: 'server_light',
+            transcriptionDefaults: {
+              language: 'en',
+            },
+          },
+          output: {
+            voice: 'alloy',
           },
         },
+        output_modalities: ['text'],
       },
-      include: ['text'],
     };
 
     (useGetCustomConfigSpeechQuery as jest.Mock).mockReturnValue({
@@ -97,12 +99,14 @@ describe('useSpeechSettingsInit', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.session?.voice).toBe('alloy');
+      expect(result.current.session?.audio?.output?.voice).toBe('alloy');
     });
 
     expect(result.current.session?.instructions).toBe('Keep responses brief.');
-    expect(result.current.audio?.input?.noiseReduction).toBe('server_light');
-    expect(result.current.audio?.input?.transcriptionDefaults).toMatchObject({ language: 'en' });
-    expect(result.current.include).toEqual(['text']);
+    expect(result.current.session?.audio?.input?.noiseReduction).toBe('server_light');
+    expect(result.current.session?.audio?.input?.transcriptionDefaults).toMatchObject({
+      language: 'en',
+    });
+    expect(result.current.session?.output_modalities).toEqual(['text']);
   });
 });

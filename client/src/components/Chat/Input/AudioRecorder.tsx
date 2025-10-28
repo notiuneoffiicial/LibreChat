@@ -150,13 +150,31 @@ export default function AudioRecorder({
   const [speechPlaybackUrl, setSpeechPlaybackUrl] = useState<string | null>(null);
 
   const sampleRate = useMemo(() => {
-    const audioFormat = realtime?.audio?.input?.format;
-    if (audioFormat?.sampleRate) {
-      return audioFormat.sampleRate;
+    const audioFormat =
+      realtime?.session?.audio?.input?.format ?? realtime?.audio?.input?.format ?? undefined;
+
+    const formatRate =
+      typeof audioFormat?.rate === 'number'
+        ? audioFormat.rate
+        : typeof audioFormat?.sampleRate === 'number'
+          ? audioFormat.sampleRate
+          : undefined;
+
+    if (typeof formatRate === 'number') {
+      return formatRate;
     }
-    if (realtime?.inputAudioFormat?.sampleRate) {
-      return realtime.inputAudioFormat.sampleRate;
+
+    const overrideRate =
+      typeof realtime?.inputAudioFormat?.rate === 'number'
+        ? realtime.inputAudioFormat.rate
+        : typeof realtime?.inputAudioFormat?.sampleRate === 'number'
+          ? realtime.inputAudioFormat.sampleRate
+          : undefined;
+
+    if (typeof overrideRate === 'number') {
+      return overrideRate;
     }
+
     return 24000;
   }, [realtime]);
 
