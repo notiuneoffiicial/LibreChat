@@ -116,7 +116,6 @@ class RealtimeCallService {
     const speechToSpeech = Boolean(sessionConfig.speechToSpeech);
     const session = {
       model: overrides.model ?? sessionConfig.model ?? config.model,
-      type: speechToSpeech ? 'realtime' : 'transcription',
     };
 
     const mode = overrides.mode ?? sessionConfig.mode;
@@ -129,47 +128,67 @@ class RealtimeCallService {
       session.instructions = instructions;
     }
 
-    const include = this.#mergeInclude(config.include, overrides.include);
-    if (include.length > 0) {
-      session.include = include;
+    const voice = overrides.voice ?? sessionConfig.voice;
+    if (voice) {
+      session.voice = voice;
     }
 
-    if (speechToSpeech) {
-      session.speech_to_speech = true;
-      const voice = overrides.voice ?? sessionConfig.voice;
-      if (voice) {
-        session.voice = voice;
-      }
-      if (Array.isArray(sessionConfig.voices) && sessionConfig.voices.length > 0) {
-        session.voices = [...sessionConfig.voices];
-      }
-    } else {
-      session.speech_to_speech = false;
+    if (Array.isArray(sessionConfig.voices) && sessionConfig.voices.length > 0) {
+      session.voices = [...sessionConfig.voices];
     }
 
     if (sessionConfig.instructionTemplates) {
       session.instruction_templates = { ...sessionConfig.instructionTemplates };
     }
 
-    const inputAudioFormat = this.#normalizeInputFormat(config.audio?.input?.format);
-    const audioPayload = this.#buildAudioInputPayload(config, overrides, speechToSpeech);
+    const includeValues = this.#mergeInclude(
+      config.include,
+      overrides.include,
+      sessionConfig.modalities,
+    );
+    const includeItems = this.#mergeInclude(sessionConfig.include);
+    const { modalities, include } = this.#partitionInclude(
+      includeValues,
+      speechToSpeech,
+      includeItems,
+    );
 
-    if (inputAudioFormat) {
-      audioPayload.format = inputAudioFormat;
+    if (modalities.length > 0) {
+      session.modalities = modalities;
     }
 
-    if (Object.keys(audioPayload).length > 0) {
-      session.audio = { input: audioPayload };
+    if (include.length > 0) {
+      session.include = include;
+    }
+
+    const inputAudioFormat = this.#normalizeInputFormat(config.audio?.input?.format);
+    if (inputAudioFormat) {
+      session.input_audio_format = inputAudioFormat;
+    }
+
+    const inputAudioNoiseReduction = this.#resolveNoiseReduction(config, overrides);
+    if (inputAudioNoiseReduction !== undefined) {
+      session.input_audio_noise_reduction = inputAudioNoiseReduction;
+    }
+
+    if (!speechToSpeech) {
+      const transcriptionDefaults = this.#resolveTranscriptionDefaults(config);
+      if (transcriptionDefaults) {
+        session.input_audio_transcription = transcriptionDefaults;
+      }
+    }
+
+    const turnDetection = this.#resolveTurnDetection(config, overrides);
+    if (turnDetection) {
+      session.turn_detection = turnDetection;
     }
 
     return session;
   }
 
-  #mergeInclude(base, overrides) {
-    const values = [
-      ...(Array.isArray(base) ? base : []),
-      ...(Array.isArray(overrides) ? overrides : []),
-    ]
+  #mergeInclude(...lists) {
+    const values = lists
+      .flatMap((list) => (Array.isArray(list) ? list : []))
       .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
       .filter((entry) => entry.length > 0);
 
@@ -179,7 +198,7 @@ class RealtimeCallService {
   #normalizeInputFormat(format) {
     const defaults = {
       type: 'pcm16',
-      rate: 24000,
+      sample_rate: 24000,
       channels: 1,
     };
 
@@ -197,19 +216,19 @@ class RealtimeCallService {
       if (typeof encoding.codec === 'string') {
         type = encoding.codec;
       }
-      Object.assign(extra, this.#convertKeysToGaCase({ ...encoding, codec: undefined }));
+      Object.assign(extra, this.#convertKeysToSnakeCase({ ...encoding, codec: undefined }));
     }
 
     const normalized = {
       type,
-      rate: typeof sampleRate === 'number' ? sampleRate : defaults.rate,
+      sample_rate: typeof sampleRate === 'number' ? sampleRate : defaults.sample_rate,
       channels: typeof channels === 'number' ? channels : defaults.channels,
-      ...this.#convertKeysToGaCase(rest),
+      ...this.#convertKeysToSnakeCase(rest),
       ...extra,
     };
 
-    if (normalized.rate === undefined) {
-      delete normalized.rate;
+    if (normalized.sample_rate === undefined) {
+      delete normalized.sample_rate;
     }
 
     if (normalized.channels === undefined) {
@@ -219,17 +238,71 @@ class RealtimeCallService {
     return normalized;
   }
 
-  #buildAudioInputPayload(config, overrides, speechToSpeech) {
-    const payload = {};
-    const audioInput = config.audio?.input ?? {};
+  #partitionInclude(values, speechToSpeech, includeItems = []) {
+    const modalitiesSet = new Set();
+    const includeSet = new Set();
 
-    const noiseReduction = overrides.noiseReduction ?? audioInput.noiseReduction;
-    if (typeof noiseReduction === 'string' && noiseReduction.trim().length > 0) {
-      payload.noiseReduction = noiseReduction;
-    } else if (noiseReduction && typeof noiseReduction === 'object') {
-      payload.noiseReduction = this.#convertKeysToGaCase(noiseReduction);
+    values.forEach((entry) => {
+      const normalized = entry.toLowerCase();
+      if (normalized === 'text' || normalized === 'audio') {
+        modalitiesSet.add(normalized);
+        return;
+      }
+
+      includeSet.add(entry);
+    });
+
+    includeItems.forEach((entry) => {
+      if (typeof entry === 'string' && entry.length > 0) {
+        includeSet.add(entry);
+      }
+    });
+
+    if (speechToSpeech) {
+      modalitiesSet.add('audio');
     }
 
+    return {
+      modalities: [...modalitiesSet],
+      include: [...includeSet],
+    };
+  }
+
+  #resolveNoiseReduction(config, overrides) {
+    const audioInput = config.audio?.input ?? {};
+    const noiseReduction = overrides.noiseReduction ?? audioInput.noiseReduction;
+
+    if (noiseReduction === undefined || noiseReduction === null) {
+      return undefined;
+    }
+
+    if (typeof noiseReduction === 'string') {
+      const trimmed = noiseReduction.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+
+    if (typeof noiseReduction === 'object') {
+      return this.#convertKeysToSnakeCase(noiseReduction);
+    }
+
+    return undefined;
+  }
+
+  #resolveTranscriptionDefaults(config) {
+    const transcriptionDefaults = config.audio?.input?.transcriptionDefaults;
+    if (!transcriptionDefaults || typeof transcriptionDefaults !== 'object') {
+      return undefined;
+    }
+
+    if (Object.keys(transcriptionDefaults).length === 0) {
+      return undefined;
+    }
+
+    return this.#convertKeysToSnakeCase(transcriptionDefaults);
+  }
+
+  #resolveTurnDetection(config, overrides) {
+    const audioInput = config.audio?.input ?? {};
     let vadSource;
 
     if (audioInput.turnDetection && typeof audioInput.turnDetection === 'object') {
@@ -240,20 +313,16 @@ class RealtimeCallService {
       vadSource = this.#mergeDeep(vadSource ?? {}, overrides.turnDetection);
     }
 
-    if (vadSource && Object.keys(vadSource).length > 0) {
-      payload.turnDetection = this.#convertKeysToGaCase(vadSource);
+    if (!vadSource || Object.keys(vadSource).length === 0) {
+      return undefined;
     }
 
-    if (!speechToSpeech && audioInput.transcriptionDefaults) {
-      payload.transcriptionDefaults = this.#convertKeysToGaCase(audioInput.transcriptionDefaults);
-    }
-
-    return payload;
+    return this.#convertKeysToSnakeCase(vadSource);
   }
 
-  #convertKeysToGaCase(value) {
+  #convertKeysToSnakeCase(value) {
     if (Array.isArray(value)) {
-      return value.map((entry) => this.#convertKeysToGaCase(entry));
+      return value.map((entry) => this.#convertKeysToSnakeCase(entry));
     }
 
     if (!value || typeof value !== 'object') {
@@ -265,34 +334,19 @@ class RealtimeCallService {
         return acc;
       }
 
-      const normalizedKey = this.#toCamelCase(key);
+      const normalizedKey = this.#toSnakeCase(key);
 
-      acc[normalizedKey] = this.#convertKeysToGaCase(entryValue);
+      acc[normalizedKey] = this.#convertKeysToSnakeCase(entryValue);
       return acc;
     }, {});
   }
 
-  #toCamelCase(key) {
-    const cleaned = key.replace(/[-\s]+/g, '_');
-    const parts = cleaned.split('_');
-    if (parts.length === 1) {
-      return parts[0].charAt(0).toLowerCase() + parts[0].slice(1);
-    }
-
-    return parts
-      .map((part, index) => {
-        if (part.length === 0) {
-          return '';
-        }
-
-        const lower = part.toLowerCase();
-        if (index === 0) {
-          return lower;
-        }
-
-        return lower.charAt(0).toUpperCase() + lower.slice(1);
-      })
-      .join('');
+  #toSnakeCase(key) {
+    return key
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .replace(/[-\s]+/g, '_')
+      .replace(/__+/g, '_')
+      .toLowerCase();
   }
 
   #mergeDeep(target, source) {

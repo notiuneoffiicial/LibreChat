@@ -119,31 +119,27 @@ describe('RealtimeCallService', () => {
 
     expect(sessionPayload).toMatchObject({
       model: 'gpt-realtime-mini',
-      type: 'transcription',
       instructions: 'Transcribe clearly',
-      speech_to_speech: false,
-      include: ['text', 'audio'],
-      audio: {
-        input: {
-          format: {
-            type: 'pcm16',
-            rate: 16000,
-            channels: 1,
-          },
-          transcriptionDefaults: {
-            language: 'en',
-            temperature: 0,
-          },
-          turnDetection: {
-            type: 'server_vad',
-            serverVad: {
-              enabled: true,
-              threshold: 0.5,
-            },
-          },
+      modalities: ['text', 'audio'],
+      input_audio_format: {
+        type: 'pcm16',
+        sample_rate: 16000,
+        channels: 1,
+      },
+      input_audio_transcription: {
+        language: 'en',
+        temperature: 0,
+      },
+      turn_detection: {
+        type: 'server_vad',
+        server_vad: {
+          enabled: true,
+          threshold: 0.5,
         },
       },
     });
+    expect(sessionPayload).not.toHaveProperty('type');
+    expect(sessionPayload).not.toHaveProperty('speech_to_speech');
 
     expect(payload).toEqual({ sdpAnswer: 'answer', expiresAt: 1234 });
   });
@@ -194,27 +190,24 @@ describe('RealtimeCallService', () => {
 
     expect(sessionPayload).toMatchObject({
       model: 'gpt-realtime-mini',
-      type: 'realtime',
       mode: 'conversation',
-      speech_to_speech: true,
       voice: 'nova',
       voices: ['alloy', 'nova'],
-      audio: {
-        input: {
-          format: {
-            type: 'pcm16',
-            rate: 24000,
-            channels: 1,
-          },
-          noiseReduction: 'server_light',
-          turnDetection: {
-            type: 'server_vad',
-            serverVad: { enabled: true },
-          },
-        },
+      modalities: ['audio'],
+      input_audio_format: {
+        type: 'pcm16',
+        sample_rate: 24000,
+        channels: 1,
+      },
+      input_audio_noise_reduction: 'server_light',
+      turn_detection: {
+        type: 'server_vad',
+        server_vad: { enabled: true },
       },
     });
-    expect(sessionPayload.audio.input).not.toHaveProperty('transcriptionDefaults');
+    expect(sessionPayload).not.toHaveProperty('type');
+    expect(sessionPayload).not.toHaveProperty('speech_to_speech');
+    expect(sessionPayload).not.toHaveProperty('input_audio_transcription');
     expect(payload).toEqual({ sdpAnswer: 'answer' });
   });
 
