@@ -166,6 +166,9 @@ registration:
 #         type: realtime          # required by GA – use `transcription` for STT-only sessions
 #         speechToSpeech: false   # set true to request spoken responses from the model
 #         model: 'gpt-4o-realtime-preview'
+#         voice: alloy
+#         voices: ['alloy', 'nova', 'verse']
+#         # Custom instructions supplement the default memory guidance; they are appended rather than replacing it.
 #         instructions: |
 #           You are LibreChat's realtime assistant. Respond briefly, confirm key
 #           details back to the user, and close with a concise follow-up.

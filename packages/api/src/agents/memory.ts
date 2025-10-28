@@ -786,8 +786,10 @@ export async function createMemoryProcessor({
   ]
 > {
   const { validKeys, instructions, llmConfig, tokenLimit, notableThreshold } = config;
-  const finalInstructions =
-    instructions || getDefaultInstructions(validKeys, tokenLimit, notableThreshold);
+  const defaultInstructions = getDefaultInstructions(validKeys, tokenLimit, notableThreshold);
+  const finalInstructions = instructions
+    ? `${defaultInstructions.trimEnd()}\n\n${instructions.trim()}`
+    : defaultInstructions;
 
   const { withKeys, withoutKeys, totalTokens } = await memoryMethods.getFormattedMemories({
     userId,
