@@ -22,6 +22,7 @@ jest.mock('@librechat/data-schemas', () => ({
 
 const { applyAutoRouting } = require('../autoRouter');
 const { resetGauge } = require('../intentGauge');
+const { logger } = require('@librechat/data-schemas');
 
 const baseDate = new Date().toISOString();
 
@@ -75,6 +76,7 @@ function createRequest(overrides = {}) {
 describe('applyAutoRouting', () => {
   beforeEach(() => {
     resetGauge();
+    jest.clearAllMocks();
   });
 
   it('auto enables web search when explicit search intent is detected', () => {
@@ -226,6 +228,24 @@ describe('applyAutoRouting', () => {
     expect(result.spec).toBe('optimism_writer');
     expect(req.body.spec).toBe('optimism_writer');
     expect(req.autoRoutedConversation).toEqual(
+      expect.objectContaining({
+        spec: 'optimism_writer',
+        model: 'deepseek-chat',
+      }),
+    );
+  });
+
+  it('logs the routed spec and model in the info message', () => {
+    const req = createRequest({
+      body: {
+        text: 'I need you to write a heartfelt blog post about resilience.',
+      },
+    });
+
+    applyAutoRouting(req);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      '[AutoRouter] Routed to optimism_writer (deepseek-chat)',
       expect.objectContaining({
         spec: 'optimism_writer',
         model: 'deepseek-chat',
