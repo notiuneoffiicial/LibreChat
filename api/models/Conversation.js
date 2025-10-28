@@ -314,7 +314,12 @@ module.exports = {
         }
       }
 
-      const update = { ...convo, messages, user: req.user.id };
+      const update = {
+        ...convo,
+        messages,
+        user: req.user.id,
+        conversationId: newConversationId ?? conversationId,
+      };
 
       if (defaultPrefix != null) {
         update.promptPrefixDefault = defaultPrefix;
@@ -331,10 +336,6 @@ module.exports = {
 
       if (guardrailState && Object.keys(guardrailState).length > 0) {
         update.promptGuardrailState = guardrailState;
-      }
-
-      if (newConversationId) {
-        update.conversationId = newConversationId;
       }
 
       if (req?.body?.isTemporary) {

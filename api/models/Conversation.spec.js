@@ -106,6 +106,25 @@ describe('Conversation Operations', () => {
       expect(result.conversationId).toBe(newConversationId);
     });
 
+    it('returns the original conversationId when newConversationId is not provided', async () => {
+      const originalConversationId = mockConversationData.conversationId;
+
+      const result = await saveConvo(mockReq, {
+        ...mockConversationData,
+        conversationId: originalConversationId,
+      });
+
+      expect(result.conversationId).toBe(originalConversationId);
+
+      const storedConversation = await Conversation.findOne({
+        conversationId: originalConversationId,
+        user: mockReq.user.id,
+      });
+
+      expect(storedConversation).not.toBeNull();
+      expect(storedConversation.conversationId).toBe(originalConversationId);
+    });
+
     it('should handle unsetFields metadata', async () => {
       const metadata = {
         unsetFields: { someField: 1 },
