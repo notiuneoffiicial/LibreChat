@@ -179,15 +179,22 @@ export default function AudioRecorder({
   }, [realtime]);
 
   const realtimeSession = realtime?.session ?? {};
-  const realtimeInclude = Array.isArray(realtime?.include) ? realtime.include : [];
-  const sessionModalities = useMemo(() => {
-    const base = Array.isArray(realtimeSession.modalities)
-      ? realtimeSession.modalities
-      : Array.isArray(realtimeSession.output_modalities)
-        ? realtimeSession.output_modalities
-        : [];
-    return base.map((entry) => entry.toLowerCase());
-  }, [realtimeSession.modalities, realtimeSession.output_modalities]);
+  const audioOutputEnabled = useMemo(() => {
+    if (typeof realtimeSession.audioOutput === 'boolean') {
+      return realtimeSession.audioOutput;
+    }
+
+    const audioOutput = realtimeSession.audio?.output;
+    if (!audioOutput) {
+      return false;
+    }
+
+    if (typeof audioOutput.enabled === 'boolean') {
+      return audioOutput.enabled;
+    }
+
+    return Object.keys(audioOutput).length > 0;
+  }, [realtimeSession.audio?.output, realtimeSession.audioOutput]);
 
   const speechToSpeechActive = useMemo(() => {
     if (realtimeSession.type === 'transcription') {
@@ -198,12 +205,8 @@ export default function AudioRecorder({
       return true;
     }
 
-    if (sessionModalities.includes('audio')) {
-      return true;
-    }
-
-    return realtimeInclude.some((entry) => typeof entry === 'string' && entry.toLowerCase() === 'audio');
-  }, [realtimeInclude, realtimeSession.speechToSpeech, realtimeSession.speech_to_speech, realtimeSession.type, sessionModalities]);
+    return audioOutputEnabled;
+  }, [audioOutputEnabled, realtimeSession.speechToSpeech, realtimeSession.speech_to_speech, realtimeSession.type]);
 
   const resetSpeechPlayback = useCallback(() => {
     speechSamplesRef.current = [];

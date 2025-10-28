@@ -8,29 +8,53 @@ import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 const ensureSession = (value: unknown) =>
   value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
 
+type SessionState = Record<string, unknown> & {
+  type?: string;
+  textOutput?: boolean;
+  audioOutput?: boolean;
+  speechToSpeech?: boolean;
+  speech_to_speech?: boolean;
+  audio?: {
+    output?: Record<string, unknown> & { enabled?: boolean };
+  };
+};
+
 export default function RealtimeIncludeToggles() {
   const localize = useLocalize();
   const [realtimeOptions, setRealtimeOptions] = useRecoilState(store.realtimeSTTOptions);
 
+  const session = ensureSession(realtimeOptions?.session) as SessionState;
   const include = useMemo(() => (Array.isArray(realtimeOptions?.include) ? realtimeOptions?.include : []), [
     realtimeOptions?.include,
   ]);
-  const session = ensureSession(realtimeOptions?.session);
-  const sessionModalities = useMemo(() => {
-    const base = Array.isArray(session.modalities)
-      ? session.modalities
-      : Array.isArray(session.output_modalities)
-        ? session.output_modalities
-        : [];
-    return base.map((entry) => entry.toLowerCase());
-  }, [session.modalities, session.output_modalities]);
+  const audioOutputEnabled = useMemo(() => {
+    if (typeof session.audioOutput === 'boolean') {
+      return session.audioOutput;
+    }
+
+    const audioOutput = session.audio?.output;
+    if (!audioOutput) {
+      return false;
+    }
+
+    if (typeof audioOutput.enabled === 'boolean') {
+      return audioOutput.enabled;
+    }
+
+    return Object.keys(audioOutput).length > 0;
+  }, [session.audio?.output, session.audioOutput]);
+
   const toggledModalities = useMemo(() => {
     const selections = new Set<string>();
-    sessionModalities.forEach((entry) => {
-      if (typeof entry === 'string') {
-        selections.add(entry.toLowerCase());
-      }
-    });
+
+    if (session.textOutput !== false) {
+      selections.add('text');
+    }
+
+    if (audioOutputEnabled || session.speechToSpeech === true || session.speech_to_speech === true) {
+      selections.add('audio');
+    }
+
     include.forEach((entry) => {
       if (typeof entry !== 'string') {
         return;
@@ -40,8 +64,9 @@ export default function RealtimeIncludeToggles() {
         selections.add(normalized);
       }
     });
+
     return selections;
-  }, [include, sessionModalities]);
+  }, [audioOutputEnabled, include, session.speechToSpeech, session.speech_to_speech, session.textOutput]);
   const isSpeechMode = useMemo(() => {
     if (session.type === 'transcription') {
       return false;
@@ -51,29 +76,49 @@ export default function RealtimeIncludeToggles() {
       return true;
     }
 
-    if (sessionModalities.some((entry) => entry === 'audio')) {
-      return true;
-    }
-
-    return include.some((entry) => typeof entry === 'string' && entry.toLowerCase() === 'audio');
-  }, [include, session.modalities, session.output_modalities, session.speechToSpeech, session.speech_to_speech, session.type, sessionModalities]);
+    return audioOutputEnabled;
+  }, [audioOutputEnabled, session.speechToSpeech, session.speech_to_speech, session.type]);
 
   const toggleValue = useCallback(
     (value: string, enabled: boolean) => {
       setRealtimeOptions((current) => {
         const existing = current ?? DEFAULT_REALTIME_STT_OPTIONS;
-        const baseSession = ensureSession(existing.session);
-        const currentModalities = Array.isArray(baseSession.modalities)
-          ? baseSession.modalities.map((entry) => entry.toLowerCase())
-          : Array.isArray(baseSession.output_modalities)
-            ? baseSession.output_modalities.map((entry) => entry.toLowerCase())
-            : [];
-        const nextModalities = new Set(currentModalities);
+        const baseSession = ensureSession(existing.session) as SessionState;
+        const nextSession: SessionState = { ...baseSession };
 
-        if (enabled) {
-          nextModalities.add(value);
-        } else {
-          nextModalities.delete(value);
+        if (value === 'text') {
+          if (enabled) {
+            nextSession.textOutput = true;
+          } else {
+            nextSession.textOutput = false;
+          }
+        }
+
+        if (value === 'audio') {
+          const nextAudio = { ...(baseSession.audio ?? {}) } as Record<string, unknown>;
+          const nextOutput = { ...((nextAudio.output as Record<string, unknown>) ?? {}) };
+
+          if (enabled) {
+            nextSession.audioOutput = true;
+            nextOutput.enabled = true;
+          } else {
+            nextSession.audioOutput = false;
+            if ('enabled' in nextOutput) {
+              nextOutput.enabled = false;
+            }
+          }
+
+          if (Object.keys(nextOutput).length > 0) {
+            nextAudio.output = nextOutput;
+          } else {
+            delete nextAudio.output;
+          }
+
+          if (Object.keys(nextAudio).length > 0) {
+            nextSession.audio = nextAudio as SessionState['audio'];
+          } else {
+            delete nextSession.audio;
+          }
         }
 
         const filteredInclude = Array.isArray(existing.include)
@@ -85,14 +130,6 @@ export default function RealtimeIncludeToggles() {
               return normalized !== 'text' && normalized !== 'audio';
             })
           : [];
-
-        const nextSession: Record<string, unknown> = { ...baseSession };
-        if (nextModalities.size > 0) {
-          nextSession.modalities = Array.from(nextModalities);
-        } else {
-          delete nextSession.modalities;
-        }
-        delete nextSession.output_modalities;
 
         return {
           ...existing,

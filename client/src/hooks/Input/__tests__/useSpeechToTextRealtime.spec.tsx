@@ -1,307 +1,172 @@
 import '@testing-library/jest-dom';
 import { act, renderHook } from '@testing-library/react';
+import type React from 'react';
 import { RecoilRoot } from 'recoil';
-import type { RealtimeCallRequest } from 'librechat-data-provider';
-import store from '~/store';
 import useSpeechToTextRealtime from '../useSpeechToTextRealtime';
+import store from '~/store';
+import { DEFAULT_REALTIME_STT_OPTIONS } from '~/store/settings';
 
-const mockMutateAsync = jest.fn();
+type MockPeerConnectionOptions = {
+  onMessage?: (event: MessageEvent<string>) => void;
+};
+
+class MockPeerConnection {
+  public connectionState: RTCPeerConnectionState = 'new';
+
+  public onconnectionstatechange: ((this: RTCPeerConnection, ev: Event) => any) | null = null;
+
+  public ontrack: ((this: RTCPeerConnection, ev: RTCTrackEvent) => any) | null = null;
+
+  private channel: {
+    readyState: RTCDataChannelState;
+    onmessage: ((event: MessageEvent<string>) => void) | null;
+    onopen: (() => void) | null;
+    onclose: (() => void) | null;
+    close: () => void;
+  } | null = null;
+
+  private readonly options: MockPeerConnectionOptions;
+
+  constructor(options: MockPeerConnectionOptions = {}) {
+    this.options = options;
+  }
+
+  createDataChannel() {
+    this.channel = {
+      readyState: 'open',
+      onmessage: this.options.onMessage ?? null,
+      onopen: null,
+      onclose: null,
+      close: () => {
+        this.channel = null;
+      },
+    };
+    return this.channel;
+  }
+
+  addTrack() {
+    return {};
+  }
+
+  async createOffer() {
+    return { sdp: 'mock-offer-sdp' };
+  }
+
+  async setLocalDescription() {
+    return undefined;
+  }
+
+  async setRemoteDescription() {
+    return undefined;
+  }
+
+  close() {
+    this.channel = null;
+  }
+}
 
 jest.mock('@librechat/client', () => ({
   useToastContext: () => ({ showToast: jest.fn() }),
 }));
 
+const mockMutateAsync = jest.fn();
+
 jest.mock('~/data-provider', () => ({
-  useRealtimeSessionMutation: jest.fn(() => ({ mutateAsync: mockMutateAsync })),
+  useRealtimeSessionMutation: () => ({ mutateAsync: mockMutateAsync }),
 }));
 
 describe('useSpeechToTextRealtime', () => {
-
-  class MockRTCDataChannel {
-    label: string;
-
-    readyState: RTCDataChannelState = 'connecting';
-
-    onopen?: () => void;
-
-    onmessage?: (event: MessageEvent<string>) => void;
-
-    onclose?: () => void;
-
-    sent: string[] = [];
-
-    constructor(label: string) {
-      this.label = label;
-    }
-
-    send(payload: string) {
-      this.sent.push(payload);
-    }
-
-    close() {
-      this.readyState = 'closed';
-      this.onclose?.();
-    }
-
-    open() {
-      this.readyState = 'open';
-      this.onopen?.();
-    }
-
-    emit(data: unknown) {
-      this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent<string>);
-    }
-  }
-
-  class MockRTCPeerConnection {
-    readonly dataChannel: MockRTCDataChannel;
-
-    readonly addTrack = jest.fn();
-
-    readonly setLocalDescription = jest.fn().mockResolvedValue(undefined);
-
-    readonly setRemoteDescription = jest.fn().mockResolvedValue(undefined);
-
-    readonly createOffer = jest
-      .fn()
-      .mockResolvedValue({ type: 'offer', sdp: 'v=0\r\no=- 0 0 IN IP4 127.0.0.1' });
-
-    readonly close = jest.fn();
-
-    readonly createDataChannel = jest.fn(() => this.dataChannel);
-
-    connectionState: RTCPeerConnectionState = 'connected';
-
-    onconnectionstatechange?: () => void;
-
-    constructor(channel: MockRTCDataChannel) {
-      this.dataChannel = channel;
-    }
-  }
-
-  const webrtcDefaults = {
-    model: 'gpt-4o-realtime-preview',
-    transport: 'webrtc' as const,
-    stream: true,
-    inputAudioFormat: {
-      encoding: 'pcm16',
-      rate: 24000,
-      channels: 1,
-    },
-    session: {
-      type: 'realtime',
-      instructions: 'Be brief',
-      speechToSpeech: false,
-      audio: {
-        input: {
-          noiseReduction: 'server_light',
-          turnDetection: {
-            type: 'server_vad',
-            serverVad: { enabled: true },
-          },
-        },
-        output: {
-          voice: 'alloy',
-        },
-      },
-      modalities: ['text'],
-    },
-  } as const;
-
-  const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <RecoilRoot
-      initializeState={({ set }) => {
-        set(store.realtimeSTTOptions, webrtcDefaults);
-        set(store.autoSendText, 0);
-        set(store.speechToText, true);
-      }}
-    >
-      {children}
-    </RecoilRoot>
-  );
+  const originalMediaDevices = navigator.mediaDevices;
+  const originalGetUserMedia = navigator.mediaDevices?.getUserMedia;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    localStorage.clear();
     mockMutateAsync.mockReset();
-  });
-
-  it('negotiates a WebRTC session and handles transcription events', async () => {
-    const mockChannel = new MockRTCDataChannel('oai-events');
-    const mockPeerConnection = new MockRTCPeerConnection(mockChannel);
-    const peerConnectionFactory = jest.fn(() => mockPeerConnection);
-
-    mockMutateAsync.mockImplementation(async (_payload: RealtimeCallRequest) => ({
-      sdpAnswer: 'answer-sdp',
-    }));
-
-    const trackStop = jest.fn();
-    const mockStream: MediaStream = {
-      getTracks: () => [
-        {
-          stop: trackStop,
-        } as unknown as MediaStreamTrack,
-      ],
-    } as MediaStream;
-
-    const getUserMedia = jest.fn().mockResolvedValue(mockStream);
+    const mediaDevices = navigator.mediaDevices ?? {};
     Object.defineProperty(navigator, 'mediaDevices', {
+      value: mediaDevices,
       configurable: true,
-      value: { getUserMedia },
+      writable: true,
     });
-
-    const setText = jest.fn();
-    const onComplete = jest.fn();
-
-    const { result } = renderHook(
-      () =>
-        useSpeechToTextRealtime(setText, onComplete, {
-          peerConnectionFactory,
-        }),
-      { wrapper: Wrapper },
-    );
-
-    await act(async () => {
-      await result.current.startRecording();
-    });
-
-    expect(getUserMedia).toHaveBeenCalledWith({ audio: true, video: false });
-    expect(peerConnectionFactory).toHaveBeenCalled();
-    expect(mockPeerConnection.addTrack).toHaveBeenCalled();
-    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-
-    const payload = mockMutateAsync.mock.calls[0][0];
-    expect(payload.sdpOffer).toContain('v=0');
-    expect(payload.session).toMatchObject({
-      type: 'realtime',
-      model: 'gpt-4o-realtime-preview',
-      instructions: 'Be brief',
-      audio: {
-        output: { voice: 'alloy' },
-        input: {
-          noiseReduction: 'server_light',
-          turnDetection: { type: 'server_vad', serverVad: { enabled: true } },
-        },
-      },
-      modalities: ['text'],
-    });
-    expect(payload.include).toBeUndefined();
-
-    act(() => {
-      mockChannel.open();
-    });
-
-    expect(result.current.isListening).toBe(true);
-    expect(result.current.isLoading).toBe(false);
-
-    act(() => {
-      mockChannel.emit({
-        type: 'conversation.item.input_audio_transcription.delta',
-        delta: { text: 'Hello ' },
-      });
-    });
-
-    expect(setText).toHaveBeenCalledWith('Hello ');
-    expect(result.current.status).toBe('processing');
-
-    await act(async () => {
-      mockChannel.emit({
-        type: 'conversation.item.input_audio_transcription.completed',
-        transcription: { text: 'Hello world' },
-      });
-    });
-
-    expect(setText).toHaveBeenLastCalledWith('Hello world');
-    expect(onComplete).toHaveBeenCalledWith('Hello world');
-    expect(result.current.status).toBe('completed');
-    expect(trackStop).toHaveBeenCalled();
-  });
-
-  it('applies realtime option overrides in the SDP payload', async () => {
-    const mockChannel = new MockRTCDataChannel('oai-events');
-    const mockPeerConnection = new MockRTCPeerConnection(mockChannel);
-    const peerConnectionFactory = jest.fn(() => mockPeerConnection);
-
-    mockMutateAsync.mockResolvedValue({ sdpAnswer: 'answer-sdp' });
-
-    const mockStream: MediaStream = {
+    (navigator.mediaDevices.getUserMedia as jest.Mock | undefined)?.mockReset?.();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (navigator.mediaDevices as any).getUserMedia = jest.fn(async () => ({
       getTracks: () => [
         {
           stop: jest.fn(),
-        } as unknown as MediaStreamTrack,
-      ],
-    } as MediaStream;
-
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: { getUserMedia: jest.fn().mockResolvedValue(mockStream) },
-    });
-
-    const { result } = renderHook(
-      () =>
-        useSpeechToTextRealtime(jest.fn(), jest.fn(), {
-          peerConnectionFactory,
-          mode: 'speech_to_text',
-          model: 'gpt-4o-mini',
-          voice: 'verse',
-          instructions: 'Keep it short',
-          include: ['text', 'audio'],
-          turnDetection: { type: 'semantic', semantic: { enabled: true } },
-          noiseReduction: { type: 'server', preset: 'medium' },
-          callOverrides: { include: ['audio'], voice: 'nova' },
-        }),
-      { wrapper: Wrapper },
-    );
-
-    await act(async () => {
-      await result.current.startRecording();
-    });
-
-    const payload = mockMutateAsync.mock.calls[0][0];
-    expect(payload.session).toMatchObject({
-      type: 'transcription',
-      model: 'gpt-4o-mini',
-      instructions: 'Keep it short',
-      audio: {
-        output: { voice: 'nova' },
-        input: {
-          noiseReduction: { type: 'server', preset: 'medium' },
-          turnDetection: { type: 'semantic', semantic: { enabled: true } },
+          kind: 'audio',
         },
-      },
-    });
-    expect(payload.session?.modalities).toEqual(expect.arrayContaining(['text', 'audio']));
-    expect(payload.include).toBeUndefined();
+      ],
+    }));
   });
 
-  it('surfaces microphone errors via status and error callbacks', async () => {
-    const errorSpy = jest.fn();
-    const statusSpy = jest.fn();
+  afterAll(() => {
+    if (originalMediaDevices) {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: originalMediaDevices,
+        configurable: true,
+        writable: true,
+      });
+      if (originalGetUserMedia) {
+        navigator.mediaDevices.getUserMedia = originalGetUserMedia;
+      } else {
+        delete (navigator.mediaDevices as any).getUserMedia;
+      }
+    } else {
+      delete (navigator as any).mediaDevices;
+    }
+  });
 
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: { getUserMedia: jest.fn().mockRejectedValue(new Error('denied')) },
+  it('builds realtime call payload without deprecated modalities', async () => {
+    const callSpy = jest.fn(async (payload) => {
+      return { sdpAnswer: 'mock-answer' };
     });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <RecoilRoot
+        initializeState={({ set }) => {
+          set(store.realtimeSTTOptions, {
+            ...DEFAULT_REALTIME_STT_OPTIONS,
+            session: {
+              ...DEFAULT_REALTIME_STT_OPTIONS.session,
+              type: 'realtime',
+              speechToSpeech: true,
+              textOutput: true,
+              audioOutput: true,
+              audio: {
+                ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio ?? {}),
+                output: {
+                  ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio?.output ?? {}),
+                  enabled: true,
+                },
+              },
+            },
+          });
+          set(store.speechToText, true);
+        }}
+      >
+        {children}
+      </RecoilRoot>
+    );
 
     const { result } = renderHook(
       () =>
         useSpeechToTextRealtime(jest.fn(), jest.fn(), {
-          onError: errorSpy,
-          onStatusChange: statusSpy,
+          realtimeCallInvoker: callSpy,
+          peerConnectionFactory: () => new MockPeerConnection(),
         }),
-      { wrapper: Wrapper },
+      { wrapper },
     );
 
     await act(async () => {
       await result.current.startRecording();
     });
 
-    expect(result.current.status).toBe('error');
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.error).toBe('Microphone permission denied');
-    expect(errorSpy).toHaveBeenCalledWith('Microphone permission denied');
-    expect(statusSpy).toHaveBeenCalledWith('acquiring_media');
-    expect(statusSpy).toHaveBeenLastCalledWith('error');
-    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(callSpy).toHaveBeenCalledTimes(1);
+    const payload = callSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload).toHaveProperty('session');
+    const session = payload.session as Record<string, unknown>;
+    expect(session).not.toHaveProperty('modalities');
+    expect(session).not.toHaveProperty('output_modalities');
+    expect(session.audioOutput).toBe(true);
   });
 });

@@ -55,12 +55,16 @@ describe('useSpeechToText', () => {
       ...DEFAULT_REALTIME_STT_OPTIONS,
       model: 'gpt-4o-realtime-preview',
       session: {
+        ...DEFAULT_REALTIME_STT_OPTIONS.session,
         type: 'realtime',
         instructions: 'Keep responses concise',
         speechToSpeech: true,
+        textOutput: true,
+        audioOutput: true,
         audio: {
+          ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio ?? {}),
           input: {
-            format: DEFAULT_REALTIME_STT_OPTIONS.session?.audio?.input?.format,
+            ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio?.input ?? {}),
             noiseReduction: 'server_light',
             turnDetection: {
               type: 'server_vad',
@@ -71,10 +75,11 @@ describe('useSpeechToText', () => {
             },
           },
           output: {
+            ...(DEFAULT_REALTIME_STT_OPTIONS.session?.audio?.output ?? {}),
             voice: 'verse',
+            enabled: true,
           },
         },
-        modalities: ['text', 'audio'],
       },
     };
 
@@ -106,5 +111,6 @@ describe('useSpeechToText', () => {
       type: 'server_vad',
       serverVad: { enabled: true, threshold: -45 },
     });
+    expect(options).not.toHaveProperty('modalities');
   });
 });

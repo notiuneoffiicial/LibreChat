@@ -85,7 +85,30 @@ describe('Realtime audio settings components', () => {
     expect(voiceInput).not.toBeDisabled();
     fireEvent.change(voiceInput, { target: { value: 'alloy' } });
 
-    fireEvent.click(screen.getByTestId('realtime-include-audio'));
+    const audioToggle = screen.getByTestId('realtime-include-audio');
+    fireEvent.change(audioToggle, { target: { checked: false } });
+
+    await waitFor(() => {
+      expect(
+        stateSpy.mock.calls.some(([value]) => {
+          const session = (value as Record<string, any>).session ?? {};
+          return session.audioOutput === false;
+        }),
+      ).toBe(true);
+    });
+
+    fireEvent.change(audioToggle, { target: { checked: true } });
+
+    await waitFor(() => {
+      expect(
+        stateSpy.mock.calls.some(([value]) => {
+          const session = (value as Record<string, any>).session ?? {};
+          const audio = (session.audio ?? {}) as Record<string, any> | undefined;
+          const output = (audio?.output ?? {}) as Record<string, any> | undefined;
+          return session.audioOutput === true && output?.enabled === true;
+        }),
+      ).toBe(true);
+    });
 
     fireEvent.change(screen.getByTestId('realtime-instructions'), {
       target: { value: 'Follow my prompts precisely.' },
@@ -107,10 +130,11 @@ describe('Realtime audio settings components', () => {
     expect(latestState.session.type).toBe('realtime');
     expect(latestState.session.speechToSpeech).toBe(true);
     expect(latestState.session.audio.output.voice).toBe('alloy');
+    expect(latestState.session.audio.output.enabled).toBe(true);
     expect(latestState.session.instructions).toContain('Follow my prompts');
-    const modalities = latestState.session.modalities ?? [];
-    expect(modalities).toEqual(expect.arrayContaining(['text']));
-    expect(modalities.includes('audio') || latestState.session.speechToSpeech).toBe(true);
+    expect(latestState.session.textOutput).toBe(true);
+    expect(latestState.session.audioOutput).toBe(true);
+    expect(latestState.session.modalities).toBeUndefined();
     expect(latestState.include ?? []).toHaveLength(0);
     expect(latestState.session.audio.input.noiseReduction).toBe('server_standard');
     expect(latestState.session.audio.input.turnDetection).toMatchObject({
@@ -128,5 +152,6 @@ describe('Realtime audio settings components', () => {
     expect(stored).toBeTruthy();
     expect(stored).toContain('alloy');
     expect(stored).toContain('realtime');
+    expect(stored).not.toContain('modalities');
   });
 });
