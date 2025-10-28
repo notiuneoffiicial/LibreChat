@@ -144,6 +144,42 @@ describe('RealtimeCallService', () => {
     expect(payload).toEqual({ sdpAnswer: 'answer', expiresAt: 1234 });
   });
 
+  it('omits modal entries when rebuilding include list', async () => {
+    process.env.REALTIME_KEY = 'test-key';
+    const req = {
+      config: {
+        speech: {
+          stt: {
+            realtime: {
+              apiKey: '${REALTIME_KEY}',
+              model: 'gpt-realtime-mini',
+              session: {
+                include: ['text', 'logprobs'],
+                modalities: ['text'],
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const httpClient = {
+      post: jest.fn().mockResolvedValue({ data: { sdp: 'answer' } }),
+    };
+
+    const service = new RealtimeCallService({ httpClient });
+    await service.createCall(req, {
+      sdpOffer: 'offer',
+      include: ['audio'],
+    });
+
+    const sessionCall = appendSpy.mock.calls.find(([field]) => field === 'session');
+    const sessionPayload = JSON.parse(sessionCall[1]);
+
+    expect(sessionPayload.modalities).toEqual(expect.arrayContaining(['text', 'audio']));
+    expect(sessionPayload.include).toEqual(['logprobs']);
+  });
+
   it('includes speech-to-speech voice parameters and omits transcription defaults', async () => {
     process.env.REALTIME_KEY = 'test-key';
     const req = {

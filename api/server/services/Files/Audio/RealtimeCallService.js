@@ -254,9 +254,21 @@ class RealtimeCallService {
     });
 
     includeItems.forEach((entry) => {
-      if (typeof entry === 'string' && entry.length > 0) {
-        includeSet.add(entry);
+      if (typeof entry !== 'string') {
+        return;
       }
+
+      const trimmed = entry.trim();
+      if (trimmed.length === 0) {
+        return;
+      }
+
+      const normalized = trimmed.toLowerCase();
+      if (normalized === 'text' || normalized === 'audio') {
+        return;
+      }
+
+      includeSet.add(trimmed);
     });
 
     if (speechToSpeech) {
