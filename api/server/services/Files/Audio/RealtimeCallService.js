@@ -50,7 +50,6 @@ class RealtimeCallService {
     const headers = {
       ...formData.getHeaders(),
       Authorization: `Bearer ${apiKey}`,
-      'OpenAI-Beta': 'realtime=v1',
     };
 
     try {
@@ -115,6 +114,7 @@ class RealtimeCallService {
     const sessionConfig = config.session ?? {};
     const speechToSpeech = Boolean(sessionConfig.speechToSpeech);
     const session = {
+      type: overrides.type ?? sessionConfig.type ?? 'realtime',
       model: overrides.model ?? sessionConfig.model ?? config.model,
     };
 
@@ -128,11 +128,14 @@ class RealtimeCallService {
       session.instructions = instructions;
     }
 
-    const voice = overrides.voice ?? sessionConfig.voice;
+    const voice =
+      overrides?.audio?.output?.voice ??
+      overrides.voice ??
+      sessionConfig.audio?.output?.voice ??
+      sessionConfig.voice;
 
-    if (Array.isArray(sessionConfig.voices) && sessionConfig.voices.length > 0) {
-      session.voices = [...sessionConfig.voices];
-    }
+    const configuredVoices =
+      sessionConfig.audio?.output?.voices ?? sessionConfig.voices ?? overrides?.audio?.output?.voices;
 
     if (sessionConfig.instructionTemplates) {
       session.instruction_templates = { ...sessionConfig.instructionTemplates };
@@ -151,37 +154,57 @@ class RealtimeCallService {
     );
 
     if (modalities.length > 0) {
-      session.modalities = modalities;
+      session.output_modalities = modalities;
     }
 
     if (include.length > 0) {
       session.include = include;
     }
 
-    if (voice && modalities.includes('audio')) {
-      session.voice = voice;
-    }
+    const audio = {};
+    const inputAudio = {};
 
     const inputAudioFormat = this.#normalizeInputFormat(config.audio?.input?.format);
     if (inputAudioFormat) {
-      session.input_audio_format = inputAudioFormat;
+      inputAudio.format = inputAudioFormat;
     }
 
     const inputAudioNoiseReduction = this.#resolveNoiseReduction(config, overrides);
     if (inputAudioNoiseReduction !== undefined) {
-      session.input_audio_noise_reduction = inputAudioNoiseReduction;
+      inputAudio.noise_reduction = inputAudioNoiseReduction;
     }
 
     if (!speechToSpeech) {
       const transcriptionDefaults = this.#resolveTranscriptionDefaults(config);
       if (transcriptionDefaults) {
-        session.input_audio_transcription = transcriptionDefaults;
+        inputAudio.transcription = transcriptionDefaults;
       }
     }
 
     const turnDetection = this.#resolveTurnDetection(config, overrides);
     if (turnDetection) {
-      session.turn_detection = turnDetection;
+      inputAudio.turn_detection = turnDetection;
+    }
+
+    if (Object.keys(inputAudio).length > 0) {
+      audio.input = inputAudio;
+    }
+
+    const outputAudio = {};
+    if (Array.isArray(configuredVoices) && configuredVoices.length > 0) {
+      outputAudio.voices = [...configuredVoices];
+    }
+
+    if (voice && modalities.includes('audio')) {
+      outputAudio.voice = voice;
+    }
+
+    if (Object.keys(outputAudio).length > 0) {
+      audio.output = outputAudio;
+    }
+
+    if (Object.keys(audio).length > 0) {
+      session.audio = audio;
     }
 
     return session;
@@ -283,7 +306,10 @@ class RealtimeCallService {
 
   #resolveNoiseReduction(config, overrides) {
     const audioInput = config.audio?.input ?? {};
-    const noiseReduction = overrides.noiseReduction ?? audioInput.noiseReduction;
+    const overrideNoiseReduction =
+      overrides?.audio?.input?.noiseReduction ?? overrides.noiseReduction;
+    const noiseReduction =
+      overrideNoiseReduction !== undefined ? overrideNoiseReduction : audioInput.noiseReduction;
 
     if (noiseReduction === undefined || noiseReduction === null) {
       return undefined;
@@ -322,8 +348,11 @@ class RealtimeCallService {
       vadSource = this.#mergeDeep({}, audioInput.turnDetection);
     }
 
-    if (overrides.turnDetection && typeof overrides.turnDetection === 'object') {
-      vadSource = this.#mergeDeep(vadSource ?? {}, overrides.turnDetection);
+    const overrideTurnDetection =
+      overrides?.audio?.input?.turnDetection ?? overrides.turnDetection;
+
+    if (overrideTurnDetection && typeof overrideTurnDetection === 'object') {
+      vadSource = this.#mergeDeep(vadSource ?? {}, overrideTurnDetection);
     }
 
     if (!vadSource || Object.keys(vadSource).length === 0) {
