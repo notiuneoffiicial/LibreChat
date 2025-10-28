@@ -111,7 +111,10 @@ export async function updateInterfacePermissions({
       permType: PermissionTypes,
       permissions: Record<string, boolean | undefined>,
     ) => {
-      const permTypeExists = existingPermissions?.[permType];
+      const existingPermMap = existingPermissions?.[permType] as
+        | Record<string, boolean | undefined>
+        | undefined;
+      const permTypeExists = existingPermMap !== undefined;
       const isExplicitlyConfigured =
         interfaceConfig && hasExplicitConfig(interfaceConfig, permType);
       const isMemoryDisabled = permType === PermissionTypes.MEMORIES && isMemoryExplicitlyDisabled;
@@ -120,19 +123,41 @@ export async function updateInterfacePermissions({
         shouldEnableMemory &&
         existingPermissions?.[PermissionTypes.MEMORIES]?.[Permissions.USE] === false;
 
+      const existingEntries = existingPermMap ? Object.entries(existingPermMap) : [];
+      const hasEntries = existingEntries.length > 0;
+      const requiredEntries = Object.entries(permissions).filter(([, value]) => value !== undefined);
+
+      const isMissingRequiredKey = requiredEntries.some(([key]) => {
+        return existingPermMap ? !(key in existingPermMap) : true;
+      });
+
+      const hasMismatchedValue = requiredEntries.some(([key, value]) => {
+        return existingPermMap ? existingPermMap[key] !== value : true;
+      });
+
+      const shouldSeedPermissions =
+        !permTypeExists || !hasEntries || isMissingRequiredKey || hasMismatchedValue;
+
       // Only update if: doesn't exist OR explicitly configured OR memory state change
-      if (!permTypeExists || isExplicitlyConfigured || isMemoryDisabled || isMemoryReenabling) {
+      if (
+        shouldSeedPermissions ||
+        isExplicitlyConfigured ||
+        isMemoryDisabled ||
+        isMemoryReenabling
+      ) {
         permissionsToUpdate[permType] = permissions;
-        if (!permTypeExists) {
-          logger.debug(`Role '${roleName}': Setting up default permissions for '${permType}'`);
-        } else if (isExplicitlyConfigured) {
-          logger.debug(`Role '${roleName}': Applying explicit config for '${permType}'`);
-        } else if (isMemoryDisabled) {
+        if (isMemoryDisabled) {
           logger.debug(`Role '${roleName}': Disabling memories as memory.disabled is true`);
         } else if (isMemoryReenabling) {
           logger.debug(
             `Role '${roleName}': Re-enabling memories due to valid memory configuration`,
           );
+        } else if (!permTypeExists || !hasEntries) {
+          logger.debug(`Role '${roleName}': Setting up default permissions for '${permType}'`);
+        } else if (isExplicitlyConfigured) {
+          logger.debug(`Role '${roleName}': Applying explicit config for '${permType}'`);
+        } else if (isMissingRequiredKey || hasMismatchedValue) {
+          logger.debug(`Role '${roleName}': Correcting permissions for '${permType}'`);
         }
       } else {
         logger.debug(`Role '${roleName}': Preserving existing permissions for '${permType}'`);
