@@ -151,7 +151,6 @@ export type RealtimeSessionDefaults = {
   model?: string;
   speechToSpeech?: boolean;
   instructions?: string;
-  instructionTemplates?: Record<string, string>;
   output_modalities?: string[];
   include?: string[];
   voice?: string;
@@ -240,8 +239,6 @@ export type RealtimeSessionOverrides = {
   mode?: string;
   model?: string;
   instructions?: string;
-  instructionTemplates?: Record<string, string>;
-  instruction_templates?: Record<string, string>;
   output_modalities?: string[];
   modalities?: string[];
   include?: string[];

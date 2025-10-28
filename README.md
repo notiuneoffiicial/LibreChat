@@ -28,14 +28,9 @@ speech:
         model: gpt-4o-realtime-preview # override the session model when it differs from `model`
         voice: alloy                 # pre-select the realtime voice
         voices: [alloy, nova, verse] # optional – surface allowed voices in the UI
-        instructions: |
+        instructions: |              # GA-compliant realtime session prompt
           You are LibreChat's realtime assistant. Respond briefly and confirm
           important details back to the user.
-        instructionTemplates:        # optional named snippets surfaced to the UI
-          default: |
-            Keep replies concise and finish with a follow-up question.
-          handsfree: |
-            Provide spoken-friendly responses with no markdown formatting.
       audio:
         input:
           format:                    # optional – overrides fallback audio format defaults
@@ -85,7 +80,7 @@ picked up.
   continue to work. When you're ready, move those settings under
   `audio.input.format` and optionally populate the new
   `noiseReduction`, `transcriptionDefaults`, and `turnDetection` blocks.
-- New `session` defaults (mode, model, voice, instructions, templates, and the
+- New `session` defaults (mode, model, voice, instructions, and the
   speech-to-speech toggle) are persisted for authenticated users without exposing
   your API key. The UI falls back to legacy behaviour if the block is omitted.
 - The optional `include` list narrows which modalities are requested when the

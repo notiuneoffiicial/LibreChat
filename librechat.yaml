@@ -95,13 +95,8 @@ speech:
         speechToSpeech: false
         model: "gpt-realtime-mini"
         instructions: |
-          You are LibreChat's realtime assistant. Follow the configured
-          instruction template when responding to microphone input.
-        instructionTemplates:
-          default: |
-            Please summarize the user's request before responding.
-          handsfree: |
-            Keep replies short (max 2 sentences) while in hands-free mode.
+          You are LibreChat's realtime assistant. Respond briefly, confirm key
+          details, and provide follow-up suggestions when helpful.
         audio:
           input:
             format:
