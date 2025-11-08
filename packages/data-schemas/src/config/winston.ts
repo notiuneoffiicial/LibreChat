@@ -5,7 +5,7 @@ import { getLogDirectory } from './utils';
 
 const logDir = getLogDirectory();
 
-const { NODE_ENV, DEBUG_LOGGING, CONSOLE_JSON, DEBUG_CONSOLE } = process.env;
+const { NODE_ENV, DEBUG_LOGGING, CONSOLE_JSON, DEBUG_CONSOLE, META_PROMPT_LOGS } = process.env;
 
 const useConsoleJson = typeof CONSOLE_JSON === 'string' && CONSOLE_JSON.toLowerCase() === 'true';
 
@@ -31,9 +31,20 @@ winston.addColors({
   debug: 'blue',
 });
 
+const metaPromptLoggingEnabled =
+  typeof META_PROMPT_LOGS === 'string' && ['true', '1', 'yes'].includes(META_PROMPT_LOGS.toLowerCase());
+
 const level = (): string => {
   const env = NODE_ENV || 'development';
-  return env === 'development' ? 'debug' : 'warn';
+  if (env === 'development') {
+    return 'debug';
+  }
+
+  if (metaPromptLoggingEnabled) {
+    return 'info';
+  }
+
+  return 'warn';
 };
 
 const fileFormat = winston.format.combine(

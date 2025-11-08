@@ -331,7 +331,7 @@ module.exports = {
                 promptPrefixHistory = promptPrefixHistory.slice(-MAX_HISTORY_LENGTH);
               }
 
-              logger.debug('[saveConvo] meta prompt update', {
+              logger.info('[saveConvo] meta prompt update', {
                 conversationId: targetConversationId,
                 revision,
                 guardrailStatus: composerResult.guardrailStatus,

@@ -102,3 +102,10 @@ picked up.
 - OpenAI's GA endpoint for SDP negotiation is now `/v1/realtime/calls`. Ensure
   your outbound firewall allows this host and remove references to the
   deprecated session endpoints.
+
+## Meta prompt logging in production
+
+Meta prompt updates are logged at the `info` level. Production builds default to
+`warn`, so these entries are normally suppressed. Set the
+`META_PROMPT_LOGS=true` environment variable (or `1`/`yes`) to raise the base
+logger level to `info` and capture meta prompt diagnostics when needed.
