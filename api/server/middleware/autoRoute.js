@@ -2,6 +2,13 @@ const { logger } = require('@librechat/data-schemas');
 const { applyAutoRouting } = require('~/server/services/Router/autoRouter');
 
 function autoRoute(req, _res, next) {
+  const shouldAutoRoute =
+    req.config?.autoRouterEnabled ?? req.config?.config?.autoRouter ?? true;
+
+  if (!shouldAutoRoute) {
+    return next();
+  }
+
   try {
     const result = applyAutoRouting(req);
     if (result?.parsedConversation) {

@@ -6,6 +6,8 @@ version: 1.2.1
 
 # Cache settings: Set to true to enable caching
 cache: true
+# Auto Router: enable or disable automatic routing of agent requests
+autoRouter: true
 
 # File storage configuration
 # Single strategy for all file types (legacy format, still supported)

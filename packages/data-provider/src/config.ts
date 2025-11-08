@@ -928,6 +928,7 @@ const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 export const configSchema = z.object({
   version: z.string(),
   cache: z.boolean().default(true),
+  autoRouter: z.boolean().default(true),
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
