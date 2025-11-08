@@ -89,6 +89,8 @@ export interface AppConfig {
   modelSpecs?: TCustomConfig['modelSpecs'];
   /** Available tools */
   availableTools?: Record<string, FunctionTool>;
+  /** Flag controlling automatic routing behavior */
+  autoRouterEnabled: boolean;
   endpoints?: {
     /** OpenAI endpoint configuration */
     openAI?: Partial<TEndpoint>;

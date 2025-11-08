@@ -28,6 +28,7 @@ const createTestAppConfig = (overrides: Partial<AppConfig> = {}): AppConfig => {
     fileStrategy: FileSources.local,
     fileStrategies: {},
     imageOutputType: 'png',
+    autoRouterEnabled: true,
     ...overrides,
   };
 };
