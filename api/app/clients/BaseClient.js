@@ -23,7 +23,9 @@ const {
 const { getMessages, saveMessage, updateMessage, saveConvo, getConvo } = require('~/models');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { checkBalance } = require('~/models/balanceMethods');
-const { truncateToolCallOutputs } = require('./prompts');
+const { truncateText, truncateToolCallOutputs } = require('./prompts');
+
+const SUMMARY_LOG_CHAR_LIMIT = 120;
 const countTokens = require('~/server/utils/countTokens');
 const { getFiles } = require('~/models/File');
 const { initializeMemoryContext } = require('~/server/services/Memory');
@@ -525,6 +527,23 @@ class BaseClient {
     let summaryTokenCount;
     let { shouldSummarize } = this;
 
+    const logSummaryPreview = () => {
+      if (!summaryMessage) {
+        return;
+      }
+
+      const summaryPreview =
+        typeof summaryMessage.content === 'string'
+          ? truncateText(summaryMessage.content, SUMMARY_LOG_CHAR_LIMIT)
+          : '[summary unavailable]';
+
+      logger.info('[BaseClient] Summary prepared for conversation context', {
+        conversationId: this.conversationId,
+        summaryPreview,
+        summaryTokenCount: summaryTokenCount ?? null,
+      });
+    };
+
     // Calculate the difference in length to determine how many messages were discarded if any
     let payload;
     let { length } = formattedMessages;
@@ -581,6 +600,7 @@ class BaseClient {
 
     if (usePrevSummary && summaryMessage) {
       summaryTokenCount = summaryTokenCount ?? this.getTokenCountForMessage(summaryMessage);
+      logSummaryPreview();
       payload.unshift(summaryMessage);
       remainingContextTokens -= summaryTokenCount ?? 0;
     } else if (shouldSummarize && messagesToRefine.length > 0) {
@@ -590,6 +610,7 @@ class BaseClient {
       }));
       if (summaryMessage) {
         summaryTokenCount = summaryTokenCount ?? this.getTokenCountForMessage(summaryMessage);
+        logSummaryPreview();
         payload.unshift(summaryMessage);
         remainingContextTokens -= summaryTokenCount ?? 0;
         const summarySource = messagesToRefine[messagesToRefine.length - 1];
