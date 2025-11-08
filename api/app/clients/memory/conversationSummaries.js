@@ -1,5 +1,8 @@
 const { logger } = require('@librechat/data-schemas');
 const { setMemory, getAllUserMemories } = require('~/models');
+const { truncateText } = require('../prompts');
+
+const SUMMARY_LOG_CHAR_LIMIT = 120;
 
 class ConversationSummaryManager {
   constructor({ req, conversationId } = {}) {
@@ -224,6 +227,11 @@ class ConversationSummaryManager {
     const boundedSummary = trimmedSummary.slice(0, this.charLimit);
 
     try {
+      logger.info('[ConversationSummaryManager] Persisting conversation summary', {
+        conversationId: targetId,
+        summaryPreview: truncateText(boundedSummary, SUMMARY_LOG_CHAR_LIMIT),
+        summaryTokenCount: tokenCount ?? null,
+      });
       await setMemory({
         userId: this.userId,
         key,
