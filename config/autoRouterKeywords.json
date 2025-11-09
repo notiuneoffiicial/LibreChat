@@ -1,0 +1,261 @@
+{
+  "defaultPatternWeight": 0.08,
+  "keywordGroups": [
+    {
+      "intent": "writing",
+      "baseIntensity": 0.6,
+      "maxBoost": 0.32,
+      "patterns": [
+        { "pattern": "\\bwrite\\b", "flags": "i" },
+        { "pattern": "\\bdraft\\b", "flags": "i" },
+        { "pattern": "\\barticle\\b", "flags": "i" },
+        { "pattern": "\\bcopy\\b", "flags": "i" },
+        { "pattern": "\\bblog\\b", "flags": "i" },
+        { "pattern": "\\bstory\\b", "flags": "i" },
+        { "pattern": "\\bessay\\b", "flags": "i" },
+        { "pattern": "script\\b", "flags": "i" },
+        { "pattern": "narrative", "flags": "i" }
+      ]
+    },
+    {
+      "intent": "coding",
+      "baseIntensity": 0.62,
+      "maxBoost": 0.36,
+      "patterns": [
+        { "pattern": "\\bcode\\b", "flags": "i" },
+        { "pattern": "\\bbug\\b", "flags": "i" },
+        { "pattern": "\\bfunction\\b", "flags": "i" },
+        { "pattern": "\\bclass\\b", "flags": "i" },
+        { "pattern": "stack trace", "flags": "i" },
+        { "pattern": "\\bapi\\b", "flags": "i" },
+        { "pattern": "\\btypescript\\b", "flags": "i" },
+        { "pattern": "\\bpython\\b", "flags": "i" },
+        { "pattern": "\\bscript\\b", "flags": "i" },
+        { "pattern": "\\berror\\b", "flags": "i" },
+        {
+          "type": "codeblock",
+          "description": "codeblock",
+          "weight": 0.12
+        },
+        {
+          "type": "attachment",
+          "match": [
+            "code",
+            "text/x-python",
+            "text/x-typescript",
+            "application/javascript",
+            "application/x-python-code",
+            "ext:py",
+            "ext:js",
+            "ext:ts",
+            "tool:code_interpreter"
+          ],
+          "description": "attachment:code",
+          "weight": 0.12
+        },
+        {
+          "type": "language",
+          "match": "explicitMention",
+          "codes": ["python", "javascript", "typescript"],
+          "description": "language:code",
+          "weight": 0.08
+        }
+      ]
+    },
+    {
+      "intent": "analysis",
+      "baseIntensity": 0.58,
+      "maxBoost": 0.34,
+      "patterns": [
+        { "pattern": "analys[e|z]", "flags": "i" },
+        { "pattern": "\\bdata\\b", "flags": "i" },
+        { "pattern": "\\bmetric\\b", "flags": "i" },
+        { "pattern": "\\binsight\\b", "flags": "i" },
+        { "pattern": "\\btrend\\b", "flags": "i" },
+        { "pattern": "\\breport\\b", "flags": "i" },
+        { "pattern": "\\bchart\\b", "flags": "i" },
+        { "pattern": "dataset", "flags": "i" },
+        { "pattern": "root cause", "flags": "i" },
+        {
+          "type": "attachment",
+          "match": [
+            "text/csv",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "ext:csv",
+            "ext:xls",
+            "ext:xlsx"
+          ],
+          "description": "attachment:data",
+          "weight": 0.12
+        }
+      ]
+    },
+    {
+      "intent": "research",
+      "baseIntensity": 0.6,
+      "maxBoost": 0.34,
+      "patterns": [
+        { "pattern": "research", "flags": "i" },
+        { "pattern": "source[s]?", "flags": "i" },
+        { "pattern": "citation", "flags": "i" },
+        { "pattern": "reference", "flags": "i" },
+        { "pattern": "evidence", "flags": "i" },
+        { "pattern": "statistic", "flags": "i" },
+        { "pattern": "study", "flags": "i" },
+        { "pattern": "whitepaper", "flags": "i" },
+        {
+          "type": "attachment",
+          "match": [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "ext:pdf",
+            "ext:doc",
+            "ext:docx"
+          ],
+          "description": "attachment:research",
+          "weight": 0.12
+        }
+      ]
+    },
+    {
+      "intent": "summary",
+      "baseIntensity": 0.55,
+      "maxBoost": 0.3,
+      "patterns": [
+        { "pattern": "summari[sz]e", "flags": "i" },
+        { "pattern": "summary", "flags": "i" },
+        { "pattern": "\\btl;dr\\b", "flags": "i" },
+        { "pattern": "overview", "flags": "i" },
+        { "pattern": "recap", "flags": "i" },
+        { "pattern": "condense", "flags": "i" }
+      ]
+    },
+    {
+      "intent": "translation",
+      "baseIntensity": 0.55,
+      "maxBoost": 0.36,
+      "patterns": [
+        { "pattern": "translate", "flags": "i" },
+        { "pattern": "translation", "flags": "i" },
+        { "pattern": "into [a-z]+", "flags": "i" },
+        { "pattern": "in ([a-z]+ )?spanish", "flags": "i" },
+        { "pattern": "in ([a-z]+ )?french", "flags": "i" },
+        { "pattern": "bilingual", "flags": "i" },
+        { "pattern": "localize", "flags": "i" },
+        {
+          "type": "language",
+          "match": "nonEnglish",
+          "description": "language:nonEnglish",
+          "weight": 0.14
+        },
+        {
+          "type": "language",
+          "match": "multiple",
+          "description": "language:multiple",
+          "weight": 0.12
+        },
+        {
+          "type": "language",
+          "codes": ["es", "fr", "de", "pt", "zh", "ja", "ko", "ar", "ru"],
+          "description": "language:target",
+          "weight": 0.14
+        }
+      ]
+    },
+    {
+      "intent": "planning",
+      "baseIntensity": 0.56,
+      "maxBoost": 0.32,
+      "patterns": [
+        { "pattern": "plan", "flags": "i" },
+        { "pattern": "roadmap", "flags": "i" },
+        { "pattern": "timeline", "flags": "i" },
+        { "pattern": "schedule", "flags": "i" },
+        { "pattern": "milestone", "flags": "i" },
+        { "pattern": "budget", "flags": "i" },
+        { "pattern": "rollout", "flags": "i" },
+        { "pattern": "implementation plan", "flags": "i" }
+      ]
+    },
+    {
+      "intent": "brainstorming",
+      "baseIntensity": 0.57,
+      "maxBoost": 0.32,
+      "patterns": [
+        { "pattern": "brainstorm", "flags": "i" },
+        { "pattern": "ideas?", "flags": "i" },
+        { "pattern": "concept", "flags": "i" },
+        { "pattern": "name ideas?", "flags": "i" },
+        { "pattern": "ideation", "flags": "i" },
+        { "pattern": "creative direction", "flags": "i" },
+        { "pattern": "what are some ways", "flags": "i" }
+      ]
+    },
+    {
+      "intent": "support",
+      "baseIntensity": 0.6,
+      "maxBoost": 0.3,
+      "patterns": [
+        { "pattern": "feel", "flags": "i" },
+        { "pattern": "upset", "flags": "i" },
+        { "pattern": "sad", "flags": "i" },
+        { "pattern": "anxious", "flags": "i" },
+        { "pattern": "stressed", "flags": "i" },
+        { "pattern": "cope", "flags": "i" },
+        { "pattern": "struggling", "flags": "i" },
+        { "pattern": "vent", "flags": "i" },
+        { "pattern": "emotion", "flags": "i" }
+      ]
+    },
+    {
+      "intent": "strategy",
+      "baseIntensity": 0.6,
+      "maxBoost": 0.32,
+      "patterns": [
+        { "pattern": "strategy", "flags": "i" },
+        { "pattern": "strategic", "flags": "i" },
+        { "pattern": "prioriti[sz]e", "flags": "i" },
+        { "pattern": "growth", "flags": "i" },
+        { "pattern": "campaign", "flags": "i" },
+        { "pattern": "positioning", "flags": "i" },
+        { "pattern": "competitive", "flags": "i" },
+        { "pattern": "decision framework", "flags": "i" }
+      ]
+    }
+  ],
+  "quickIntent": {
+    "tokenBudgetThreshold": 1200,
+    "intensity": 0.68,
+    "patterns": [
+      { "pattern": "\\bquick\\b", "flags": "i" },
+      { "pattern": "\\bfast\\b", "flags": "i" },
+      { "pattern": "\\bbrief\\b", "flags": "i" },
+      { "pattern": "\\bconcise\\b", "flags": "i" },
+      { "pattern": "\\bshort\\b", "flags": "i" },
+      { "pattern": "tl;dr", "flags": "i" }
+    ]
+  },
+  "detailIntent": {
+    "tokenBudgetThreshold": 6000,
+    "intensity": 0.76,
+    "patterns": [
+      { "pattern": "\\bthorough\\b", "flags": "i" },
+      { "pattern": "\\bdeep dive\\b", "flags": "i" },
+      { "pattern": "in-depth", "flags": "i" },
+      { "pattern": "detailed", "flags": "i" },
+      { "pattern": "comprehensive", "flags": "i" }
+    ]
+  },
+  "supportIntent": {
+    "intensity": 0.66,
+    "patterns": [
+      { "pattern": "vent", "flags": "i" },
+      { "pattern": "overwhelmed", "flags": "i" },
+      { "pattern": "burnt? out", "flags": "i" },
+      { "pattern": "lonely", "flags": "i" },
+      { "pattern": "heartbroken", "flags": "i" }
+    ]
+  }
+}

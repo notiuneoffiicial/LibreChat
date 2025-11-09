@@ -181,6 +181,42 @@ describe('applyAutoRouting', () => {
     expect(req.body.web_search).toBe(true);
   });
 
+  it('uses code signals to route to the coding preset', () => {
+    const req = createRequest({
+      body: {
+        text: 'Here is my failing snippet:```python\nprint(1/0)``` please debug it.',
+        files: [
+          {
+            mimetype: 'text/x-python',
+            filename: 'example.py',
+          },
+        ],
+      },
+    });
+
+    const result = applyAutoRouting(req);
+
+    expect(req.body.spec).toBe('optimism_builder');
+    expect(result.candidate.keywordHits).toEqual(
+      expect.arrayContaining([expect.stringContaining('codeblock')]),
+    );
+    expect(result.candidate.keywordHits).toEqual(
+      expect.arrayContaining([expect.stringContaining('attachment:')]),
+    );
+  });
+
+  it('detects multilingual requests and favors translation', () => {
+    const req = createRequest({
+      body: {
+        text: 'Bonjour! ¿Puedes traducir esto al inglés y al español, por favor?',
+      },
+    });
+
+    applyAutoRouting(req);
+
+    expect(req.body.spec).toBe('optimism_translator');
+  });
+
   it('skips auto routing when an agent id is provided', () => {
     const req = createRequest({
       body: {
