@@ -1,6 +1,7 @@
 const { logger } = require('@librechat/data-schemas');
 const { parseCompactConvo, removeNullishValues, Tools } = require('librechat-data-provider');
 const { DEFAULT_INTENT, updateGauge, getState } = require('./intentGauge');
+const { getKeywordConfig, LANGUAGE_NAME_TO_CODE } = require('./autoRouterConfig');
 
 const AUTO_ROUTED_ENDPOINTS = new Set(['Deepseek', 'agents']);
 
@@ -42,153 +43,14 @@ const INTENT_TO_SPEC = {
   quick: 'optimism_quick',
 };
 
-const KEYWORD_GROUPS = [
-  {
-    intent: 'writing',
-    baseIntensity: 0.6,
-    patterns: [
-      /\bwrite\b/i,
-      /\bdraft\b/i,
-      /\barticle\b/i,
-      /\bcopy\b/i,
-      /\bblog\b/i,
-      /\bstory\b/i,
-      /\bessay\b/i,
-      /script\b/i,
-      /narrative/i,
-    ],
-  },
-  {
-    intent: 'coding',
-    baseIntensity: 0.62,
-    patterns: [
-      /\bcode\b/i,
-      /\bbug\b/i,
-      /\bfunction\b/i,
-      /\bclass\b/i,
-      /stack trace/i,
-      /\bapi\b/i,
-      /\btypescript\b/i,
-      /\bpython\b/i,
-      /\bscript\b/i,
-      /\berror\b/i,
-    ],
-  },
-  {
-    intent: 'analysis',
-    baseIntensity: 0.58,
-    patterns: [
-      /analys[e|z]/i,
-      /\bdata\b/i,
-      /\bmetric\b/i,
-      /\binsight\b/i,
-      /\btrend\b/i,
-      /\breport\b/i,
-      /\bchart\b/i,
-      /dataset/i,
-      /root cause/i,
-    ],
-  },
-  {
-    intent: 'research',
-    baseIntensity: 0.6,
-    patterns: [
-      /research/i,
-      /source[s]?/i,
-      /citation/i,
-      /reference/i,
-      /evidence/i,
-      /statistic/i,
-      /study/i,
-      /whitepaper/i,
-    ],
-  },
-  {
-    intent: 'summary',
-    baseIntensity: 0.55,
-    patterns: [
-      /summari[sz]e/i,
-      /summary/i,
-      /\btl;dr\b/i,
-      /overview/i,
-      /recap/i,
-      /condense/i,
-    ],
-  },
-  {
-    intent: 'translation',
-    baseIntensity: 0.55,
-    patterns: [
-      /translate/i,
-      /translation/i,
-      /into [a-z]+/i,
-      /in ([a-z]+ )?spanish/i,
-      /in ([a-z]+ )?french/i,
-      /bilingual/i,
-      /localize/i,
-    ],
-  },
-  {
-    intent: 'planning',
-    baseIntensity: 0.56,
-    patterns: [
-      /plan/i,
-      /roadmap/i,
-      /timeline/i,
-      /schedule/i,
-      /milestone/i,
-      /budget/i,
-      /rollout/i,
-      /implementation plan/i,
-    ],
-  },
-  {
-    intent: 'brainstorming',
-    baseIntensity: 0.57,
-    patterns: [
-      /brainstorm/i,
-      /ideas?/i,
-      /concept/i,
-      /name ideas?/i,
-      /ideation/i,
-      /creative direction/i,
-      /what are some ways/i,
-    ],
-  },
-  {
-    intent: 'support',
-    baseIntensity: 0.6,
-    patterns: [
-      /feel/i,
-      /upset/i,
-      /sad/i,
-      /anxious/i,
-      /stressed/i,
-      /cope/i,
-      /struggling/i,
-      /vent/i,
-      /emotion/i,
-    ],
-  },
-  {
-    intent: 'strategy',
-    baseIntensity: 0.6,
-    patterns: [
-      /strategy/i,
-      /strategic/i,
-      /prioriti[sz]e/i,
-      /growth/i,
-      /campaign/i,
-      /positioning/i,
-      /competitive/i,
-      /decision framework/i,
-    ],
-  },
-];
-
-const QUICK_PATTERNS = [/\bquick\b/i, /\bfast\b/i, /\bbrief\b/i, /\bconcise\b/i, /\bshort\b/i, /tl;dr/i];
-const DETAIL_PATTERNS = [/\bthorough\b/i, /\bdeep dive\b/i, /in-depth/i, /detailed/i, /comprehensive/i];
-const SUPPORT_PATTERNS = [/vent/i, /overwhelmed/i, /burnt? out/i, /lonely/i, /heartbroken/i];
+const KEYWORD_CONFIG = getKeywordConfig();
+const KEYWORD_GROUPS = KEYWORD_CONFIG.keywordGroups;
+const QUICK_CONFIG = KEYWORD_CONFIG.quickIntent;
+const DETAIL_CONFIG = KEYWORD_CONFIG.detailIntent;
+const SUPPORT_CONFIG = KEYWORD_CONFIG.supportIntent;
+const QUICK_PATTERNS = QUICK_CONFIG.patterns;
+const DETAIL_PATTERNS = DETAIL_CONFIG.patterns;
+const SUPPORT_PATTERNS = SUPPORT_CONFIG.patterns;
 const EXPLICIT_SEARCH_PATTERNS = [
   /\bweb ?search\b/i,
   /\bsearch (?:the )?(?:web|internet|online)\b/i,
@@ -249,21 +111,412 @@ function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
 
-function computeKeywordSignals(text) {
-  const signals = [];
-  for (const group of KEYWORD_GROUPS) {
-    let count = 0;
-    const hits = [];
-    for (const pattern of group.patterns) {
-      if (pattern.test(text)) {
-        count += 1;
-        hits.push(pattern.source ?? pattern.toString());
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const LANGUAGE_NAME_REGEXES = Object.entries(LANGUAGE_NAME_TO_CODE).map(([name, code]) => ({
+  code,
+  regex: new RegExp(`\\b${escapeRegExp(name.toLowerCase())}\\b`, 'i'),
+}));
+
+const LANGUAGE_SCRIPT_DETECTORS = [
+  { code: 'zh', regex: /[\u4e00-\u9fff]/ },
+  { code: 'ja', regex: /[\u3040-\u30ff\u31f0-\u31ff]/ },
+  { code: 'ko', regex: /[\uac00-\ud7af]/ },
+  { code: 'ru', regex: /[\u0400-\u04ff]/ },
+  { code: 'ar', regex: /[\u0600-\u06ff]/ },
+  { code: 'he', regex: /[\u0590-\u05ff]/ },
+  { code: 'el', regex: /[\u0370-\u03ff]/ },
+  { code: 'hi', regex: /[\u0900-\u097f]/ },
+  { code: 'th', regex: /[\u0e00-\u0e7f]/ },
+];
+
+const LANGUAGE_KEYWORD_DETECTORS = [
+  { code: 'es', regex: /(?:\b(?:hola|gracias|por favor|qué)\b|[¡¿])/i },
+  { code: 'fr', regex: /\b(?:bonjour|merci|s'il vous plaît|ça)\b/i },
+  { code: 'de', regex: /\b(?:hallo|danke|bitte|über)\b/i },
+  { code: 'pt', regex: /\b(?:olá|obrigado|por favor)\b/i },
+  { code: 'it', regex: /\b(?:ciao|grazie|per favore)\b/i },
+  { code: 'vi', regex: /\b(?:xin chào|cảm ơn)\b/i },
+  { code: 'tr', regex: /\b(?:merhaba|teşekkür)\b/i },
+  { code: 'pl', regex: /\b(?:dzień dobry|dziękuję)\b/i },
+];
+
+const PROGRAMMING_LANGUAGE_KEYWORDS = [
+  { code: 'python', regex: /\bpython\b/i },
+  { code: 'javascript', regex: /\bjavascript\b/i },
+  { code: 'typescript', regex: /\btypescript\b/i },
+  { code: 'java', regex: /\bjava\b/i },
+  { code: 'c\+\+', regex: /\bc\+\+\b/i },
+  { code: 'c#', regex: /\bc#\b/i },
+  { code: 'go', regex: /\bgo(lang)?\b/i },
+  { code: 'rust', regex: /\brust\b/i },
+  { code: 'ruby', regex: /\bruby\b/i },
+  { code: 'php', regex: /\bphp\b/i },
+  { code: 'swift', regex: /\bswift\b/i },
+  { code: 'kotlin', regex: /\bkotlin\b/i },
+  { code: 'sql', regex: /\bsql\b/i },
+];
+
+const CODE_BLOCK_REGEX = /```([a-z0-9#+\-_.]+)?[\s\S]*?```/gi;
+const TILDE_CODE_BLOCK_REGEX = /~~~([a-z0-9#+\-_.]+)?[\s\S]*?~~~/gi;
+const HTML_CODE_BLOCK_REGEX = /<code[^>]*>([\s\S]*?)<\/code>/gi;
+
+function detectCodeBlockSignals(text) {
+  if (typeof text !== 'string' || text.length === 0) {
+    return { hasCodeBlock: false, languages: new Set() };
+  }
+
+  const languages = new Set();
+  let hasCodeBlock = false;
+
+  const regexes = [CODE_BLOCK_REGEX, TILDE_CODE_BLOCK_REGEX];
+  for (const regex of regexes) {
+    regex.lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      hasCodeBlock = true;
+      if (match[1]) {
+        languages.add(match[1].toLowerCase());
+      }
+    }
+  }
+
+  HTML_CODE_BLOCK_REGEX.lastIndex = 0;
+  let htmlMatch;
+  while ((htmlMatch = HTML_CODE_BLOCK_REGEX.exec(text)) !== null) {
+    hasCodeBlock = true;
+    const classMatch = htmlMatch[0].match(/language-([a-z0-9#+\-_.]+)/i);
+    if (classMatch) {
+      languages.add(classMatch[1].toLowerCase());
+    }
+  }
+
+  return { hasCodeBlock, languages };
+}
+
+function detectLanguageHints(text) {
+  const languages = new Set();
+  const mentions = new Set();
+
+  if (typeof text !== 'string' || !text.trim()) {
+    return { languages, mentions, languageCount: 0, hasNonEnglish: false };
+  }
+
+  for (const detector of LANGUAGE_SCRIPT_DETECTORS) {
+    detector.regex.lastIndex = 0;
+    if (detector.regex.test(text)) {
+      languages.add(detector.code);
+    }
+  }
+
+  const lowerText = text.toLowerCase();
+  for (const detector of LANGUAGE_KEYWORD_DETECTORS) {
+    detector.regex.lastIndex = 0;
+    if (detector.regex.test(text)) {
+      languages.add(detector.code);
+      mentions.add(detector.code);
+    }
+  }
+
+  for (const { code, regex } of LANGUAGE_NAME_REGEXES) {
+    regex.lastIndex = 0;
+    if (regex.test(lowerText)) {
+      mentions.add(code);
+      if (code.length <= 3) {
+        languages.add(code);
+      }
+    }
+  }
+
+  for (const detector of PROGRAMMING_LANGUAGE_KEYWORDS) {
+    detector.regex.lastIndex = 0;
+    if (detector.regex.test(text)) {
+      mentions.add(detector.code);
+    }
+  }
+
+  if (/[a-z]/i.test(text)) {
+    languages.add('en');
+  }
+
+  const hasNonEnglish = Array.from(languages).some((code) => code !== 'en');
+
+  return {
+    languages,
+    mentions,
+    languageCount: languages.size,
+    hasNonEnglish,
+  };
+}
+
+function extractAttachmentDescriptors(attachments) {
+  const descriptors = new Set();
+  if (!Array.isArray(attachments)) {
+    return descriptors;
+  }
+
+  const addValue = (value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      if (trimmed) {
+        descriptors.add(trimmed);
+      }
+    }
+  };
+
+  const addFilename = (value) => {
+    if (typeof value !== 'string') {
+      return;
+    }
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) {
+      return;
+    }
+    descriptors.add(trimmed);
+    const match = trimmed.match(/\.([a-z0-9]+)$/i);
+    if (match) {
+      descriptors.add(`ext:${match[1]}`);
+    }
+  };
+
+  for (const attachment of attachments) {
+    if (!attachment || typeof attachment !== 'object') {
+      continue;
+    }
+
+    addValue(attachment.type);
+    addValue(attachment.mimeType);
+    addValue(attachment.mimetype);
+    addValue(attachment.mime);
+    addValue(attachment.contentType);
+    addValue(attachment.category);
+    addValue(attachment.kind);
+    addValue(attachment.role);
+
+    if (attachment.metadata && typeof attachment.metadata === 'object') {
+      addValue(attachment.metadata.type);
+      addValue(attachment.metadata.mimeType);
+      addValue(attachment.metadata.mimetype);
+      addValue(attachment.metadata.category);
+      addValue(attachment.metadata.kind);
+    }
+
+    if (attachment.file && typeof attachment.file === 'object') {
+      addValue(attachment.file.type);
+      addValue(attachment.file.mimeType);
+      addValue(attachment.file.mimetype);
+      addValue(attachment.file.contentType);
+      addFilename(attachment.file.filename);
+      addFilename(attachment.file.name);
+    }
+
+    addFilename(attachment.filename);
+    addFilename(attachment.name);
+    addFilename(attachment.originalName);
+
+    if (typeof attachment.ext === 'string') {
+      addValue(`ext:${attachment.ext.toLowerCase()}`);
+    }
+
+    if (Array.isArray(attachment.tools)) {
+      for (const tool of attachment.tools) {
+        if (!tool) {
+          continue;
+        }
+        if (typeof tool === 'string') {
+          addValue(`tool:${tool}`);
+        } else if (typeof tool === 'object' && tool.type) {
+          addValue(`tool:${String(tool.type).toLowerCase()}`);
+        }
       }
     }
 
-    if (count > 0) {
-      const intensity = clamp(group.baseIntensity + Math.min(count, 4) * 0.08, 0, 1);
-      signals.push({ intent: group.intent, intensity, hits });
+    if (typeof attachment.tool === 'string') {
+      addValue(`tool:${attachment.tool}`);
+    }
+  }
+
+  return descriptors;
+}
+
+function formatContribution(description, value) {
+  if (!description) {
+    return value ?? '';
+  }
+  if (!value) {
+    return description;
+  }
+  if (description.includes('%s')) {
+    return description.replace('%s', value);
+  }
+  if (description.includes(value)) {
+    return description;
+  }
+  return `${description}:${value}`;
+}
+
+function evaluatePattern(pattern, context) {
+  switch (pattern.type) {
+    case 'regex': {
+      pattern.regex.lastIndex = 0;
+      if (pattern.regex.test(context.normalizedText)) {
+        return { matched: true, contributions: [pattern.description] };
+      }
+      return { matched: false, contributions: [] };
+    }
+    case 'language': {
+      const contributions = [];
+      if (pattern.match === 'nonEnglish') {
+        if (context.hasNonEnglish) {
+          contributions.push(pattern.description);
+        }
+      } else if (pattern.match === 'multiple') {
+        if (context.languageCount > 1 || context.languageMentions.size > 1) {
+          contributions.push(pattern.description);
+        }
+      } else if (pattern.match === 'explicitMention') {
+        const matches = pattern.codes?.size
+          ? Array.from(pattern.codes).filter((code) => context.languageMentions.has(code))
+          : Array.from(context.languageMentions);
+        for (const match of matches) {
+          contributions.push(formatContribution(pattern.description, match));
+        }
+      } else {
+        const matches = pattern.codes?.size
+          ? Array.from(pattern.codes).filter(
+              (code) => context.languages.has(code) || context.languageMentions.has(code),
+            )
+          : [];
+        for (const match of matches) {
+          contributions.push(formatContribution(pattern.description, match));
+        }
+      }
+      return { matched: contributions.length > 0, contributions };
+    }
+    case 'codeblock': {
+      if (!context.codeInfo.hasCodeBlock) {
+        return { matched: false, contributions: [] };
+      }
+
+      if (pattern.languages && pattern.languages.size > 0) {
+        const matches = Array.from(pattern.languages).filter((lang) =>
+          context.codeInfo.languages.has(lang),
+        );
+        if (matches.length === 0) {
+          if (pattern.requireLanguage) {
+            return { matched: false, contributions: [] };
+          }
+          return { matched: true, contributions: [pattern.description] };
+        }
+        return {
+          matched: true,
+          contributions: matches.map((lang) => formatContribution(pattern.description, lang)),
+        };
+      }
+
+      return { matched: true, contributions: [pattern.description] };
+    }
+    case 'attachment': {
+      const matches = Array.from(pattern.match).filter((value) =>
+        context.attachmentDescriptors.has(value),
+      );
+      if (matches.length === 0) {
+        return { matched: false, contributions: [] };
+      }
+
+      if (pattern.matchAny === false && matches.length < pattern.match.size) {
+        return { matched: false, contributions: [] };
+      }
+
+      return {
+        matched: true,
+        contributions: matches.map((value) => formatContribution(pattern.description, value)),
+      };
+    }
+    default:
+      return { matched: false, contributions: [] };
+  }
+}
+
+function buildKeywordContext({ text, normalizedText, attachments }) {
+  const languageInfo = detectLanguageHints(text);
+  const codeInfo = detectCodeBlockSignals(text);
+  const attachmentDescriptors = extractAttachmentDescriptors(attachments);
+
+  const languageMentions = new Set(languageInfo.mentions);
+  for (const lang of codeInfo.languages) {
+    languageMentions.add(lang);
+    const mapped = LANGUAGE_NAME_TO_CODE[lang];
+    if (mapped) {
+      languageInfo.languages.add(mapped);
+    }
+  }
+
+  const languageArray = Array.from(languageInfo.languages);
+  const hasNonEnglish = languageArray.some((code) => code !== 'en');
+
+  return {
+    text,
+    normalizedText,
+    languages: languageInfo.languages,
+    languageMentions,
+    languageCount: languageArray.length,
+    hasNonEnglish,
+    codeInfo,
+    attachmentDescriptors,
+  };
+}
+
+function computeKeywordSignals(input) {
+  const isStringInput = typeof input === 'string';
+  const text = isStringInput ? input : input?.text;
+  const normalizedText = isStringInput
+    ? typeof input === 'string'
+      ? input.toLowerCase()
+      : ''
+    : input?.normalizedText ?? (typeof input?.text === 'string' ? input.text.toLowerCase() : '');
+  const attachments = isStringInput ? [] : input?.attachments ?? [];
+
+  const sanitizedText = typeof text === 'string' ? text : '';
+  const sanitizedNormalized = typeof normalizedText === 'string' ? normalizedText : sanitizedText;
+  const attachmentList = Array.isArray(attachments) ? attachments : [];
+
+  const context = buildKeywordContext({
+    text: sanitizedText,
+    normalizedText: sanitizedNormalized,
+    attachments: attachmentList,
+  });
+
+  const signals = [];
+
+  for (const group of KEYWORD_GROUPS) {
+    let boost = 0;
+    const hits = new Set();
+
+    for (const pattern of group.patterns) {
+      const { matched, contributions } = evaluatePattern(pattern, context);
+      if (matched) {
+        boost += pattern.weight;
+        for (const contribution of contributions) {
+          if (contribution) {
+            hits.add(contribution);
+          }
+        }
+      }
+    }
+
+    if (boost > 0) {
+      const maxBoost = typeof group.maxBoost === 'number' ? group.maxBoost : 0.32;
+      const appliedBoost = Math.min(boost, maxBoost);
+      const intensity = clamp(
+        group.baseIntensity + appliedBoost,
+        group.baseIntensity,
+        group.maxIntensity ?? 1,
+      );
+
+      signals.push({ intent: group.intent, intensity, hits: Array.from(hits) });
     }
   }
 
@@ -327,23 +580,75 @@ function detectSearchSignals(text) {
 }
 
 function detectQuickIntent(text, tokenBudget) {
-  if (tokenBudget > 0 && tokenBudget <= 1200) {
+  if (
+    QUICK_CONFIG.tokenBudgetThreshold > 0 &&
+    tokenBudget > 0 &&
+    tokenBudget <= QUICK_CONFIG.tokenBudgetThreshold
+  ) {
     return true;
   }
-  return QUICK_PATTERNS.some((pattern) => pattern.test(text));
+
+  return QUICK_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(text);
+  });
 }
 
 function detectSupportIntent(text) {
-  return SUPPORT_PATTERNS.some((pattern) => pattern.test(text));
+  return SUPPORT_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(text);
+  });
 }
 
 function detectDetailIntent(text, tokenBudget) {
-  return tokenBudget >= 6000 || DETAIL_PATTERNS.some((pattern) => pattern.test(text));
+  if (DETAIL_CONFIG.tokenBudgetThreshold && tokenBudget >= DETAIL_CONFIG.tokenBudgetThreshold) {
+    return true;
+  }
+
+  return DETAIL_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(text);
+  });
 }
 
-function buildCandidate({ text, toggles, tokenBudget, previousState }) {
-  const normalized = text.toLowerCase();
-  const keywordSignals = computeKeywordSignals(normalized);
+function collectAllAttachments(body, conversation) {
+  const collected = [];
+  const pushItems = (items) => {
+    if (!Array.isArray(items)) {
+      return;
+    }
+    for (const item of items) {
+      if (item !== undefined && item !== null) {
+        collected.push(item);
+      }
+    }
+  };
+
+  pushItems(body?.files);
+  pushItems(body?.attachments);
+  pushItems(body?.artifacts);
+  pushItems(conversation?.files);
+  pushItems(conversation?.attachments);
+
+  const messageSources = [];
+  if (Array.isArray(conversation?.messages)) {
+    messageSources.push(...conversation.messages);
+  } else if (Array.isArray(body?.messages)) {
+    messageSources.push(...body.messages);
+  }
+
+  for (const message of messageSources) {
+    pushItems(message?.attachments);
+    pushItems(message?.files);
+  }
+
+  return collected;
+}
+
+function buildCandidate({ text, normalizedText, attachments, toggles, tokenBudget, previousState }) {
+  const normalized = typeof normalizedText === 'string' ? normalizedText : text.toLowerCase();
+  const keywordSignals = computeKeywordSignals({ text, normalizedText: normalized, attachments });
 
   const baseIntent = previousState?.intent ?? DEFAULT_INTENT;
   const baseIntensity = Math.max(previousState?.intensity ?? 0.4, 0.35);
@@ -415,14 +720,14 @@ function buildCandidate({ text, toggles, tokenBudget, previousState }) {
 
   if (!candidate.togglesUsed.includes('thinking') && detectQuickIntent(normalized, tokenBudget)) {
     candidate.intent = 'quick';
-    candidate.intensity = Math.max(candidate.intensity, 0.68);
+    candidate.intensity = Math.max(candidate.intensity, QUICK_CONFIG.intensity ?? 0.68);
     candidate.reason.push('signal:quick');
     candidate.forcedSwitch = true;
   }
 
   const supportSignal = detectSupportIntent(normalized);
   if (supportSignal && candidate.intent !== 'support' && !candidate.togglesUsed.includes('thinking')) {
-    const supportIntensity = 0.66;
+    const supportIntensity = SUPPORT_CONFIG.intensity ?? 0.66;
     if (supportIntensity >= candidate.intensity - 0.08) {
       candidate.intent = 'support';
       candidate.intensity = Math.max(candidate.intensity, supportIntensity);
@@ -435,7 +740,7 @@ function buildCandidate({ text, toggles, tokenBudget, previousState }) {
     candidate.intent !== 'deep_reasoning' &&
     detectDetailIntent(normalized, tokenBudget)
   ) {
-    const depthIntensity = 0.76;
+    const depthIntensity = DETAIL_CONFIG.intensity ?? 0.76;
     if (depthIntensity > candidate.intensity + 0.05) {
       candidate.intent = 'deep_reasoning';
       candidate.intensity = depthIntensity;
@@ -527,6 +832,9 @@ function applyAutoRouting(req) {
     return null;
   }
 
+  const normalized = text.toLowerCase();
+  const attachments = collectAllAttachments(body, parsedConversation);
+
   const tokenBudget = Math.max(
     Number(body.max_tokens) || 0,
     Number(body.maxOutputTokens) || 0,
@@ -543,7 +851,14 @@ function applyAutoRouting(req) {
   const gaugeKey = `${userId}:${conversationId}`;
   const previousState = getState(gaugeKey);
 
-  const candidate = buildCandidate({ text, toggles, tokenBudget, previousState });
+  const candidate = buildCandidate({
+    text,
+    normalizedText: normalized,
+    attachments,
+    toggles,
+    tokenBudget,
+    previousState,
+  });
   const togglesAfterRouting = Object.fromEntries(
     Object.entries(toggles).map(([key, value]) => [
       key,
