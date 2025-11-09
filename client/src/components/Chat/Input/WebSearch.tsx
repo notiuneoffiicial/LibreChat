@@ -26,15 +26,17 @@ function WebSearch() {
   }
 
   return (
-    <CheckboxButton
-      ref={badgeTriggerRef}
-      className="max-w-fit"
-      checked={isWebSearchActive}
-      setValue={debouncedChange}
-      label={localize('com_ui_search')}
-      isCheckedClassName="border-blue-600/40 bg-blue-500/10 hover:bg-blue-700/10"
-      icon={<Globe className="icon-md" />}
-    />
+    <div data-tour="web-search-toggle" className="flex">
+      <CheckboxButton
+        ref={badgeTriggerRef}
+        className="max-w-fit"
+        checked={isWebSearchActive}
+        setValue={debouncedChange}
+        label={localize('com_ui_search')}
+        isCheckedClassName="border-blue-600/40 bg-blue-500/10 hover:bg-blue-700/10"
+        icon={<Globe className="icon-md" />}
+      />
+    </div>
   );
 }
 

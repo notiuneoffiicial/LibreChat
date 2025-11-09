@@ -16,14 +16,16 @@ function ReasonToggle() {
   }
 
   return (
-    <CheckboxButton
-      className="max-w-fit"
-      checked={isReasoning}
-      setValue={debouncedChange}
-      label="Reason"
-      isCheckedClassName="border-purple-500/40 bg-purple-500/10 hover:bg-purple-600/10"
-      icon={<Brain className="icon-md" />}
-    />
+    <div data-tour="reasoning-toggle" className="flex">
+      <CheckboxButton
+        className="max-w-fit"
+        checked={isReasoning}
+        setValue={debouncedChange}
+        label="Reason"
+        isCheckedClassName="border-purple-500/40 bg-purple-500/10 hover:bg-purple-600/10"
+        icon={<Brain className="icon-md" />}
+      />
+    </div>
   );
 }
 

@@ -62,11 +62,101 @@ const tourSteps: TourStep[] = [
     padding: 16,
   },
   {
-    id: 'side-panel',
+    id: 'chat-toggles',
+    title: 'Quick Toggles',
+    description:
+      'Manage features like advanced reasoning, web search, and file lookups from this row of toggles. Pin your favorites so they are always ready for your next message.',
+    target: '[data-tour="chat-toggles-row"]',
+    placement: 'top',
+    padding: 20,
+  },
+  {
+    id: 'reasoning-toggle',
+    title: 'Reasoning Boost',
+    description:
+      'Turn on Reasoning when you want OptimismAI to take an extra moment to think through multi-step tasks or complex prompts.',
+    target: '[data-tour="reasoning-toggle"]',
+    placement: 'top',
+    padding: 16,
+  },
+  {
+    id: 'web-search-toggle',
+    title: 'Web Search',
+    description:
+      'Enable Web Search to let the assistant reach out for up-to-date information and cite results when the built-in knowledge needs a refresh.',
+    target: '[data-tour="web-search-toggle"]',
+    placement: 'top',
+    padding: 16,
+  },
+  {
+    id: 'file-search-toggle',
+    title: 'File Search',
+    description:
+      'Activate File Search to pull answers from the documents you have shared. OptimismAI will reference those sources while crafting replies.',
+    target: '[data-tour="file-search-toggle"]',
+    placement: 'top',
+    padding: 16,
+  },
+  {
+    id: 'voice-dictation',
+    title: 'Voice & Dictation',
+    description:
+      'Use these controls to dictate messages hands-free or launch immersive voice mode for a live back-and-forth conversation.',
+    target: '[data-tour="voice-dictation-controls"]',
+    placement: 'top',
+    padding: 16,
+  },
+  {
+    id: 'side-panel-overview',
     title: 'Tools & Memories',
     description:
-      'The side panel on the right houses memories, parameters, files, and more. Manage what the assistant remembers about you or configure advanced tools whenever you need them.',
+      'The side panel on the right houses memories, parameters, files, and more. Keep it open to manage context or configure advanced tools whenever you need them.',
     target: '[data-tour="side-panel"]',
+    placement: 'left',
+    padding: 16,
+  },
+  {
+    id: 'side-panel-prompts',
+    title: 'Prompt Library',
+    description:
+      'Save and reuse your favorite prompts. Organize them here so you can drop in a proven workflow with a single click.',
+    target: '[data-tour="side-panel-prompts"]',
+    placement: 'left',
+    padding: 16,
+  },
+  {
+    id: 'side-panel-memories',
+    title: 'Memories',
+    description:
+      'Review what OptimismAI remembers about your preferences and clear or edit those memories at any time for a fresh start.',
+    target: '[data-tour="side-panel-memories"]',
+    placement: 'left',
+    padding: 16,
+  },
+  {
+    id: 'side-panel-parameters',
+    title: 'Conversation Parameters',
+    description:
+      'Fine-tune temperature, response length, reasoning level, and other controls to tailor each assistant response to your workflow.',
+    target: '[data-tour="side-panel-parameters"]',
+    placement: 'left',
+    padding: 16,
+  },
+  {
+    id: 'side-panel-files',
+    title: 'Conversation Files',
+    description:
+      'Browse everything you have uploaded to this thread. You can preview, remove, or reuse files to keep context organized.',
+    target: '[data-tour="side-panel-files"]',
+    placement: 'left',
+    padding: 16,
+  },
+  {
+    id: 'side-panel-bookmarks',
+    title: 'Bookmarks & Tags',
+    description:
+      'Group important conversations with bookmarks or custom tags so your team can return to key insights instantly.',
+    target: '[data-tour="side-panel-bookmarks"]',
     placement: 'left',
     padding: 16,
   },
@@ -79,6 +169,24 @@ const tourSteps: TourStep[] = [
     placement: 'center',
   },
 ];
+
+const sidePanelStepIds = new Set<string>([
+  'chat-toggles',
+  'side-panel-overview',
+  'side-panel-prompts',
+  'side-panel-memories',
+  'side-panel-parameters',
+  'side-panel-files',
+  'side-panel-bookmarks',
+]);
+
+const navStepSelectors: Record<string, string> = {
+  'side-panel-prompts': '[data-tour="side-panel-prompts"]',
+  'side-panel-memories': '[data-tour="side-panel-memories"]',
+  'side-panel-parameters': '[data-tour="side-panel-parameters"]',
+  'side-panel-files': '[data-tour="side-panel-files"]',
+  'side-panel-bookmarks': '[data-tour="side-panel-bookmarks"]',
+};
 
 const overlayRoot = typeof window !== 'undefined' ? document.body : null;
 
@@ -187,6 +295,7 @@ export default function GuidedTour() {
   const [isActive, setIsActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = useMemo(() => tourSteps[stepIndex], [stepIndex]);
+  const currentStepId = currentStep?.id;
   const highlightPosition = useHighlightPosition(currentStep, isActive);
 
   useEffect(() => {
@@ -195,6 +304,53 @@ export default function GuidedTour() {
       setIsActive(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isActive || !currentStepId) {
+      return;
+    }
+
+    let animationFrame: number | null = null;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    if (sidePanelStepIds.has(currentStepId)) {
+      const toggle = document.getElementById('toggle-right-nav');
+      const isExpanded = toggle?.getAttribute('aria-expanded') === 'true';
+      if (toggle && !isExpanded) {
+        (toggle as HTMLElement).click();
+      }
+    }
+
+    const ensureNavOpen = () => {
+      const navSelector = navStepSelectors[currentStepId];
+      if (!navSelector) {
+        return;
+      }
+
+      const navTrigger = document.querySelector(navSelector) as HTMLElement | null;
+      if (!navTrigger && attempts < maxAttempts) {
+        attempts += 1;
+        animationFrame = window.requestAnimationFrame(ensureNavOpen);
+        return;
+      }
+
+      if (navTrigger) {
+        const isOpen = navTrigger.getAttribute('data-state') === 'open';
+        if (!isOpen) {
+          navTrigger.click();
+        }
+      }
+    };
+
+    ensureNavOpen();
+
+    return () => {
+      if (animationFrame != null) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [currentStepId, isActive]);
 
   useEffect(() => {
     if (!isActive) {
@@ -248,7 +404,7 @@ export default function GuidedTour() {
       className="fixed inset-0 z-[2000] flex items-center justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label="LibreChat guided introduction"
+      aria-label="OptimismAI guided introduction"
     >
       <div className="absolute inset-0 bg-black/60" aria-hidden="true" />
       {highlightPosition && (
@@ -297,7 +453,7 @@ export default function GuidedTour() {
           <button
             type="button"
             onClick={isLastStep ? endTour : handleNext}
-            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="rounded-full border border-transparent bg-primary px-5 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-black dark:bg-white dark:text-black dark:hover:bg-gray-100 dark:focus-visible:outline-white"
           >
             {isLastStep ? 'Finish' : 'Next'}
           </button>

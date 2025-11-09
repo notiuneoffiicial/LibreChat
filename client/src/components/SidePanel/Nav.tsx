@@ -28,6 +28,7 @@ function NavContent({ links, isCollapsed, resize }: Omit<NavProps, 'defaultActiv
               <div className="flex h-full w-full flex-col gap-1 px-3 py-2.5 group-[[data-collapsed=true]]:items-center group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
                 {links.map((link, index) => {
                   const variant = getVariant(link);
+                  const dataTourId = `side-panel-${String(link.id)}`;
                   return isCollapsed ? (
                     <TooltipAnchor
                       description={localize(link.title)}
@@ -37,6 +38,7 @@ function NavContent({ links, isCollapsed, resize }: Omit<NavProps, 'defaultActiv
                         <Button
                           variant="ghost"
                           size="icon"
+                          data-tour={dataTourId}
                           onClick={(e) => {
                             if (link.onClick) {
                               link.onClick(e);
@@ -66,6 +68,7 @@ function NavContent({ links, isCollapsed, resize }: Omit<NavProps, 'defaultActiv
                             <Button
                               variant="outline"
                               size="sm"
+                              data-tour={dataTourId}
                               className="w-full justify-start bg-transparent text-text-secondary data-[state=open]:bg-surface-secondary data-[state=open]:text-text-primary"
                               onClick={(e) => {
                                 if (link.onClick) {
