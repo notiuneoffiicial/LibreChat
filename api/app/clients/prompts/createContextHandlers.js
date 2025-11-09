@@ -62,6 +62,7 @@ function createContextHandlers(req, userMessageContent) {
   const createContext = async () => {
     try {
       if (!queryPromises.length || !processedFiles.length) {
+        logger.info('Context generation skipped: no processed files available.');
         return '';
       }
 
@@ -131,6 +132,14 @@ function createContextHandlers(req, userMessageContent) {
           ${context}
           ${footer}`;
 
+        const preview =
+          prompt.length > 500 ? `${prompt.slice(0, 500)}...` : prompt;
+        logger.info('Context generated using full context.', {
+          fileCount: processedFiles.length,
+          useFullContext,
+          preview,
+        });
+
         return prompt;
       }
 
@@ -143,6 +152,13 @@ function createContextHandlers(req, userMessageContent) {
         </context>
 
         ${footer}`;
+
+      const preview = prompt.length > 500 ? `${prompt.slice(0, 500)}...` : prompt;
+      logger.info('Context generated using semantic search.', {
+        fileCount: processedFiles.length,
+        useFullContext,
+        preview,
+      });
 
       return prompt;
     } catch (error) {
