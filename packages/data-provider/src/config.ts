@@ -1777,6 +1777,8 @@ export enum LocalStorageKeys {
   PIN_CODE_INTERPRETER_ = 'PIN_CODE_INTERPRETER_',
   /** Pin state for Reason toggle */
   REASON_TOGGLE_PINNED = 'REASON_TOGGLE_PINNED',
+  /** Flag indicating the guided tour/onboarding has been completed */
+  ONBOARDING_COMPLETED = 'onboardingCompleted',
 }
 
 export enum ForkOptions {
