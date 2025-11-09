@@ -19,6 +19,7 @@ import Footer from './Footer';
 import { cn } from '~/utils';
 import store from '~/store';
 import VoiceModeOverlay from './VoiceMode/VoiceModeOverlay';
+import GuidedTour from '../Onboarding/GuidedTour';
 
 function LoadingSpinner() {
   return (
@@ -84,6 +85,7 @@ function ChatView({ index = 0 }: { index?: number }) {
               {!isLoading && <Header />}
               <>
                 <div
+                  data-tour="chat-messages"
                   className={cn(
                     'flex flex-col',
                     isLandingPage
@@ -106,6 +108,7 @@ function ChatView({ index = 0 }: { index?: number }) {
               </>
             </div>
             <VoiceModeOverlay index={index} />
+            <GuidedTour />
           </Presentation>
         </AddedChatContext.Provider>
       </ChatContext.Provider>

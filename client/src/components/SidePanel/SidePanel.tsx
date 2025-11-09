@@ -147,6 +147,7 @@ const SidePanel = ({
       <ResizablePanel
         tagName="nav"
         id="controls-nav"
+        data-tour="side-panel"
         order={hasArtifacts ? 3 : 2}
         aria-label={localize('com_ui_controls')}
         role="navigation"

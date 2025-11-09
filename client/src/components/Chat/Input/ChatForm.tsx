@@ -261,6 +261,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
 
   return (
     <form
+      data-tour="chat-input"
       onSubmit={methods.handleSubmit(submitMessage)}
       className={cn(
         'mx-auto flex w-full flex-row gap-3 transition-[max-width] duration-300 sm:px-2',
