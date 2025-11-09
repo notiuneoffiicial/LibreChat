@@ -2,8 +2,10 @@ const { logger } = require('@librechat/data-schemas');
 const { createTempChatExpirationDate, composeMetaPrompt } = require('@librechat/api');
 const { getMessages, deleteMessages } = require('./Message');
 const { Conversation, Message } = require('~/db/models');
+const { redactMessage } = require('~/config/parsers');
 
 const MAX_HISTORY_LENGTH = 20;
+const META_PROMPT_LOG_TRIM_LENGTH = 400;
 
 const guardrailStatusMap = {
   ACCEPTED: 'accepted',
@@ -47,6 +49,14 @@ function approxTokens(text = '') {
     return 0;
   }
   return trimmed.split(/\s+/).length;
+}
+
+function sanitizePromptPrefixForLog(prefix) {
+  if (typeof prefix !== 'string') {
+    return prefix ?? null;
+  }
+
+  return redactMessage(prefix, META_PROMPT_LOG_TRIM_LENGTH);
 }
 
 function createInitialHistoryEntry(prefix, timestamp) {
@@ -298,7 +308,10 @@ module.exports = {
 
             composerResult = composeMetaPrompt(composerInput);
 
-            promptPrefixCurrent = composerResult.promptPrefix ?? promptPrefixCurrent;
+            const previousPromptPrefix = promptPrefixCurrent ?? null;
+            const nextPromptPrefix = composerResult.promptPrefix ?? previousPromptPrefix;
+
+            promptPrefixCurrent = nextPromptPrefix;
             guardrailState = updateGuardrailState(
               guardrailState,
               composerResult.guardrailStatus,
@@ -337,6 +350,8 @@ module.exports = {
                 guardrailStatus: composerResult.guardrailStatus,
                 appliedRules: composerResult.diagnostics?.appliedRules ?? [],
                 diff: composerResult.diagnostics?.diff,
+                promptPrefixPrevious: sanitizePromptPrefixForLog(previousPromptPrefix),
+                promptPrefixCurrent: sanitizePromptPrefixForLog(nextPromptPrefix),
               });
             }
           }
