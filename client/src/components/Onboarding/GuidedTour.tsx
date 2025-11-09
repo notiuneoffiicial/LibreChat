@@ -29,7 +29,7 @@ interface TooltipPosition {
 const tourSteps: TourStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to LibreChat',
+    title: 'Welcome to OptimismAI',
     description:
       'This quick tour will guide you through the essentials so you can start chatting with confidence.',
     target: null,
@@ -50,8 +50,7 @@ const tourSteps: TourStep[] = [
     description:
       'Your messages and AI responses appear in the main window. Scroll back through the conversation, copy answers, or explore artifacts that are generated along the way.',
     target: '[data-tour="chat-messages"]',
-    placement: 'bottom',
-    padding: 16,
+    placement: 'center',
   },
   {
     id: 'chat-input',
