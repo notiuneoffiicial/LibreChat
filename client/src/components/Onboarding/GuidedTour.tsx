@@ -117,7 +117,7 @@ const tourSteps: TourStep[] = [
     title: 'Memories',
     description:
       'Review what OptimismAI remembers about you, add, clear or edit those memories at any time for a fresh start.',
-    target: '[data-tour="side-panel-memories-nav"]',
+    target: '[data-tour="side-panel-memories"]',
     placement: 'left',
     padding: 16,
     tooltipOffset: { y: -4 },
@@ -127,7 +127,7 @@ const tourSteps: TourStep[] = [
     title: 'Conversation Files',
     description:
       'Browse everything you have uploaded to this thread. You can preview, remove, or reuse files to keep context organized.',
-    target: '[data-tour="side-panel-files-nav"]',
+    target: '[data-tour="side-panel-files"]',
     placement: 'left',
     padding: 16,
     tooltipOffset: { y: -4 },
@@ -137,7 +137,7 @@ const tourSteps: TourStep[] = [
     title: 'Bookmarks & Tags',
     description:
       'Group important conversations with bookmarks or custom tags so you can return to key insights instantly.',
-    target: '[data-tour="side-panel-bookmarks-nav"]',
+    target: '[data-tour="side-panel-bookmarks"]',
     placement: 'left',
     padding: 16,
     tooltipOffset: { y: -4 },
