@@ -14,6 +14,7 @@ import Sources from '~/components/Web/Sources';
 import { mapAttachments } from '~/utils/map';
 import { EditTextPart } from './Parts';
 import { useLocalize } from '~/hooks';
+import { useGetStartupConfig } from '~/data-provider';
 import store from '~/store';
 import Part from './Part';
 
@@ -53,13 +54,31 @@ const ContentParts = memo(
     setSiblingIdx,
   }: ContentPartsProps) => {
     const localize = useLocalize();
+    const { data: startupConfig } = useGetStartupConfig();
     const [showThinking, setShowThinking] = useRecoilState<boolean>(store.showThinking);
     const [isExpanded, setIsExpanded] = useState(showThinking);
     const attachmentMap = useMemo(() => mapAttachments(attachments ?? []), [attachments]);
+    const showThoughts = startupConfig?.interface?.showThoughts !== false;
+
+    const sanitizedContent = useMemo(() => {
+      if (!content) {
+        return content;
+      }
+
+      if (showThoughts) {
+        return content;
+      }
+
+      return content.filter((part) => part?.type !== ContentTypes.THINK);
+    }, [content, showThoughts]);
 
     const effectiveIsSubmitting = isLatestMessage ? isSubmitting : false;
 
     const hasReasoningParts = useMemo(() => {
+      if (!showThoughts) {
+        return false;
+      }
+
       const hasThinkPart = content?.some((part) => part?.type === ContentTypes.THINK) ?? false;
       const allThinkPartsHaveContent =
         content?.every((part) => {
@@ -76,15 +95,15 @@ const ContentParts = memo(
         }) ?? false;
 
       return hasThinkPart && allThinkPartsHaveContent;
-    }, [content]);
+    }, [content, showThoughts]);
 
-    if (!content) {
+    if (!sanitizedContent) {
       return null;
     }
     if (edit === true && enterEdit && setSiblingIdx) {
       return (
         <>
-          {content.map((part, idx) => {
+          {sanitizedContent.map((part, idx) => {
             if (!part) {
               return null;
             }
@@ -145,7 +164,7 @@ const ContentParts = memo(
               />
             </div>
           )}
-          {content
+          {sanitizedContent
             .filter((part) => part)
             .map((part, idx) => {
               const toolCallId =
@@ -160,7 +179,7 @@ const ContentParts = memo(
                     isExpanded,
                     conversationId,
                     partIndex: idx,
-                    nextType: content[idx + 1]?.type,
+                    nextType: sanitizedContent[idx + 1]?.type,
                     isSubmitting: effectiveIsSubmitting,
                     isLatestMessage,
                   }}
@@ -171,8 +190,9 @@ const ContentParts = memo(
                     isSubmitting={effectiveIsSubmitting}
                     key={`part-${messageId}-${idx}`}
                     isCreatedByUser={isCreatedByUser}
-                    isLast={idx === content.length - 1}
-                    showCursor={idx === content.length - 1 && isLast}
+                    isLast={idx === sanitizedContent.length - 1}
+                    showCursor={idx === sanitizedContent.length - 1 && isLast}
+                    showThoughts={showThoughts}
                   />
                 </MessageContext.Provider>
               );

@@ -10,6 +10,7 @@ import useAudioRef from '~/hooks/Audio/useAudioRef';
 import { usePauseGlobalAudio } from '../Audio';
 import { logger } from '~/utils';
 import store from '~/store';
+import { useGetStartupConfig } from '~/data-provider';
 
 type TUseTextToSpeech = {
   messageId?: string;
@@ -30,6 +31,8 @@ const useTextToSpeech = (props?: TUseTextToSpeech) => {
   const { pauseGlobalAudio } = usePauseGlobalAudio(index);
   const [voice, setVoice] = useRecoilState(store.voice);
   const globalIsPlaying = useRecoilValue(store.globalAudioPlayingFamily(index));
+  const { data: startupConfig } = useGetStartupConfig();
+  const skipReasoning = startupConfig?.interface?.showThoughts === false;
 
   const isSpeaking = isSpeakingState || (isLast && globalIsPlaying);
 
@@ -128,7 +131,9 @@ const useTextToSpeech = (props?: TUseTextToSpeech) => {
       if (isMouseDownRef.current) {
         const messageContent = content ?? '';
         const parsedMessage =
-          typeof messageContent === 'string' ? messageContent : parseTextParts(messageContent);
+          typeof messageContent === 'string'
+            ? messageContent
+            : parseTextParts(messageContent, skipReasoning);
         generateSpeech(parsedMessage, false);
       }
     }, 1000);
@@ -148,7 +153,9 @@ const useTextToSpeech = (props?: TUseTextToSpeech) => {
     } else {
       const messageContent = content ?? '';
       const parsedMessage =
-        typeof messageContent === 'string' ? messageContent : parseTextParts(messageContent);
+        typeof messageContent === 'string'
+          ? messageContent
+          : parseTextParts(messageContent, skipReasoning);
       generateSpeech(parsedMessage, false);
     }
   };

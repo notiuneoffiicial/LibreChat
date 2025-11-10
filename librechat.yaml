@@ -51,6 +51,7 @@ interface:
   bookmarks: true
   prompts: false
   agents: false
+  showThoughts: false
   # hides Agent Builder/Marketplace & artifacts
 
   # Remove advanced knobs
