@@ -135,6 +135,26 @@ export async function validateAgentModel(
 
   if (!validModel && availableModels.includes(fallbackModel)) {
     agent.model = fallbackModel;
+
+    if (!agent.model_parameters) {
+      agent.model_parameters = { model: fallbackModel };
+    } else if (!agent.model_parameters.model) {
+      agent.model_parameters.model = fallbackModel;
+    }
+
+    if (!req.body?.model) {
+      req.body.model = fallbackModel;
+    }
+
+    const endpointOption = req.body?.endpointOption;
+    if (endpointOption) {
+      const optionParams = endpointOption.model_parameters ?? {};
+      endpointOption.model_parameters = {
+        ...optionParams,
+        model: optionParams.model ?? fallbackModel,
+      };
+    }
+
     return { isValid: true };
   }
 
