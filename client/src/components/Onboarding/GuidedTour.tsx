@@ -63,7 +63,7 @@ const tourSteps: TourStep[] = [
     description:
       'Use the message box to ask questions, use tools, or enable voice mode. Press Enter to send or use the send button when you are ready.',
     target: '[data-tour="chat-input"]',
-    placement: 'top',
+    placement: 'center',
     padding: 16,
   },
   {
