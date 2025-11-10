@@ -49,6 +49,7 @@ export async function loadDefaultInterface({
     prompts: interfaceConfig?.prompts,
     multiConvo: interfaceConfig?.multiConvo,
     agents: interfaceConfig?.agents,
+    showThoughts: interfaceConfig?.showThoughts ?? defaults.showThoughts,
     temporaryChat: interfaceConfig?.temporaryChat,
     runCode: interfaceConfig?.runCode,
     webSearch: interfaceConfig?.webSearch,

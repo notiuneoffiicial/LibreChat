@@ -1,6 +1,7 @@
 import { useRecoilState } from 'recoil';
 import { Switch, InfoHoverCard, ESide } from '@librechat/client';
 import { useLocalize } from '~/hooks';
+import { useGetStartupConfig } from '~/data-provider';
 import store from '~/store';
 
 export default function SaveDraft({
@@ -10,6 +11,12 @@ export default function SaveDraft({
 }) {
   const [showThinking, setSaveDrafts] = useRecoilState<boolean>(store.showThinking);
   const localize = useLocalize();
+  const { data: startupConfig } = useGetStartupConfig();
+  const thoughtsEnabled = startupConfig?.interface?.showThoughts !== false;
+
+  if (!thoughtsEnabled) {
+    return null;
+  }
 
   const handleCheckedChange = (value: boolean) => {
     setSaveDrafts(value);

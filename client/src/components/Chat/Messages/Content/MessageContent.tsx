@@ -9,6 +9,7 @@ import { useMessageContext } from '~/Providers';
 import MarkdownLite from './MarkdownLite';
 import EditMessage from './EditMessage';
 import { useLocalize } from '~/hooks';
+import { useGetStartupConfig } from '~/data-provider';
 import Container from './Container';
 import Markdown from './Markdown';
 import { cn } from '~/utils';
@@ -125,6 +126,8 @@ const MessageContent = ({
   const { messageId } = message;
 
   const { reasoning } = message;
+  const { data: startupConfig } = useGetStartupConfig();
+  const showThoughts = startupConfig?.interface?.showThoughts !== false;
 
   const { thinkingSummary, regularContent } = useMemo(() => {
     const normalizedReasoning = reasoning?.trim();
@@ -150,6 +153,8 @@ const MessageContent = ({
     };
   }, [reasoning, text]);
 
+  const displayedThinkingSummary = showThoughts ? thinkingSummary : [];
+
   const showRegularCursor = useMemo(() => isLast && isSubmitting, [isLast, isSubmitting]);
 
   const unfinishedMessage = useMemo(
@@ -172,10 +177,10 @@ const MessageContent = ({
 
   return (
     <>
-      {thinkingSummary.length > 0 && (
+      {displayedThinkingSummary.length > 0 && (
         <Thinking key={`thinking-${messageId}`}>
           <ul className="list-outside list-disc space-y-2 pl-5 text-sm leading-6 text-text-secondary">
-            {thinkingSummary.map((statement, index) => (
+            {displayedThinkingSummary.map((statement, index) => (
               <li key={`${messageId}-thought-${index}`}>{statement}</li>
             ))}
           </ul>

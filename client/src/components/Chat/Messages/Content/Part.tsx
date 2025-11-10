@@ -24,10 +24,19 @@ type PartProps = {
   showCursor: boolean;
   isCreatedByUser: boolean;
   attachments?: TAttachment[];
+  showThoughts?: boolean;
 };
 
 const Part = memo(
-  ({ part, isSubmitting, attachments, isLast, showCursor, isCreatedByUser }: PartProps) => {
+  ({
+    part,
+    isSubmitting,
+    attachments,
+    isLast,
+    showCursor,
+    isCreatedByUser,
+    showThoughts = true,
+  }: PartProps) => {
     if (!part) {
       return null;
     }
@@ -71,6 +80,9 @@ const Part = memo(
         </Container>
       );
     } else if (part.type === ContentTypes.THINK) {
+      if (!showThoughts) {
+        return null;
+      }
       const reasoning = typeof part.think === 'string' ? part.think : part.think?.value;
       if (typeof reasoning !== 'string') {
         return null;
