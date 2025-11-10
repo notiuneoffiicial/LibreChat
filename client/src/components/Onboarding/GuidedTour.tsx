@@ -129,6 +129,7 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="side-panel-manage-files"]',
     placement: 'left',
     padding: 16,
+    tooltipOffset: { y: 28 },
   },
   {
     id: 'side-panel-bookmarks',
@@ -138,6 +139,7 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="side-panel-bookmarks"]',
     placement: 'left',
     padding: 16,
+    tooltipOffset: { y: 24 },
   },
   {
     id: 'account-options',
@@ -146,7 +148,7 @@ const tourSteps: TourStep[] = [
       'Access advanced settings, manage your profile, review files, or sign out using the menu in the lower left corner of the sidebar.',
     target: '[data-tour="account-options"]',
     placement: 'right',
-    padding: 12,
+    padding: 8,
   },
   {
     id: 'finish',
