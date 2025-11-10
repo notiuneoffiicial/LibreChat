@@ -183,9 +183,11 @@ class STTService {
     formData.append('model', sttSchema.model);
 
     if (language) {
-      /** Converted locale code (e.g., "en-US") to ISO-639-1 format (e.g., "en") */
-      const isoLanguage = language.split('-')[0];
-      formData.append('language', isoLanguage);
+      /** Preserve locale tags (e.g., "en-US") for providers supporting BCP-47 */
+      const normalizedLanguage = language.trim().replace(/_/g, '-');
+      if (normalizedLanguage) {
+        formData.append('language', normalizedLanguage);
+      }
     }
 
     const headers = {
@@ -231,8 +233,10 @@ class STTService {
 
     if (language) {
       /** Converted locale code (e.g., "en-US") to ISO-639-1 format (e.g., "en") */
-      const isoLanguage = language.split('-')[0];
-      formData.append('language', isoLanguage);
+      const isoLanguage = language.trim().split(/[-_]/)[0];
+      if (isoLanguage) {
+        formData.append('language', isoLanguage);
+      }
     }
 
     const headers = {
