@@ -275,6 +275,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
 
       <div className="flex items-center justify-between">
         <Button
+          data-tour="side-panel-manage-files"
           variant="outline"
           size="sm"
           onClick={() => setShowFiles(true)}

@@ -360,18 +360,23 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
                 isRTL ? 'flex-row-reverse' : 'flex-row',
               )}
             >
-              <div className={`${isRTL ? 'mr-2' : 'ml-2'}`}>
-                <AttachFileChat conversation={conversation} disableInputs={disableInputs} />
+              <div
+                data-tour="chat-quick-actions"
+                className={cn('flex items-center gap-2', isRTL ? 'flex-row-reverse' : 'flex-row')}
+              >
+                <div className={`${isRTL ? 'mr-2' : 'ml-2'}`}>
+                  <AttachFileChat conversation={conversation} disableInputs={disableInputs} />
+                </div>
+                <BadgeRow
+                  showEphemeralBadges={!isAgentsEndpoint(endpoint) && !isAssistantsEndpoint(endpoint)}
+                  isSubmitting={isSubmitting || isSubmittingAdded}
+                  conversationId={conversationId}
+                  onChange={setBadges}
+                  isInChat={
+                    Array.isArray(conversation?.messages) && conversation.messages.length >= 1
+                  }
+                />
               </div>
-              <BadgeRow
-                showEphemeralBadges={!isAgentsEndpoint(endpoint) && !isAssistantsEndpoint(endpoint)}
-                isSubmitting={isSubmitting || isSubmittingAdded}
-                conversationId={conversationId}
-                onChange={setBadges}
-                isInChat={
-                  Array.isArray(conversation?.messages) && conversation.messages.length >= 1
-                }
-              />
               <div className="mx-auto flex" />
               <div data-tour="voice-dictation-controls" className="flex items-center gap-2">
                 {SpeechToText && (
