@@ -109,15 +109,7 @@ export async function validateAgentModel(
 ): Promise<ValidateAgentModelResult> {
   const { req, res, agent, modelsConfig, logViolation } = params;
   const { model, provider: endpoint } = agent;
-
-  if (!model) {
-    return {
-      isValid: false,
-      error: {
-        message: `{ "type": "${ErrorTypes.MISSING_MODEL}", "info": "${endpoint}" }`,
-      },
-    };
-  }
+  const fallbackModel = 'deepseek-chat';
 
   if (!modelsConfig) {
     return {
@@ -129,6 +121,7 @@ export async function validateAgentModel(
   }
 
   const availableModels = modelsConfig[endpoint];
+
   if (!availableModels) {
     return {
       isValid: false,
@@ -138,7 +131,41 @@ export async function validateAgentModel(
     };
   }
 
-  const validModel = !!availableModels.find((availableModel) => availableModel === model);
+  const validModel = !!model && availableModels.includes(model);
+
+  if (!validModel && availableModels.includes(fallbackModel)) {
+    agent.model = fallbackModel;
+
+    if (!agent.model_parameters) {
+      agent.model_parameters = { model: fallbackModel };
+    } else if (!agent.model_parameters.model) {
+      agent.model_parameters.model = fallbackModel;
+    }
+
+    if (!req.body?.model) {
+      req.body.model = fallbackModel;
+    }
+
+    const endpointOption = req.body?.endpointOption;
+    if (endpointOption) {
+      const optionParams = endpointOption.model_parameters ?? {};
+      endpointOption.model_parameters = {
+        ...optionParams,
+        model: optionParams.model ?? fallbackModel,
+      };
+    }
+
+    return { isValid: true };
+  }
+
+  if (!model) {
+    return {
+      isValid: false,
+      error: {
+        message: `{ "type": "${ErrorTypes.MISSING_MODEL}", "info": "${endpoint}" }`,
+      },
+    };
+  }
 
   if (validModel) {
     return { isValid: true };
