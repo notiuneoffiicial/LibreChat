@@ -55,6 +55,7 @@ const tourSteps: TourStep[] = [
       'Your messages and AI responses appear in the main window. Scroll back through the conversation, copy answers, give feedback all from here!.',
     target: '[data-tour="chat-messages"]',
     placement: 'center',
+    padding: 20,
   },
   {
     id: 'chat-input',
@@ -63,7 +64,7 @@ const tourSteps: TourStep[] = [
       'Use the message box to ask questions, use tools, or enable voice mode. Press Enter to send or use the send button when you are ready.',
     target: '[data-tour="chat-input"]',
     placement: 'center',
-    padding: 16,
+    padding: 12,
   },
   {
     id: 'chat-toggles',
