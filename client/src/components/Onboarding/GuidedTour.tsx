@@ -11,6 +11,10 @@ interface TourStep {
   target: string | null;
   placement?: Placement;
   padding?: number;
+  tooltipOffset?: {
+    x?: number;
+    y?: number;
+  };
 }
 
 interface HighlightPosition {
@@ -50,7 +54,7 @@ const tourSteps: TourStep[] = [
     description:
       'Your messages and AI responses appear in the main window. Scroll back through the conversation, copy answers, or explore artifacts that are generated along the way.',
     target: '[data-tour="chat-messages"]',
-    placement: 'center',
+    placement: 'top',
   },
   {
     id: 'chat-input',
@@ -65,19 +69,10 @@ const tourSteps: TourStep[] = [
     id: 'chat-toggles',
     title: 'Quick Toggles',
     description:
-      'Manage features like advanced reasoning, web search, and file lookups from this row of toggles. Pin your favorites so they are always ready for your next message.',
-    target: '[data-tour="chat-toggles-row"]',
+      'Manage features like advanced reasoning, web search, and file lookups from this row of toggles. Pin your favorites so they are always ready for your next message, and attach files from here in a snap.',
+    target: '[data-tour="chat-quick-actions"]',
     placement: 'top',
     padding: 20,
-  },
-  {
-    id: 'reasoning-toggle',
-    title: 'Reasoning Boost',
-    description:
-      'Turn on Reasoning when you want OptimismAI to take an extra moment to think through multi-step tasks or complex prompts.',
-    target: '[data-tour="reasoning-toggle"]',
-    placement: 'top',
-    padding: 16,
   },
   {
     id: 'web-search-toggle',
@@ -116,15 +111,6 @@ const tourSteps: TourStep[] = [
     padding: 16,
   },
   {
-    id: 'side-panel-prompts',
-    title: 'Prompt Library',
-    description:
-      'Save and reuse your favorite prompts. Organize them here so you can drop in a proven workflow with a single click.',
-    target: '[data-tour="side-panel-prompts"]',
-    placement: 'left',
-    padding: 16,
-  },
-  {
     id: 'side-panel-memories',
     title: 'Memories',
     description:
@@ -132,22 +118,14 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="side-panel-memories"]',
     placement: 'left',
     padding: 16,
-  },
-  {
-    id: 'side-panel-parameters',
-    title: 'Conversation Parameters',
-    description:
-      'Fine-tune temperature, response length, reasoning level, and other controls to tailor each assistant response to your workflow.',
-    target: '[data-tour="side-panel-parameters"]',
-    placement: 'left',
-    padding: 16,
+    tooltipOffset: { y: 32 },
   },
   {
     id: 'side-panel-files',
     title: 'Conversation Files',
     description:
       'Browse everything you have uploaded to this thread. You can preview, remove, or reuse files to keep context organized.',
-    target: '[data-tour="side-panel-files"]',
+    target: '[data-tour="side-panel-manage-files"]',
     placement: 'left',
     padding: 16,
   },
@@ -161,6 +139,15 @@ const tourSteps: TourStep[] = [
     padding: 16,
   },
   {
+    id: 'account-options',
+    title: 'Profile & Settings',
+    description:
+      'Access workspace settings, manage your profile, review files, or sign out using the menu in the lower left corner of the sidebar.',
+    target: '[data-tour="account-options"]',
+    placement: 'right',
+    padding: 16,
+  },
+  {
     id: 'finish',
     title: 'You are Ready!',
     description:
@@ -171,21 +158,16 @@ const tourSteps: TourStep[] = [
 ];
 
 const sidePanelStepIds = new Set<string>([
-  'chat-toggles',
   'side-panel-overview',
-  'side-panel-prompts',
   'side-panel-memories',
-  'side-panel-parameters',
   'side-panel-files',
   'side-panel-bookmarks',
 ]);
 
 const navStepSelectors: Record<string, string> = {
-  'side-panel-prompts': '[data-tour="side-panel-prompts"]',
-  'side-panel-memories': '[data-tour="side-panel-memories"]',
-  'side-panel-parameters': '[data-tour="side-panel-parameters"]',
-  'side-panel-files': '[data-tour="side-panel-files"]',
-  'side-panel-bookmarks': '[data-tour="side-panel-bookmarks"]',
+  'side-panel-memories': '[data-tour="side-panel-memories-nav"]',
+  'side-panel-files': '[data-tour="side-panel-files-nav"]',
+  'side-panel-bookmarks': '[data-tour="side-panel-bookmarks-nav"]',
 };
 
 const overlayRoot = typeof window !== 'undefined' ? document.body : null;
@@ -256,38 +238,48 @@ const computeTooltipPosition = (
 
   const placement = step.placement ?? 'bottom';
   const offset = 20;
+  const applyOffset = (position: TooltipPosition): TooltipPosition => {
+    const offsetX = step.tooltipOffset?.x ?? 0;
+    const offsetY = step.tooltipOffset?.y ?? 0;
+    return {
+      ...position,
+      top: position.top + offsetY,
+      left: position.left + offsetX,
+    };
+  };
+
   switch (placement) {
     case 'top':
-      return {
+      return applyOffset({
         top: highlight.top - offset,
         left: highlight.left + highlight.width / 2,
         transform: 'translate(-50%, -100%)',
-      };
+      });
     case 'bottom':
-      return {
+      return applyOffset({
         top: highlight.top + highlight.height + offset,
         left: highlight.left + highlight.width / 2,
         transform: 'translate(-50%, 0)',
-      };
+      });
     case 'left':
-      return {
+      return applyOffset({
         top: highlight.top + highlight.height / 2,
         left: highlight.left - offset,
         transform: 'translate(calc(-100% - 16px), -50%)',
-      };
+      });
     case 'right':
-      return {
+      return applyOffset({
         top: highlight.top + highlight.height / 2,
         left: highlight.left + highlight.width + offset,
         transform: 'translate(0, -50%)',
-      };
+      });
     case 'center':
     default:
-      return {
+      return applyOffset({
         top: highlight.top + highlight.height / 2,
         left: highlight.left + highlight.width / 2,
         transform: 'translate(-50%, -50%)',
-      };
+      });
   }
 };
 
@@ -409,12 +401,13 @@ export default function GuidedTour() {
       <div className="absolute inset-0 bg-black/60" aria-hidden="true" />
       {highlightPosition && (
         <div
-          className="pointer-events-none absolute rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"
+          className="pointer-events-none absolute rounded-xl border-2 border-white/80 bg-white/20 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] backdrop-blur-[1.5px] mix-blend-screen dark:bg-white/10"
           style={{
             top: highlightPosition.top,
             left: highlightPosition.left,
             width: highlightPosition.width,
             height: highlightPosition.height,
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.35)',
           }}
         />
       )}

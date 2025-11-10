@@ -28,7 +28,7 @@ function NavContent({ links, isCollapsed, resize }: Omit<NavProps, 'defaultActiv
               <div className="flex h-full w-full flex-col gap-1 px-3 py-2.5 group-[[data-collapsed=true]]:items-center group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2">
                 {links.map((link, index) => {
                   const variant = getVariant(link);
-                  const dataTourId = `side-panel-${String(link.id)}`;
+                  const dataTourId = `side-panel-${String(link.id)}-nav`;
                   return isCollapsed ? (
                     <TooltipAnchor
                       description={localize(link.title)}

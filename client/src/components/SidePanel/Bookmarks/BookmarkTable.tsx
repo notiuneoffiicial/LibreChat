@@ -65,7 +65,12 @@ const BookmarkTable = () => {
 
   return (
     <BookmarkContext.Provider value={{ bookmarks }}>
-      <div role="region" aria-label={localize('com_ui_bookmarks')} className="mt-2 space-y-2">
+      <div
+        role="region"
+        data-tour="side-panel-bookmarks"
+        aria-label={localize('com_ui_bookmarks')}
+        className="mt-2 space-y-2"
+      >
         <div className="flex items-center gap-4">
           <Input
             placeholder={localize('com_ui_bookmarks_filter')}
