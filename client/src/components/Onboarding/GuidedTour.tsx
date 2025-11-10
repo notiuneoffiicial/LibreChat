@@ -55,7 +55,7 @@ const tourSteps: TourStep[] = [
       'Your messages and AI responses appear in the main window. Scroll back through the conversation, copy answers, give feedback all from here!.',
     target: '[data-tour="chat-messages"]',
     placement: 'top',
-    padding: 12,
+    padding: 20,
   },
   {
     id: 'chat-input',
