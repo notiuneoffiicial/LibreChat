@@ -48,14 +48,43 @@ export default function Presentation({ children }: { children: React.ReactNode }
   }, [mutateAsync]);
 
   const defaultLayout = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
     const resizableLayout = localStorage.getItem('react-resizable-panels:layout');
     return typeof resizableLayout === 'string' ? JSON.parse(resizableLayout) : undefined;
   }, []);
   const defaultCollapsed = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
     const collapsedPanels = localStorage.getItem('react-resizable-panels:collapsed');
-    return typeof collapsedPanels === 'string' ? JSON.parse(collapsedPanels) : true;
+    if (typeof collapsedPanels === 'string') {
+      try {
+        return JSON.parse(collapsedPanels);
+      } catch (error) {
+        console.warn('Unable to parse side panel collapsed state:', error);
+      }
+    }
+
+    localStorage.setItem('react-resizable-panels:collapsed', 'false');
+    return false;
   }, []);
-  const fullCollapse = useMemo(() => localStorage.getItem('fullPanelCollapse') === 'true', []);
+  const fullCollapse = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    const storedValue = localStorage.getItem('fullPanelCollapse');
+    if (storedValue == null) {
+      localStorage.setItem('fullPanelCollapse', 'false');
+      return false;
+    }
+
+    return storedValue === 'true';
+  }, []);
 
   return (
     <DragDropWrapper className="relative flex w-full grow overflow-hidden bg-presentation">
