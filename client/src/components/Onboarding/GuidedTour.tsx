@@ -52,7 +52,7 @@ const tourSteps: TourStep[] = [
     id: 'chat-messages',
     title: 'Chat Window',
     description:
-      'Your messages and AI responses appear in the main window. Scroll back through the conversation, copy answers, or explore artifacts that are generated along the way.',
+      'Your messages and AI responses appear in the main window. Scroll back through the conversation, copy answers, give feedback all from here!.',
     target: '[data-tour="chat-messages"]',
     placement: 'top',
   },
@@ -60,7 +60,7 @@ const tourSteps: TourStep[] = [
     id: 'chat-input',
     title: 'Compose Your Message',
     description:
-      'Use the message box to ask questions, attach files, or enable voice mode. Press Enter to send or use the send button when you are ready.',
+      'Use the message box to ask questions, use tools, or enable voice mode. Press Enter to send or use the send button when you are ready.',
     target: '[data-tour="chat-input"]',
     placement: 'top',
     padding: 16,
@@ -87,7 +87,7 @@ const tourSteps: TourStep[] = [
     id: 'file-search-toggle',
     title: 'File Search',
     description:
-      'Activate File Search to pull answers from the documents you have shared. OptimismAI will reference those sources while crafting replies.',
+      'Activate File Search to pull answers from the documents you have shared. OptimismAI will reference those sources while crafting personalized replies.',
     target: '[data-tour="file-search-toggle"]',
     placement: 'top',
     padding: 16,
@@ -105,7 +105,7 @@ const tourSteps: TourStep[] = [
     id: 'side-panel-overview',
     title: 'Tools & Memories',
     description:
-      'The side panel on the right houses memories, parameters, files, and more. Keep it open to manage context or configure advanced tools whenever you need them.',
+      'The side panel on the right houses memories, files, and more. configuring and adding to these gives OptimismAI a layer of personalization.',
     target: '[data-tour="side-panel"]',
     placement: 'left',
     padding: 16,
@@ -114,7 +114,7 @@ const tourSteps: TourStep[] = [
     id: 'side-panel-memories',
     title: 'Memories',
     description:
-      'Review what OptimismAI remembers about your preferences and clear or edit those memories at any time for a fresh start.',
+      'Review what OptimismAI remembers about you, add, clear or edit those memories at any time for a fresh start.',
     target: '[data-tour="side-panel-memories"]',
     placement: 'left',
     padding: 16,
@@ -133,7 +133,7 @@ const tourSteps: TourStep[] = [
     id: 'side-panel-bookmarks',
     title: 'Bookmarks & Tags',
     description:
-      'Group important conversations with bookmarks or custom tags so your team can return to key insights instantly.',
+      'Group important conversations with bookmarks or custom tags so you can return to key insights instantly.',
     target: '[data-tour="side-panel-bookmarks"]',
     placement: 'left',
     padding: 16,
@@ -142,10 +142,10 @@ const tourSteps: TourStep[] = [
     id: 'account-options',
     title: 'Profile & Settings',
     description:
-      'Access workspace settings, manage your profile, review files, or sign out using the menu in the lower left corner of the sidebar.',
+      'Access advanced settings, manage your profile, review files, or sign out using the menu in the lower left corner of the sidebar.',
     target: '[data-tour="account-options"]',
     placement: 'right',
-    padding: 16,
+    padding: 12,
   },
   {
     id: 'finish',
