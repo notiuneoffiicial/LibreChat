@@ -63,8 +63,9 @@ const tourSteps: TourStep[] = [
     description:
       'Use the message box to ask questions, use tools, or enable voice mode. Press Enter to send or use the send button when you are ready.',
     target: '[data-tour="chat-input"]',
-    placement: 'center',
+    placement: 'top',
     padding: 12,
+    tooltipOffset: { y: -12 },
   },
   {
     id: 'chat-toggles',
@@ -119,17 +120,17 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="side-panel-memories"]',
     placement: 'left',
     padding: 16,
-    tooltipOffset: { y: 32 },
+    tooltipOffset: { y: -4 },
   },
   {
     id: 'side-panel-files',
     title: 'Conversation Files',
     description:
       'Browse everything you have uploaded to this thread. You can preview, remove, or reuse files to keep context organized.',
-    target: '[data-tour="side-panel-manage-files"]',
+    target: '[data-tour="side-panel-files"]',
     placement: 'left',
     padding: 16,
-    tooltipOffset: { y: 28 },
+    tooltipOffset: { y: -4 },
   },
   {
     id: 'side-panel-bookmarks',
@@ -139,7 +140,7 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="side-panel-bookmarks"]',
     placement: 'left',
     padding: 16,
-    tooltipOffset: { y: 24 },
+    tooltipOffset: { y: -4 },
   },
   {
     id: 'account-options',
@@ -147,8 +148,8 @@ const tourSteps: TourStep[] = [
     description:
       'Access advanced settings, manage your profile, review files, or sign out using the menu in the lower left corner of the sidebar.',
     target: '[data-tour="account-options"]',
-    placement: 'right',
-    tooltipOffset: { y: 12 },
+    placement: 'top',
+    tooltipOffset: { y: -16 },
   },
   {
     id: 'finish',
@@ -208,6 +209,39 @@ const useHighlightPosition = (step: TourStep | undefined, isActive: boolean) => 
   useLayoutEffect(() => {
     updatePosition();
   }, [updatePosition]);
+
+  useEffect(() => {
+    if (!isActive || !step?.target) {
+      return undefined;
+    }
+
+    let animationFrame: number | null = null;
+    let attempts = 0;
+    const maxAttempts = 120;
+
+    const ensureTarget = () => {
+      if (attempts >= maxAttempts) {
+        return;
+      }
+
+      const element = document.querySelector(step.target as string);
+      if (element) {
+        updatePosition();
+        return;
+      }
+
+      attempts += 1;
+      animationFrame = window.requestAnimationFrame(ensureTarget);
+    };
+
+    ensureTarget();
+
+    return () => {
+      if (animationFrame != null) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [isActive, step, updatePosition]);
 
   useEffect(() => {
     if (!isActive) {
