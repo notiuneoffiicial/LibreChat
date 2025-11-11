@@ -38,7 +38,7 @@ endpoints:
       iconURL: "/assets/logo.svg"
 # ---- Interface / UI ----
 interface:
-  customWelcome: "What's On Your Mind, {{user.name}}?"
+  customWelcome: "What's Your Question?, {{user.name}}?"
   privacyPolicy:
     externalUrl: "https://optimismai.app/privacy"
     openNewTab: true
