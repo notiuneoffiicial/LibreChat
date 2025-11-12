@@ -36,8 +36,7 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
         nextStatus = 'complete';
       } else {
         const legacyGlobal = window.localStorage.getItem(STORAGE_KEY);
-        const legacyTour = window.localStorage.getItem(LocalStorageKeys.ONBOARDING_COMPLETED);
-        if (legacyGlobal === 'true' || legacyTour === 'true') {
+        if (legacyGlobal === 'true') {
           try {
             window.localStorage.setItem(storageKey, 'true');
           } catch (error) {
