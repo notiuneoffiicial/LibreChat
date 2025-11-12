@@ -91,7 +91,7 @@ function AccountSettings() {
           className="select-item text-sm"
         >
           <LifeBuoy className="icon-md" aria-hidden="true" />
-          {localize('com_nav_setting_support')}
+          {localize('com_nav_help')}
         </Select.SelectItem>
         <DropdownMenuSeparator />
         <Select.SelectItem

@@ -22,7 +22,11 @@ const ensureUrl = (value?: string) => {
   }
 };
 
-function Support() {
+type SupportProps = {
+  onClose: () => void;
+};
+
+function Support({ onClose }: SupportProps) {
   const localize = useLocalize();
   const { data: startupConfig } = useGetStartupConfig();
 
@@ -45,6 +49,7 @@ function Support() {
   }, [startupConfig?.helpAndFaqURL]);
 
   const handleReplayTour = () => {
+    onClose();
     localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
     window.dispatchEvent(new Event(RESTART_GUIDED_TOUR_EVENT));
   };
