@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { LocalStorageKeys } from 'librechat-data-provider';
 import { Button } from '@librechat/client';
 import { useGetStartupConfig } from '~/data-provider';
 import { useLocalize } from '~/hooks';
@@ -49,9 +48,10 @@ function Support({ onClose }: SupportProps) {
   }, [startupConfig?.helpAndFaqURL]);
 
   const handleReplayTour = () => {
-    onClose();
     localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
     window.dispatchEvent(new Event(RESTART_GUIDED_TOUR_EVENT));
+    window.dispatchEvent(new CustomEvent('librechat:close-settings'));
+    onClose();
   };
 
   const handleOpenDocs = () => {
