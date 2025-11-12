@@ -29,8 +29,25 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
 
     try {
       setStatus('unknown');
+      let nextStatus: StatusState = 'incomplete';
       const stored = window.localStorage.getItem(storageKey);
-      setStatus(stored === 'true' ? 'complete' : 'incomplete');
+
+      if (stored === 'true') {
+        nextStatus = 'complete';
+      } else {
+        const legacyGlobal = window.localStorage.getItem(STORAGE_KEY);
+        const legacyTour = window.localStorage.getItem(LocalStorageKeys.ONBOARDING_COMPLETED);
+        if (legacyGlobal === 'true' || legacyTour === 'true') {
+          try {
+            window.localStorage.setItem(storageKey, 'true');
+          } catch (error) {
+            console.warn('[onboarding] Failed to migrate onboarding flag:', error);
+          }
+          nextStatus = 'complete';
+        }
+      }
+
+      setStatus(nextStatus);
     } catch (error) {
       console.warn('[onboarding] Unable to read onboarding flag:', error);
       setStatus('incomplete');
