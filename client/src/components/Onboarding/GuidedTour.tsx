@@ -150,7 +150,7 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="account-options"]',
     placement: 'top',
     tooltipOffset: { y: -16 },
-    tooltipOffset: { x: 12  },
+    tooltipOffset: { x: 100  },
   },
   {
     id: 'finish',
