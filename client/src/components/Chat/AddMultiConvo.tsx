@@ -35,8 +35,8 @@ function AddMultiConvo() {
   return (
     <TooltipAnchor
       id="add-multi-conversation-button"
-      aria-label={localize('com_ui_add_multi_conversation')}
-      description={localize('com_ui_add_multi_conversation')}
+      aria-label={localize('com_ui_enable_dual_response')}
+      description={localize('com_ui_enable_dual_response')}
       data-tour="multi-conversation-toggle"
       tabIndex={0}
       role="button"
