@@ -63,11 +63,19 @@ export default function Settings({ open, onOpenChange, initialTab }: SettingsPro
     }
   };
 
+  const lastInitialTab = useRef<SettingsTabValues | undefined>();
+
   useEffect(() => {
-    if (open && initialTab && initialTab !== activeTab) {
-      setActiveTab(initialTab);
+    if (!open) {
+      lastInitialTab.current = undefined;
+      return;
     }
-  }, [open, initialTab, activeTab]);
+
+    if (initialTab && lastInitialTab.current !== initialTab) {
+      setActiveTab(initialTab);
+      lastInitialTab.current = initialTab;
+    }
+  }, [open, initialTab]);
 
   const settingsTabs: {
     value: SettingsTabValues;
