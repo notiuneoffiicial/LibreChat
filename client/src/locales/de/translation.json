@@ -632,6 +632,8 @@
   "com_ui_add_mcp_server": "MCP Server hinzufügen",
   "com_ui_add_model_preset": "Ein KI-Modell oder eine Voreinstellung für eine zusätzliche Antwort hinzufügen",
   "com_ui_add_multi_conversation": "Mehrere Chats hinzufügen",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "Hinzufügen von Details\n",
   "com_ui_admin": "Admin",
   "com_ui_admin_access_warning": "Das Deaktivieren des Admin-Zugriffs auf diese Funktion kann zu unerwarteten Problemen in der Benutzeroberfläche führen, die ein Neuladen erfordern. Nach dem Speichern kann dies nur über die Schnittstelleneinstellung in der librechat.yaml-Konfiguration rückgängig gemacht werden, was sich auf alle Rollen auswirkt.",

@@ -1,1 +1,4 @@
-{}
+{
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active"
+}

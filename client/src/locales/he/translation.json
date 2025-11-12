@@ -623,6 +623,8 @@
   "com_ui_add_mcp_server": "הוסף שרת MCP",
   "com_ui_add_model_preset": "הוספת מודל או הגדרה קבועה לתגובה נוספת",
   "com_ui_add_multi_conversation": "הוספת תמיכה בשיחות מרובות",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "הוספת פרטים",
   "com_ui_admin": "אדמין",
   "com_ui_admin_access_warning": "השבתת גישת המנהל לתכונה זו עלולה לגרום לבעיות בלתי צפויות בממשק המשתמש שידרשו רענון. אם השינוי נשמר, הדרך היחידה להחזיר את ההגדרה היא דרך הגדרת הממשק בקובץ librechat.yaml, שמשפיעה על כל התפקידים.",

@@ -410,6 +410,8 @@
   "com_ui_add": "إضافة",
   "com_ui_add_model_preset": "إضافة نموذج أو إعداد مسبق للرد الإضافي",
   "com_ui_add_multi_conversation": "إضافة محادثات متعددة",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_admin": "مشرف",
   "com_ui_admin_access_warning": "قد يؤدي تعطيل وصول المسؤول إلى هذه الميزة إلى مشاكل غير متوقعة في واجهة المستخدم تتطلب تحديث الصفحة. في حالة الحفظ، الطريقة الوحيدة للتراجع هي عبر إعداد الواجهة في ملف librechat.yaml والذي يؤثر على جميع الأدوار.",
   "com_ui_admin_settings": "إعدادات المسؤول",

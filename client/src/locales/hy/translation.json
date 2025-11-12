@@ -182,6 +182,8 @@
   "com_sidepanel_manage_files": "Կառավարել ֆայլերը",
   "com_ui_2fa_enable": "Միացնել 2FA-ն",
   "com_ui_admin_settings": "Ադմինի կարգավորումներ",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_tools": "Գործիքներ",
   "com_ui_travel": "Ճամփորդություն",
   "com_ui_unknown": "Անհայտ",

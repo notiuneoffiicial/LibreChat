@@ -633,6 +633,8 @@
   "com_ui_add_mcp_server": "添加 MCP 服务器",
   "com_ui_add_model_preset": "添加一个模型或预设以获得额外的回复",
   "com_ui_add_multi_conversation": "添加多个对话",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "添加细节",
   "com_ui_admin": "管理",
   "com_ui_admin_access_warning": "禁用管理员对此特性的访问可能会导致界面出现异常，需要刷新页面。如果保存此设置，唯一的恢复方式是通过 librechat.yaml 配置文件中的界面设置进行修改，这将影响所有角色。",

@@ -306,6 +306,8 @@
   "com_nav_theme_system": "Systeem",
   "com_nav_user": "GEBRUIKER",
   "com_ui_accept": "Ik accepteer",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_agent_duplicate_error": "Er is een fout opgetreden bij het dupliceren van de agent",
   "com_ui_agent_duplicated": "Agent succesvol gedupliceerd",
   "com_ui_agent_name_is_required": "Agentnaam is verplicht",

@@ -489,6 +489,8 @@
   "com_ui_add": "Tilføj",
   "com_ui_add_model_preset": "Tilføj en model eller en forudindstilling for et ekstra svar",
   "com_ui_add_multi_conversation": "Tilføj multikonversation",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "Tilføjer detaljer",
   "com_ui_admin": "Admin",
   "com_ui_admin_access_warning": "Deaktivering af administratoradgang til denne funktion kan forårsage uventede UI-problemer, der kræver opdatering. Hvis den gemmes, er den eneste måde at vende tilbage på via grænsefladeindstillingen i librechat.yaml config, som påvirker alle roller.",
