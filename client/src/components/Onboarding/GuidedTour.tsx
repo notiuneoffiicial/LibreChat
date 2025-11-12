@@ -108,6 +108,7 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="multi-conversation-toggle"]',
     placement: 'top',
     padding: 16,
+    tooltipOffset: { y: -12 },
   },
   {
     id: 'temporary-chat-toggle',
@@ -117,6 +118,7 @@ const tourSteps: TourStep[] = [
     target: '[data-tour="temporary-chat-toggle"]',
     placement: 'top',
     padding: 16,
+    tooltipOffset: { y: -12 },
   },
   {
     id: 'voice-dictation',
