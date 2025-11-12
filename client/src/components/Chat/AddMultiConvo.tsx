@@ -37,6 +37,7 @@ function AddMultiConvo() {
       id="add-multi-conversation-button"
       aria-label={localize('com_ui_add_multi_conversation')}
       description={localize('com_ui_add_multi_conversation')}
+      data-tour="multi-conversation-toggle"
       tabIndex={0}
       role="button"
       onClick={clickHandler}

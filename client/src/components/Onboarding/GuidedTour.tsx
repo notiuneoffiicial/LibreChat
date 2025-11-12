@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LocalStorageKeys } from 'librechat-data-provider';
 
@@ -27,8 +27,14 @@ interface HighlightPosition {
 interface TooltipPosition {
   top: number;
   left: number;
-  transform?: string;
 }
+
+interface TooltipSize {
+  width: number;
+  height: number;
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 const tourSteps: TourStep[] = [
   {
@@ -91,6 +97,24 @@ const tourSteps: TourStep[] = [
     description:
       'Activate File Search to pull answers from the documents you have shared. OptimismAI will reference those sources while crafting personalized replies.',
     target: '[data-tour="file-search-toggle"]',
+    placement: 'top',
+    padding: 16,
+  },
+  {
+    id: 'multi-conversation-toggle',
+    title: 'Dual Responses',
+    description:
+      'Add a second model to reply to the same prompt. Compare approaches side-by-side to uncover deeper insights.',
+    target: '[data-tour="multi-conversation-toggle"]',
+    placement: 'top',
+    padding: 16,
+  },
+  {
+    id: 'temporary-chat-toggle',
+    title: 'Temporary Chat',
+    description:
+      'Toggle Temporary Chat to keep this discussion off the record. Nothing is saved once you close the window.',
+    target: '[data-tour="temporary-chat-toggle"]',
     placement: 'top',
     padding: 16,
   },
@@ -245,6 +269,27 @@ const useHighlightPosition = (step: TourStep | undefined, isActive: boolean) => 
   }, [isActive, step, updatePosition]);
 
   useEffect(() => {
+    if (!isActive || !step?.target) {
+      return undefined;
+    }
+
+    const element = document.querySelector(step.target) as HTMLElement | null;
+    if (!element || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      updatePosition();
+    });
+
+    resizeObserver.observe(element);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [isActive, step, updatePosition]);
+
+  useEffect(() => {
     if (!isActive) {
       return;
     }
@@ -265,60 +310,64 @@ const useHighlightPosition = (step: TourStep | undefined, isActive: boolean) => 
 const computeTooltipPosition = (
   step: TourStep,
   highlight: HighlightPosition | null,
+  tooltipSize: TooltipSize,
 ): TooltipPosition => {
-  if (!highlight) {
-    return {
-      top: window.innerHeight / 2 + window.scrollY,
-      left: window.innerWidth / 2 + window.scrollX,
-      transform: 'translate(-50%, -50%)',
-    };
-  }
-
-  const placement = step.placement ?? 'bottom';
   const offset = 20;
-  const applyOffset = (position: TooltipPosition): TooltipPosition => {
-    const offsetX = step.tooltipOffset?.x ?? 0;
-    const offsetY = step.tooltipOffset?.y ?? 0;
-    return {
-      ...position,
-      top: position.top + offsetY,
-      left: position.left + offsetX,
-    };
-  };
+  const offsetX = step.tooltipOffset?.x ?? 0;
+  const offsetY = step.tooltipOffset?.y ?? 0;
+  const placement = step.placement ?? 'bottom';
+  const viewportPadding = 16;
 
-  switch (placement) {
-    case 'top':
-      return applyOffset({
-        top: highlight.top - offset,
-        left: highlight.left + highlight.width / 2,
-        transform: 'translate(-50%, -100%)',
-      });
-    case 'bottom':
-      return applyOffset({
-        top: highlight.top + highlight.height + offset,
-        left: highlight.left + highlight.width / 2,
-        transform: 'translate(-50%, 0)',
-      });
-    case 'left':
-      return applyOffset({
-        top: highlight.top + highlight.height / 2,
-        left: highlight.left - offset,
-        transform: 'translate(calc(-100% - 16px), -50%)',
-      });
-    case 'right':
-      return applyOffset({
-        top: highlight.top + highlight.height / 2,
-        left: highlight.left + highlight.width + offset,
-        transform: 'translate(0, -50%)',
-      });
-    case 'center':
-    default:
-      return applyOffset({
-        top: highlight.top + highlight.height / 2,
-        left: highlight.left + highlight.width / 2,
-        transform: 'translate(-50%, -50%)',
-      });
+  const scrollTop = window.scrollY;
+  const scrollLeft = window.scrollX;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const width = tooltipSize.width || 0;
+  const height = tooltipSize.height || 0;
+
+  let top = scrollTop + Math.max((viewportHeight - height) / 2, viewportPadding);
+  let left = scrollLeft + Math.max((viewportWidth - width) / 2, viewportPadding);
+
+  if (highlight) {
+    switch (placement) {
+      case 'top':
+        top = highlight.top - height - offset;
+        left = highlight.left + highlight.width / 2 - width / 2;
+        break;
+      case 'bottom':
+        top = highlight.top + highlight.height + offset;
+        left = highlight.left + highlight.width / 2 - width / 2;
+        break;
+      case 'left':
+        top = highlight.top + highlight.height / 2 - height / 2;
+        left = highlight.left - width - offset;
+        break;
+      case 'right':
+        top = highlight.top + highlight.height / 2 - height / 2;
+        left = highlight.left + highlight.width + offset;
+        break;
+      case 'center':
+      default:
+        top = highlight.top + highlight.height / 2 - height / 2;
+        left = highlight.left + highlight.width / 2 - width / 2;
+        break;
+    }
   }
+
+  top += offsetY;
+  left += offsetX;
+
+  if (width > 0 && height > 0) {
+    const minTop = scrollTop + viewportPadding;
+    const maxTop = scrollTop + viewportHeight - height - viewportPadding;
+    const minLeft = scrollLeft + viewportPadding;
+    const maxLeft = scrollLeft + viewportWidth - width - viewportPadding;
+
+    top = clamp(top, minTop, maxTop);
+    left = clamp(left, minLeft, maxLeft);
+  }
+
+  return { top, left };
 };
 
 export default function GuidedTour() {
@@ -327,6 +376,39 @@ export default function GuidedTour() {
   const currentStep = useMemo(() => tourSteps[stepIndex], [stepIndex]);
   const currentStepId = currentStep?.id;
   const highlightPosition = useHighlightPosition(currentStep, isActive);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [tooltipSize, setTooltipSize] = useState<TooltipSize>({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const updateSize = () => {
+      if (!tooltipRef.current) {
+        return;
+      }
+      const rect = tooltipRef.current.getBoundingClientRect();
+      setTooltipSize((prev) => {
+        const width = rect.width;
+        const height = rect.height;
+        if (prev.width === width && prev.height === height) {
+          return prev;
+        }
+        return { width, height };
+      });
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (tooltipRef.current && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateSize);
+      resizeObserver.observe(tooltipRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateSize);
+      resizeObserver?.disconnect();
+    };
+  }, [currentStepId]);
 
   useEffect(() => {
     const hasCompletedTour = localStorage.getItem(LocalStorageKeys.ONBOARDING_COMPLETED);
@@ -343,12 +425,23 @@ export default function GuidedTour() {
     let animationFrame: number | null = null;
     let attempts = 0;
     const maxAttempts = 5;
+    let resizeTimeout: number | null = null;
+
+    const scheduleReposition = () => {
+      if (resizeTimeout != null) {
+        window.clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 220);
+    };
 
     if (sidePanelStepIds.has(currentStepId)) {
       const toggle = document.getElementById('toggle-right-nav');
       const isExpanded = toggle?.getAttribute('aria-expanded') === 'true';
       if (toggle && !isExpanded) {
         (toggle as HTMLElement).click();
+        scheduleReposition();
       }
     }
 
@@ -370,6 +463,7 @@ export default function GuidedTour() {
         if (!isOpen) {
           navTrigger.click();
         }
+        scheduleReposition();
       }
     };
 
@@ -378,6 +472,9 @@ export default function GuidedTour() {
     return () => {
       if (animationFrame != null) {
         cancelAnimationFrame(animationFrame);
+      }
+      if (resizeTimeout != null) {
+        window.clearTimeout(resizeTimeout);
       }
     };
   }, [currentStepId, isActive]);
@@ -427,7 +524,7 @@ export default function GuidedTour() {
 
   const isLastStep = stepIndex === tourSteps.length - 1;
   const isFirstStep = stepIndex === 0;
-  const tooltipPosition = computeTooltipPosition(currentStep, highlightPosition);
+  const tooltipPosition = computeTooltipPosition(currentStep, highlightPosition, tooltipSize);
 
   return createPortal(
     <div
@@ -462,8 +559,8 @@ export default function GuidedTour() {
           position: 'absolute',
           top: tooltipPosition.top,
           left: tooltipPosition.left,
-          transform: tooltipPosition.transform,
         }}
+        ref={tooltipRef}
       >
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary/80">
           Step {stepIndex + 1} of {tourSteps.length}
