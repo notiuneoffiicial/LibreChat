@@ -177,7 +177,8 @@ const tourSteps: TourStep[] = [
       'Access advanced settings, manage your profile, review files, or sign out using the menu in the lower left corner of the sidebar.',
     target: '[data-tour="account-options"]',
     placement: 'top',
-    tooltipOffset: { x: 12, y: -16 },
+    tooltipOffset: { y: -16 },
+    tooltipOffset: { x: 100  },
   },
   {
     id: 'finish',
