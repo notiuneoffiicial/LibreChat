@@ -20,6 +20,8 @@ import ShareRoute from './ShareRoute';
 import ChatRoute from './ChatRoute';
 import Search from './Search';
 import Root from './Root';
+import OnboardingGate from './OnboardingGate';
+import OnboardingRoute from './OnboardingRoute';
 
 const AuthLayout = () => (
   <AuthContextProvider>
@@ -94,40 +96,49 @@ export const router = createBrowserRouter(
             },
           ],
         },
-        dashboardRoutes,
         {
-          path: '/',
-          element: <Root />,
+          element: <OnboardingGate />,
           children: [
+            dashboardRoutes,
             {
-              index: true,
-              element: <Navigate to="/c/new" replace={true} />,
-            },
-            {
-              path: 'c/:conversationId?',
-              element: <ChatRoute />,
-            },
-            {
-              path: 'search',
-              element: <Search />,
-            },
-            {
-              path: 'agents',
-              element: (
-                <MarketplaceProvider>
-                  <AgentMarketplace />
-                </MarketplaceProvider>
-              ),
-            },
-            {
-              path: 'agents/:category',
-              element: (
-                <MarketplaceProvider>
-                  <AgentMarketplace />
-                </MarketplaceProvider>
-              ),
+              path: '/',
+              element: <Root />,
+              children: [
+                {
+                  index: true,
+                  element: <Navigate to="/c/new" replace={true} />,
+                },
+                {
+                  path: 'c/:conversationId?',
+                  element: <ChatRoute />,
+                },
+                {
+                  path: 'search',
+                  element: <Search />,
+                },
+                {
+                  path: 'agents',
+                  element: (
+                    <MarketplaceProvider>
+                      <AgentMarketplace />
+                    </MarketplaceProvider>
+                  ),
+                },
+                {
+                  path: 'agents/:category',
+                  element: (
+                    <MarketplaceProvider>
+                      <AgentMarketplace />
+                    </MarketplaceProvider>
+                  ),
+                },
+              ],
             },
           ],
+        },
+        {
+          path: 'onboarding',
+          element: <OnboardingRoute />,
         },
       ],
     },
