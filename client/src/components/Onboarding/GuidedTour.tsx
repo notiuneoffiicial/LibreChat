@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LocalStorageKeys } from 'librechat-data-provider';
+import { RESTART_GUIDED_TOUR_EVENT } from '~/common/events';
 
 type Placement = 'center' | 'left' | 'right' | 'bottom' | 'top';
 
@@ -417,6 +418,19 @@ export default function GuidedTour() {
     if (hasCompletedTour !== 'true') {
       setIsActive(true);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleRestart = () => {
+      localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
+      setStepIndex(0);
+      setIsActive(true);
+    };
+
+    window.addEventListener(RESTART_GUIDED_TOUR_EVENT, handleRestart);
+    return () => {
+      window.removeEventListener(RESTART_GUIDED_TOUR_EVENT, handleRestart);
+    };
   }, []);
 
   useEffect(() => {

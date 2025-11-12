@@ -1641,6 +1641,10 @@ export enum SettingsTabValues {
    * Tab for Personalization Settings
    */
   PERSONALIZATION = 'personalization',
+  /**
+   * Tab for Support
+   */
+  SUPPORT = 'support',
 }
 
 export enum STTProviders {

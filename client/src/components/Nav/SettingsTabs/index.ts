@@ -5,3 +5,4 @@ export { default as Balance } from './Balance/Balance';
 export { default as General } from './General/General';
 export { default as Account } from './Account/Account';
 export { default as Personalization } from './Personalization';
+export { default as Support } from './Support';

@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { SettingsTabValues } from 'librechat-data-provider';
-import { MessageSquare, DollarSign } from 'lucide-react';
+import { MessageSquare, DollarSign, LifeBuoy } from 'lucide-react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import {
   GearIcon,
@@ -12,13 +12,17 @@ import {
   PersonalizationIcon,
 } from '@librechat/client';
 import type { TDialogProps } from '~/common';
-import { General, Chat, Speech, Personalization, Data, Balance, Account } from './SettingsTabs';
+import { General, Chat, Speech, Personalization, Data, Balance, Account, Support } from './SettingsTabs';
 import usePersonalizationAccess from '~/hooks/usePersonalizationAccess';
 import { useLocalize, TranslationKeys } from '~/hooks';
 import { useGetStartupConfig } from '~/data-provider';
 import { cn } from '~/utils';
 
-export default function Settings({ open, onOpenChange }: TDialogProps) {
+type SettingsProps = TDialogProps & {
+  initialTab?: SettingsTabValues;
+};
+
+export default function Settings({ open, onOpenChange, initialTab }: SettingsProps) {
   const isSmallScreen = useMediaQuery('(max-width: 767px)');
   const { data: startupConfig } = useGetStartupConfig();
   const localize = useLocalize();
@@ -35,6 +39,7 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
       SettingsTabValues.DATA,
       ...(startupConfig?.balance?.enabled ? [SettingsTabValues.BALANCE] : []),
       SettingsTabValues.ACCOUNT,
+      SettingsTabValues.SUPPORT,
     ];
     const currentIndex = tabs.indexOf(activeTab);
 
@@ -57,6 +62,20 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
         break;
     }
   };
+
+  const lastInitialTab = useRef<SettingsTabValues | undefined>();
+
+  useEffect(() => {
+    if (!open) {
+      lastInitialTab.current = undefined;
+      return;
+    }
+
+    if (initialTab && lastInitialTab.current !== initialTab) {
+      setActiveTab(initialTab);
+      lastInitialTab.current = initialTab;
+    }
+  }, [open, initialTab]);
 
   const settingsTabs: {
     value: SettingsTabValues;
@@ -105,6 +124,11 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
       value: SettingsTabValues.ACCOUNT,
       icon: <UserIcon />,
       label: 'com_nav_setting_account',
+    },
+    {
+      value: SettingsTabValues.SUPPORT,
+      icon: <LifeBuoy className="icon-sm" />,
+      label: 'com_nav_setting_support',
     },
   ];
 
@@ -232,6 +256,9 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
                     )}
                     <Tabs.Content value={SettingsTabValues.ACCOUNT} tabIndex={-1}>
                       <Account />
+                    </Tabs.Content>
+                    <Tabs.Content value={SettingsTabValues.SUPPORT} tabIndex={-1}>
+                      <Support />
                     </Tabs.Content>
                   </div>
                 </Tabs.Root>
