@@ -955,14 +955,18 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   }, []);
 
   const handleBegin = useCallback(async () => {
+    setIsCompleting(true);
+
+    const delay = prefersReducedMotion ? 150 : 450;
+
     try {
-      setIsCompleting(true);
+      await new Promise((resolve) => setTimeout(resolve, delay));
       await Promise.resolve(onComplete());
     } catch (error) {
       console.error('[onboarding] Failed to complete onboarding', error);
       setIsCompleting(false);
     }
-  }, [onComplete]);
+  }, [onComplete, prefersReducedMotion]);
 
   const currentScreen = screenConfigs[step];
   const isFinalStep = step === totalSteps - 1;
@@ -970,7 +974,13 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   return (
     <div className="fixed inset-0 z-[2200] flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-white px-4 py-10 text-left">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#f3e6ff4d_0%,transparent_60%),radial-gradient(circle_at_bottom,#ffe8dc66_0%,transparent_55%)]" />
-      <div className="relative w-full max-w-5xl rounded-[32px] border border-white/70 bg-white/95 shadow-[0_45px_110px_rgba(35,30,70,0.12)] backdrop-blur-xl">
+      <div
+        className={cn(
+          'relative w-full max-w-5xl rounded-[32px] border border-white/70 bg-white/95 shadow-[0_45px_110px_rgba(35,30,70,0.12)] backdrop-blur-xl transition-[opacity,transform,filter] duration-500 ease-out',
+          isCompleting &&
+            (prefersReducedMotion ? 'opacity-0' : 'opacity-0 blur-sm translate-y-3'),
+        )}
+      >
         <div className="flex flex-col gap-8 p-8 md:p-10">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1034,23 +1044,26 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
           </footer>
         </div>
       </div>
-      {isCompleting && (
-        <div className="fixed inset-0 z-[2250] flex items-center justify-center bg-white/85 backdrop-blur-md transition-opacity duration-500 motion-reduce:transition-none">
-          <div className="flex flex-col items-center gap-6 text-center">
-            <AnimatedOrb
-              hue={320}
-              glow={0.7}
-              activityLevel={prefersReducedMotion ? 0.05 : 0.25}
-              className="w-[150px]"
-              style={{ filter: 'drop-shadow(0 25px 50px rgba(210, 190, 255, 0.4))' }}
-            />
-            <div className="space-y-1">
-              <p className="text-base font-medium text-slate-800">Tuning your Lens…</p>
-              <p className="text-sm text-slate-500">Bringing your workspace to life.</p>
-            </div>
+      <div
+        className={cn(
+          'fixed inset-0 z-[2250] flex items-center justify-center bg-white/60 backdrop-blur-md transition-opacity duration-500 ease-out motion-reduce:transition-none pointer-events-none opacity-0',
+          isCompleting && 'pointer-events-auto opacity-100',
+        )}
+      >
+        <div className="flex flex-col items-center gap-6 text-center">
+          <AnimatedOrb
+            hue={320}
+            glow={0.7}
+            activityLevel={prefersReducedMotion ? 0.05 : 0.25}
+            className="w-[150px]"
+            style={{ filter: 'drop-shadow(0 25px 50px rgba(210, 190, 255, 0.4))' }}
+          />
+          <div className="space-y-1">
+            <p className="text-base font-medium text-slate-800">Tuning your Lens…</p>
+            <p className="text-sm text-slate-500">Bringing your workspace to life.</p>
           </div>
         </div>
-      )}
+      </div>
       <style>
         {`
         .onboarding-slider {
