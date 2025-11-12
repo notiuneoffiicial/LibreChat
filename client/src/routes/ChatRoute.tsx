@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Spinner } from '@librechat/client';
 import { useParams } from 'react-router-dom';
 import { Constants, EModelEndpoint } from 'librechat-data-provider';
@@ -9,6 +9,7 @@ import { useNewConvo, useAppStartup, useAssistantListMap, useIdChangeEffect } fr
 import { getDefaultModelSpec, getModelSpecPreset, logger } from '~/utils';
 import { ToolCallsMapProvider } from '~/Providers';
 import ChatView from '~/components/Chat/ChatView';
+import OnboardingWizard from '~/components/Onboarding/OnboardingWizard';
 import useAuthRedirect from './useAuthRedirect';
 import temporaryStore from '~/store/temporary';
 import { useRecoilCallback } from 'recoil';
@@ -17,6 +18,7 @@ import store from '~/store';
 export default function ChatRoute() {
   const { data: startupConfig } = useGetStartupConfig();
   const { isAuthenticated, user } = useAuthRedirect();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const setIsTemporary = useRecoilCallback(
     ({ set }) =>
@@ -26,6 +28,16 @@ export default function ChatRoute() {
     [],
   );
   useAppStartup({ startupConfig, user });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const completed = localStorage.getItem('OPTIMISM_ONBOARDING_COMPLETED');
+    if (completed !== 'true') {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   const index = 0;
   const { conversationId = '' } = useParams();
@@ -131,6 +143,16 @@ export default function ChatRoute() {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (showOnboarding) {
+    return (
+      <OnboardingWizard
+        onComplete={() => {
+          setShowOnboarding(false);
+        }}
+      />
+    );
   }
 
   // if not a conversation
