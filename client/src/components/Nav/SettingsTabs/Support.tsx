@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { LocalStorageKeys } from 'librechat-data-provider';
 import { Button } from '@librechat/client';
 import { useGetStartupConfig } from '~/data-provider';
-import { useLocalize } from '~/hooks';
+import { useAuthContext, useLocalize } from '~/hooks';
+import { useOnboardingStatus } from '~/hooks/useOnboardingStatus';
 import { RESTART_GUIDED_TOUR_EVENT } from '~/common/events';
 
 const ensureUrl = (value?: string) => {
@@ -28,6 +28,10 @@ type SupportProps = {
 
 function Support({ onClose }: SupportProps) {
   const localize = useLocalize();
+  const { user, isAuthenticated } = useAuthContext();
+  const { markIncomplete } = useOnboardingStatus(user?.id, {
+    enabled: isAuthenticated && user !== undefined,
+  });
   const { data: startupConfig } = useGetStartupConfig();
 
   const docsHref = useMemo(
@@ -49,9 +53,10 @@ function Support({ onClose }: SupportProps) {
   }, [startupConfig?.helpAndFaqURL]);
 
   const handleReplayTour = () => {
-    onClose();
-    localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
+    markIncomplete();
     window.dispatchEvent(new Event(RESTART_GUIDED_TOUR_EVENT));
+    window.dispatchEvent(new CustomEvent('librechat:close-settings'));
+    onClose();
   };
 
   const handleOpenDocs = () => {

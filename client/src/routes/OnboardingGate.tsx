@@ -1,12 +1,16 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import SplashScreen from '~/components/Onboarding/SplashScreen';
+import { useAuthContext } from '~/hooks';
 import { useOnboardingStatus } from '~/hooks/useOnboardingStatus';
 
 const OnboardingGate = () => {
-  const { status, isComplete } = useOnboardingStatus();
+  const { user, isAuthenticated } = useAuthContext();
+  const { status, isComplete } = useOnboardingStatus(user?.id, {
+    enabled: isAuthenticated && user !== undefined,
+  });
   const location = useLocation();
 
-  if (status === 'unknown') {
+  if (!isAuthenticated || user === undefined || status === 'unknown') {
     return <SplashScreen />;
   }
 
