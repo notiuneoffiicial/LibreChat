@@ -38,8 +38,8 @@ export default function Settings({ open, onOpenChange, initialTab }: SettingsPro
       ...(hasAnyPersonalizationFeature ? [SettingsTabValues.PERSONALIZATION] : []),
       SettingsTabValues.DATA,
       ...(startupConfig?.balance?.enabled ? [SettingsTabValues.BALANCE] : []),
-      SettingsTabValues.ACCOUNT,
       SettingsTabValues.SUPPORT,
+      SettingsTabValues.ACCOUNT,
     ];
     const currentIndex = tabs.indexOf(activeTab);
 
@@ -121,14 +121,14 @@ export default function Settings({ open, onOpenChange, initialTab }: SettingsPro
         ]
       : ([] as { value: SettingsTabValues; icon: React.JSX.Element; label: TranslationKeys }[])),
     {
-      value: SettingsTabValues.ACCOUNT,
-      icon: <UserIcon />,
-      label: 'com_nav_setting_account',
-    },
-    {
       value: SettingsTabValues.SUPPORT,
       icon: <LifeBuoy className="icon-sm" />,
       label: 'com_nav_setting_support',
+    },
+    {
+      value: SettingsTabValues.ACCOUNT,
+      icon: <UserIcon />,
+      label: 'com_nav_setting_account',
     },
   ];
 
@@ -254,11 +254,11 @@ export default function Settings({ open, onOpenChange, initialTab }: SettingsPro
                         <Balance />
                       </Tabs.Content>
                     )}
+                    <Tabs.Content value={SettingsTabValues.SUPPORT} tabIndex={-1}>
+                      <Support onClose={() => onOpenChange(false)} />
+                    </Tabs.Content>
                     <Tabs.Content value={SettingsTabValues.ACCOUNT} tabIndex={-1}>
                       <Account />
-                    </Tabs.Content>
-                    <Tabs.Content value={SettingsTabValues.SUPPORT} tabIndex={-1}>
-                      <Support />
                     </Tabs.Content>
                   </div>
                 </Tabs.Root>

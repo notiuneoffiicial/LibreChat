@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LocalStorageKeys } from 'librechat-data-provider';
-import { RESTART_GUIDED_TOUR_EVENT } from '~/common/events';
+import { GUIDED_TOUR_REFRESH_EVENT, RESTART_GUIDED_TOUR_EVENT } from '~/common/events';
 
 type Placement = 'center' | 'left' | 'right' | 'bottom' | 'top';
 
@@ -28,6 +28,7 @@ interface HighlightPosition {
 interface TooltipPosition {
   top: number;
   left: number;
+  transform?: string;
 }
 
 interface TooltipSize {
@@ -107,9 +108,9 @@ const tourSteps: TourStep[] = [
     description:
       'Add a second model to reply to the same prompt. Compare approaches side-by-side to uncover deeper insights.',
     target: '[data-tour="multi-conversation-toggle"]',
-    placement: 'top',
+    placement: 'bottom',
     padding: 16,
-    tooltipOffset: { y: -100 },
+    tooltipOffset: { y: 12 },
   },
   {
     id: 'temporary-chat-toggle',
@@ -117,9 +118,9 @@ const tourSteps: TourStep[] = [
     description:
       'Toggle Temporary Chat to keep this discussion off the record. Nothing is saved once you close the window.',
     target: '[data-tour="temporary-chat-toggle"]',
-    placement: 'top',
+    placement: 'bottom',
     padding: 16,
-    tooltipOffset: { y: -100 },
+    tooltipOffset: { y: 12 },
   },
   {
     id: 'voice-dictation',
@@ -307,6 +308,19 @@ const useHighlightPosition = (step: TourStep | undefined, isActive: boolean) => 
     };
   }, [isActive, updatePosition]);
 
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    const handleRefresh = () => updatePosition();
+    window.addEventListener(GUIDED_TOUR_REFRESH_EVENT, handleRefresh);
+
+    return () => {
+      window.removeEventListener(GUIDED_TOUR_REFRESH_EVENT, handleRefresh);
+    };
+  }, [isActive, updatePosition]);
+
   return position;
 };
 
@@ -328,33 +342,52 @@ const computeTooltipPosition = (
   const width = tooltipSize.width || 0;
   const height = tooltipSize.height || 0;
 
+  if (!highlight) {
+    let top = scrollTop + viewportHeight / 2;
+    let left = scrollLeft + viewportWidth / 2;
+
+    if (width > 0 && height > 0) {
+      const minTop = scrollTop + viewportPadding + height / 2;
+      const maxTop = scrollTop + viewportHeight - viewportPadding - height / 2;
+      const minLeft = scrollLeft + viewportPadding + width / 2;
+      const maxLeft = scrollLeft + viewportWidth - viewportPadding - width / 2;
+
+      top = clamp(top, minTop, maxTop);
+      left = clamp(left, minLeft, maxLeft);
+    }
+
+    return {
+      top,
+      left,
+      transform: 'translate(-50%, -50%)',
+    };
+  }
+
   let top = scrollTop + Math.max((viewportHeight - height) / 2, viewportPadding);
   let left = scrollLeft + Math.max((viewportWidth - width) / 2, viewportPadding);
 
-  if (highlight) {
-    switch (placement) {
-      case 'top':
-        top = highlight.top - height - offset;
-        left = highlight.left + highlight.width / 2 - width / 2;
-        break;
-      case 'bottom':
-        top = highlight.top + highlight.height + offset;
-        left = highlight.left + highlight.width / 2 - width / 2;
-        break;
-      case 'left':
-        top = highlight.top + highlight.height / 2 - height / 2;
-        left = highlight.left - width - offset;
-        break;
-      case 'right':
-        top = highlight.top + highlight.height / 2 - height / 2;
-        left = highlight.left + highlight.width + offset;
-        break;
-      case 'center':
-      default:
-        top = highlight.top + highlight.height / 2 - height / 2;
-        left = highlight.left + highlight.width / 2 - width / 2;
-        break;
-    }
+  switch (placement) {
+    case 'top':
+      top = highlight.top - height - offset;
+      left = highlight.left + highlight.width / 2 - width / 2;
+      break;
+    case 'bottom':
+      top = highlight.top + highlight.height + offset;
+      left = highlight.left + highlight.width / 2 - width / 2;
+      break;
+    case 'left':
+      top = highlight.top + highlight.height / 2 - height / 2;
+      left = highlight.left - width - offset;
+      break;
+    case 'right':
+      top = highlight.top + highlight.height / 2 - height / 2;
+      left = highlight.left + highlight.width + offset;
+      break;
+    case 'center':
+    default:
+      top = highlight.top + highlight.height / 2 - height / 2;
+      left = highlight.left + highlight.width / 2 - width / 2;
+      break;
   }
 
   top += offsetY;
@@ -381,6 +414,19 @@ export default function GuidedTour() {
   const highlightPosition = useHighlightPosition(currentStep, isActive);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [tooltipSize, setTooltipSize] = useState<TooltipSize>({ width: 0, height: 0 });
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimeoutRef = useRef<number | null>(null);
+
+  const triggerTransition = useCallback(() => {
+    if (transitionTimeoutRef.current != null) {
+      window.clearTimeout(transitionTimeoutRef.current);
+    }
+    setIsTransitioning(true);
+    transitionTimeoutRef.current = window.setTimeout(() => {
+      setIsTransitioning(false);
+      transitionTimeoutRef.current = null;
+    }, 180);
+  }, []);
 
   useLayoutEffect(() => {
     const updateSize = () => {
@@ -418,6 +464,11 @@ export default function GuidedTour() {
     if (hasCompletedTour !== 'true') {
       setIsActive(true);
     }
+    return () => {
+      if (transitionTimeoutRef.current != null) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -448,8 +499,8 @@ export default function GuidedTour() {
         window.clearTimeout(resizeTimeout);
       }
       resizeTimeout = window.setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-      }, 220);
+        window.dispatchEvent(new Event(GUIDED_TOUR_REFRESH_EVENT));
+      }, 200);
     };
 
     if (sidePanelStepIds.has(currentStepId)) {
@@ -515,6 +566,7 @@ export default function GuidedTour() {
   }, []);
 
   const handleNext = useCallback(() => {
+    triggerTransition();
     setStepIndex((prev) => {
       const nextIndex = Math.min(prev + 1, tourSteps.length - 1);
       if (nextIndex === tourSteps.length - 1) {
@@ -522,11 +574,12 @@ export default function GuidedTour() {
       }
       return nextIndex;
     });
-  }, []);
+  }, [triggerTransition]);
 
   const handlePrevious = useCallback(() => {
+    triggerTransition();
     setStepIndex((prev) => Math.max(prev - 1, 0));
-  }, []);
+  }, [triggerTransition]);
 
   useEffect(() => {
     if (!isActive) {
@@ -544,21 +597,27 @@ export default function GuidedTour() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center"
+      className="fixed inset-0 z-[2000] flex items-center justify-center transition-opacity duration-200 ease-in-out"
       role="dialog"
       aria-modal="true"
       aria-label="OptimismAI guided introduction"
+      style={{ opacity: isTransitioning ? 0.9 : 1 }}
     >
-      <div className="absolute inset-0 bg-black/60" aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-black/60 transition-opacity duration-200 ease-in-out"
+        aria-hidden="true"
+        style={{ opacity: isTransitioning ? 0.95 : 1 }}
+      />
       {highlightPosition && (
         <div
-          className="pointer-events-none absolute rounded-xl border-2 border-white/80 bg-white/20 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] backdrop-blur-[1.5px] mix-blend-screen dark:bg-white/10"
+          className="pointer-events-none absolute rounded-xl border-2 border-white/80 bg-white/20 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] backdrop-blur-[1.5px] mix-blend-screen transition-all duration-200 ease-in-out dark:bg-white/10"
           style={{
             top: highlightPosition.top,
             left: highlightPosition.left,
             width: highlightPosition.width,
             height: highlightPosition.height,
             boxShadow: '0 0 0 9999px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.35)',
+            opacity: isTransitioning ? 0.65 : 1,
           }}
         />
       )}
@@ -570,11 +629,13 @@ export default function GuidedTour() {
         Skip tour
       </button>
       <div
-        className="relative max-w-md rounded-2xl bg-white p-6 text-gray-900 shadow-2xl transition dark:bg-surface-primary dark:text-white"
+        className="relative max-w-md rounded-2xl bg-white p-6 text-gray-900 shadow-2xl transition-all duration-200 ease-in-out dark:bg-surface-primary dark:text-white"
         style={{
           position: 'absolute',
           top: tooltipPosition.top,
           left: tooltipPosition.left,
+          transform: tooltipPosition.transform,
+          opacity: isTransitioning ? 0 : 1,
         }}
         ref={tooltipRef}
       >
