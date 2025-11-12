@@ -13,6 +13,18 @@ const OnboardingRoute = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isAuthenticated) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      navigate('/login', { replace: true, state: { from: location } });
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [isAuthenticated, navigate, location]);
+
+  useEffect(() => {
     if (!ready) {
       return;
     }
@@ -27,7 +39,7 @@ const OnboardingRoute = () => {
     navigate('/c/new', { replace: true });
   }, [markComplete, navigate]);
 
-  if (!ready || status === 'unknown') {
+  if (!isAuthenticated || !ready || status === 'unknown') {
     return <SplashScreen />;
   }
 
