@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Spinner } from '@librechat/client';
+import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Constants, EModelEndpoint } from 'librechat-data-provider';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
@@ -9,7 +8,7 @@ import { useNewConvo, useAppStartup, useAssistantListMap, useIdChangeEffect } fr
 import { getDefaultModelSpec, getModelSpecPreset, logger } from '~/utils';
 import { ToolCallsMapProvider } from '~/Providers';
 import ChatView from '~/components/Chat/ChatView';
-import OnboardingWizard from '~/components/Onboarding/OnboardingWizard';
+import SplashScreen from '~/components/Onboarding/SplashScreen';
 import useAuthRedirect from './useAuthRedirect';
 import temporaryStore from '~/store/temporary';
 import { useRecoilCallback } from 'recoil';
@@ -18,7 +17,6 @@ import store from '~/store';
 export default function ChatRoute() {
   const { data: startupConfig } = useGetStartupConfig();
   const { isAuthenticated, user } = useAuthRedirect();
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const setIsTemporary = useRecoilCallback(
     ({ set }) =>
@@ -28,16 +26,6 @@ export default function ChatRoute() {
     [],
   );
   useAppStartup({ startupConfig, user });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const completed = localStorage.getItem('OPTIMISM_ONBOARDING_COMPLETED');
-    if (completed !== 'true') {
-      setShowOnboarding(true);
-    }
-  }, []);
 
   const index = 0;
   const { conversationId = '' } = useParams();
@@ -133,24 +121,15 @@ export default function ChatRoute() {
     assistantListMap,
   ]);
 
+  if (!isAuthenticated) {
+    return <SplashScreen headline="Preparing your Optimist’s Lens…" subtext="Authenticating your session." />;
+  }
+
   if (endpointsQuery.isLoading || modelsQuery.isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center" aria-live="polite" role="status">
-        <Spinner className="text-text-primary" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  if (showOnboarding) {
-    return (
-      <OnboardingWizard
-        onComplete={() => {
-          setShowOnboarding(false);
-        }}
+      <SplashScreen
+        headline="Preparing your Optimist’s Lens…"
+        subtext="Setting up your workspace."
       />
     );
   }
