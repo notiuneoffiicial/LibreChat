@@ -514,6 +514,8 @@
   "com_ui_add": "Aggiungi",
   "com_ui_add_model_preset": "Aggiungi un modello o una preimpostazione per una risposta aggiuntiva",
   "com_ui_add_multi_conversation": "Aggiungi conversazioni multiple",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_admin": "Amministratore",
   "com_ui_admin_access_warning": "La disattivazione dell'accesso amministratore a questa funzionalità potrebbe causare problemi imprevisti all'interfaccia utente che richiedono un aggiornamento. Una volta salvata, l'unico modo per ripristinare è attraverso l'impostazione dell'interfaccia nel file di configurazione librechat.yaml, che influisce su tutti i ruoli.",
   "com_ui_admin_settings": "Impostazioni Amministratore",

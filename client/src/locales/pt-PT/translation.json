@@ -603,6 +603,8 @@
   "com_ui_add_mcp_server": "Adicionar Servidor MCP",
   "com_ui_add_model_preset": "Adicionar um modelo ou predefinição para uma resposta adicional",
   "com_ui_add_multi_conversation": "Adicionar conversação múltiplca",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "A adicionar detalhes",
   "com_ui_admin": "Admin",
   "com_ui_admin_access_warning": "Desligar o acesso administrativo a esta funcionalidade poderá causar problemas inesperados na UI que precisem de atualizar. Se salvo, a única maneira de reverter será pela configuração do librechat.yaml que afecta todos os cargos.",

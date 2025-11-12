@@ -62,5 +62,7 @@
   "com_nav_lang_traditional_chinese": "ჩინური ტრადიციული",
   "com_nav_lang_turkish": "თურქული",
   "com_nav_lang_vietnamese": "ვიეტნამური",
-  "com_nav_language": "ენა"
+  "com_nav_language": "ენა",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active"
 }

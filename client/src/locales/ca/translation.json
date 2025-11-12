@@ -479,6 +479,8 @@
   "com_ui_add": "Afegeix",
   "com_ui_add_model_preset": "Afegeix un model o predefinit per una resposta addicional",
   "com_ui_add_multi_conversation": "Afegeix multi-conversa",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_admin": "Administrador",
   "com_ui_admin_access_warning": "Desactivar l'accés d'administrador a aquesta funció pot causar problemes inesperats en la interfície que requeriran una actualització. Si es desa, només es pot revertir des de la configuració de la interfície a librechat.yaml, que afecta tots els rols.",
   "com_ui_admin_settings": "Configuració d'administrador",

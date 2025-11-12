@@ -392,6 +392,8 @@
   "com_ui_accept": "Hyväksyn",
   "com_ui_add": "Lisää",
   "com_ui_add_model_preset": "Lisää malli tai esiasetus lisävastausta varten",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_admin": "Ylläpito",
   "com_ui_admin_settings": "Ylläpitoasetukset",
   "com_ui_advanced": "Edistynyt",

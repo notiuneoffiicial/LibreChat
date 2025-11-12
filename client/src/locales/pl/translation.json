@@ -412,6 +412,8 @@
   "com_ui_add": "Dodaj",
   "com_ui_add_model_preset": "Dodaj model lub preset dla dodatkowej odpowiedzi",
   "com_ui_add_multi_conversation": "Dodaj wielokrotną konwersację",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_admin": "Administrator",
   "com_ui_admin_access_warning": "Wyłączenie dostępu administratora do tej funkcji może spowodować nieoczekiwane problemy z interfejsem użytkownika wymagające odświeżenia. Jeśli zostanie zapisane, jedynym sposobem na przywrócenie jest ustawienie interfejsu w konfiguracji librechat.yaml, które wpływa na wszystkie role.",
   "com_ui_admin_settings": "Ustawienia administratora",

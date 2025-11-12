@@ -635,6 +635,8 @@
   "com_ui_add_mcp_server": "Pievienot MCP serveri",
   "com_ui_add_model_preset": "Pievienot modeli vai iestatījumu papildu atbildei",
   "com_ui_add_multi_conversation": "Pievienot vairākas sarunas",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "Detalizētas informācijas pievienošana",
   "com_ui_admin": "Administrators",
   "com_ui_admin_access_warning": "Administratora piekļuves atspējošana šai funkcijai var izraisīt neparedzētas lietotāja saskarnes problēmas, kurām nepieciešama atsvaidzināšana. Ja izmaiņas ir saglabātas, vienīgais veids, kā tās atjaunot, ir, izmantojot saskarnes iestatījumu librechat.yaml konfigurācijā, kas ietekmē visas lomas.",

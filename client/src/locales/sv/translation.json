@@ -417,6 +417,8 @@
   "com_sources_title": "Källor",
   "com_ui_accept": "Jag accepterar",
   "com_ui_add": "Lägg till",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_agent_duplicate_error": "Det uppstod ett fel vid dupliceringen av agenten",
   "com_ui_agent_duplicated": "Agent duplicerad framgångsrikt",
   "com_ui_agents": "Agenter",

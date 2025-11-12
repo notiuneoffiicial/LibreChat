@@ -490,6 +490,8 @@
   "com_ui_add": "Lisa",
   "com_ui_add_model_preset": "Lisa mudel või eelseadistus täiendava vastuse jaoks",
   "com_ui_add_multi_conversation": "Lisa mitmevestlus",
+  "com_ui_enable_dual_response": "Enable Dual-Response",
+  "com_ui_dual_response_active": "Dual-Response Active",
   "com_ui_adding_details": "Detailide lisamine",
   "com_ui_admin": "Administraator",
   "com_ui_admin_access_warning": "Administraatori juurdepääsu keelamine sellele funktsioonile võib põhjustada ootamatuid kasutajaliidese probleeme, mis nõuavad värskendamist. Kui see on salvestatud, on ainus viis taastada liideseseade kaudu librechat.yaml konfiguratsioonis, mis mõjutab kõiki rolle.",
