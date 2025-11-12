@@ -113,27 +113,27 @@ export default function MemoryCreateDialog({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="memory-key" className="text-sm font-medium">
-                {localize('com_ui_key')}
+                Type
               </Label>
               <Input
                 id="memory-key"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder={localize('com_ui_enter_key')}
+                placeholder="Enter type"
                 className="w-full"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="memory-value" className="text-sm font-medium">
-                {localize('com_ui_value')}
+                Info
               </Label>
               <textarea
                 id="memory-value"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder={localize('com_ui_enter_value')}
+                placeholder="Enter info"
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 rows={3}
               />
