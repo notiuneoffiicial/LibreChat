@@ -1,7 +1,7 @@
 import { useState, memo } from 'react';
 import { useRecoilState } from 'recoil';
 import * as Select from '@ariakit/react/select';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, LifeBuoy } from 'lucide-react';
 import { GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import FilesView from '~/components/Chat/Input/Files/FilesView';
@@ -9,6 +9,7 @@ import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
 import Settings from './Settings';
 import store from '~/store';
+import { SettingsTabValues } from 'librechat-data-provider';
 
 function AccountSettings() {
   const localize = useLocalize();
@@ -18,6 +19,7 @@ function AccountSettings() {
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTabValues | undefined>();
   const [showFiles, setShowFiles] = useRecoilState(store.showFiles);
 
   return (
@@ -71,11 +73,25 @@ function AccountSettings() {
         </Select.SelectItem>
         <Select.SelectItem
           value=""
-          onClick={() => setShowSettings(true)}
+          onClick={() => {
+            setSettingsInitialTab(undefined);
+            setShowSettings(true);
+          }}
           className="select-item text-sm"
         >
           <GearIcon className="icon-md" aria-hidden="true" />
           {localize('com_nav_settings')}
+        </Select.SelectItem>
+        <Select.SelectItem
+          value=""
+          onClick={() => {
+            setSettingsInitialTab(SettingsTabValues.SUPPORT);
+            setShowSettings(true);
+          }}
+          className="select-item text-sm"
+        >
+          <LifeBuoy className="icon-md" aria-hidden="true" />
+          {localize('com_nav_setting_support')}
         </Select.SelectItem>
         <DropdownMenuSeparator />
         <Select.SelectItem
@@ -89,7 +105,18 @@ function AccountSettings() {
         </Select.SelectItem>
       </Select.SelectPopover>
       {showFiles && <FilesView open={showFiles} onOpenChange={setShowFiles} />}
-      {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
+      {showSettings && (
+        <Settings
+          open={showSettings}
+          initialTab={settingsInitialTab}
+          onOpenChange={(state) => {
+            setShowSettings(state);
+            if (!state) {
+              setSettingsInitialTab(undefined);
+            }
+          }}
+        />
+      )}
     </Select.SelectProvider>
   );
 }
