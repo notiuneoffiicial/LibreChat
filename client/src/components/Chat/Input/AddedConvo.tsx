@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
 import type { TConversation } from 'librechat-data-provider';
 import type { SetterOrUpdater } from 'recoil';
+import { useLocalize } from '~/hooks';
+
 export default function AddedConvo({
   addedConvo,
   setAddedConvo,
@@ -8,7 +9,8 @@ export default function AddedConvo({
   addedConvo: TConversation | null;
   setAddedConvo: SetterOrUpdater<TConversation | null>;
 }) {
-  const title = useMemo(() => 'Dual-Response Active', []);
+  const localize = useLocalize();
+  const title = localize('com_ui_dual_response_active');
 
   if (!addedConvo) {
     return null;
