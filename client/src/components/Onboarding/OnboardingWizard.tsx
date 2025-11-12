@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Input } from '@librechat/client';
 import { Volume2, Check, ChevronRight, ChevronLeft } from 'lucide-react';
-import AnimatedOrb from '~/voice/animated-orb';
+import AnimatedOrb from './AnimatedOrb';
 import { cn } from '~/utils';
 
 type ThemeChoice = 'warm-amber' | 'cool-teal' | 'rose-quartz' | 'graphite';
