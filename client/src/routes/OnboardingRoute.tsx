@@ -39,7 +39,11 @@ const OnboardingRoute = () => {
     navigate('/c/new', { replace: true });
   }, [markComplete, navigate]);
 
-  if (!isAuthenticated || !ready || status === 'unknown') {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (!ready || status === 'unknown') {
     return <SplashScreen />;
   }
 

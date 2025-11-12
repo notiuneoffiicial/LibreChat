@@ -57,9 +57,8 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(storageKey, 'true');
-        // Maintain compatibility with legacy keys that other flows rely on.
         window.localStorage.setItem(STORAGE_KEY, 'true');
-        window.localStorage.setItem(LocalStorageKeys.ONBOARDING_COMPLETED, 'true');
+        window.localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
       } catch (error) {
         console.warn('[onboarding] Unable to persist onboarding flag:', error);
       }
@@ -72,7 +71,6 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
       try {
         window.localStorage.removeItem(storageKey);
         window.localStorage.removeItem(STORAGE_KEY);
-        window.localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
       } catch (error) {
         console.warn('[onboarding] Unable to reset onboarding flag:', error);
       }

@@ -407,7 +407,12 @@ const computeTooltipPosition = (
 };
 
 export default function GuidedTour() {
-  const [isActive, setIsActive] = useState(false);
+  const [isActive, setIsActive] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return localStorage.getItem(LocalStorageKeys.ONBOARDING_COMPLETED) !== 'true';
+  });
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = useMemo(() => tourSteps[stepIndex], [stepIndex]);
   const currentStepId = currentStep?.id;
