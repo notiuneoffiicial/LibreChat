@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LocalStorageKeys } from 'librechat-data-provider';
+import { LocalStorageKeys, dataService } from 'librechat-data-provider';
+import { useGetUserQuery } from '~/data-provider';
+import { useMutation, useQueryClient, QueryKeys } from 'librechat-data-provider';
 
 const STORAGE_KEY = 'OPTIMISM_ONBOARDING_COMPLETED';
 
@@ -16,6 +18,17 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
   const { enabled = true } = options;
   const storageKey = useMemo(() => buildStorageKey(userId), [userId]);
   const [status, setStatus] = useState<StatusState>('unknown');
+  const { data: user } = useGetUserQuery({ enabled: enabled && !!userId });
+  const queryClient = useQueryClient();
+
+  const updateOnboardingMutation = useMutation(
+    (onboardingCompleted: boolean) => dataService.updateOnboardingStatus(onboardingCompleted),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries([QueryKeys.user]);
+      },
+    },
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -30,19 +43,41 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
     try {
       setStatus('unknown');
       let nextStatus: StatusState = 'incomplete';
-      const stored = window.localStorage.getItem(storageKey);
 
-      if (stored === 'true') {
+      // First, check backend (user.personalization.onboardingCompleted)
+      if (user?.personalization?.onboardingCompleted === true) {
         nextStatus = 'complete';
+        // Sync to localStorage as backup
+        try {
+          window.localStorage.setItem(storageKey, 'true');
+          window.localStorage.setItem(STORAGE_KEY, 'true');
+        } catch (error) {
+          console.warn('[onboarding] Failed to sync to localStorage:', error);
+        }
+      } else if (user?.personalization?.onboardingCompleted === false) {
+        nextStatus = 'incomplete';
       } else {
-        const legacyGlobal = window.localStorage.getItem(STORAGE_KEY);
-        if (legacyGlobal === 'true') {
-          try {
-            window.localStorage.setItem(storageKey, 'true');
-          } catch (error) {
-            console.warn('[onboarding] Failed to migrate onboarding flag:', error);
-          }
+        // Fallback to localStorage if backend doesn't have the value
+        const stored = window.localStorage.getItem(storageKey);
+        if (stored === 'true') {
           nextStatus = 'complete';
+          // Migrate to backend if we have localStorage but not backend
+          if (userId) {
+            updateOnboardingMutation.mutate(true);
+          }
+        } else {
+          const legacyGlobal = window.localStorage.getItem(STORAGE_KEY);
+          if (legacyGlobal === 'true') {
+            try {
+              window.localStorage.setItem(storageKey, 'true');
+              if (userId) {
+                updateOnboardingMutation.mutate(true);
+              }
+            } catch (error) {
+              console.warn('[onboarding] Failed to migrate onboarding flag:', error);
+            }
+            nextStatus = 'complete';
+          }
         }
       }
 
@@ -51,7 +86,7 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
       console.warn('[onboarding] Unable to read onboarding flag:', error);
       setStatus('incomplete');
     }
-  }, [enabled, storageKey]);
+  }, [enabled, storageKey, user?.personalization?.onboardingCompleted, userId, updateOnboardingMutation]);
 
   const markComplete = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -63,8 +98,11 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
         console.warn('[onboarding] Unable to persist onboarding flag:', error);
       }
     }
+    if (userId) {
+      updateOnboardingMutation.mutate(true);
+    }
     setStatus('complete');
-  }, [storageKey]);
+  }, [storageKey, userId, updateOnboardingMutation]);
 
   const markIncomplete = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -75,8 +113,11 @@ export const useOnboardingStatus = (userId?: string | null, options: UseOnboardi
         console.warn('[onboarding] Unable to reset onboarding flag:', error);
       }
     }
+    if (userId) {
+      updateOnboardingMutation.mutate(false);
+    }
     setStatus('incomplete');
-  }, [storageKey]);
+  }, [storageKey, userId, updateOnboardingMutation]);
 
   return {
     status,
@@ -98,4 +139,3 @@ export const hasOnboardingCompleted = (userId?: string | null) => {
     return true;
   }
 };
-

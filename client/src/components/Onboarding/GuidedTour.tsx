@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LocalStorageKeys } from 'librechat-data-provider';
+import { LocalStorageKeys, dataService } from 'librechat-data-provider';
 import { GUIDED_TOUR_REFRESH_EVENT, RESTART_GUIDED_TOUR_EVENT } from '~/common/events';
+import { useGetUserQuery } from '~/data-provider';
+import { useMutation, useQueryClient, QueryKeys } from 'librechat-data-provider';
+import { useAuthContext } from '~/hooks';
 
 type Placement = 'center' | 'left' | 'right' | 'bottom' | 'top';
 
@@ -407,10 +410,23 @@ const computeTooltipPosition = (
 };
 
 export default function GuidedTour() {
+  const { user } = useAuthContext();
+  const { data: userData } = useGetUserQuery({ enabled: !!user?.id });
+  const queryClient = useQueryClient();
+  const updateGuidedTourMutation = useMutation(
+    (guidedTourCompleted: boolean) => dataService.updateGuidedTourStatus(guidedTourCompleted),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries([QueryKeys.user]);
+      },
+    },
+  );
+
   const [isActive, setIsActive] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
     }
+    // Initial state will be updated by useEffect when userData loads
     return localStorage.getItem(LocalStorageKeys.ONBOARDING_COMPLETED) !== 'true';
   });
   const [stepIndex, setStepIndex] = useState(0);
@@ -465,20 +481,31 @@ export default function GuidedTour() {
   }, [currentStepId]);
 
   useEffect(() => {
+    // Check backend status first
+    if (userData?.personalization?.guidedTourCompleted === true) {
+      setIsActive(false);
+      return;
+    }
+    // Fallback to localStorage
     const hasCompletedTour = localStorage.getItem(LocalStorageKeys.ONBOARDING_COMPLETED);
     if (hasCompletedTour !== 'true') {
       setIsActive(true);
+    } else {
+      setIsActive(false);
     }
     return () => {
       if (transitionTimeoutRef.current != null) {
         window.clearTimeout(transitionTimeoutRef.current);
       }
     };
-  }, []);
+  }, [userData?.personalization?.guidedTourCompleted]);
 
   useEffect(() => {
     const handleRestart = () => {
       localStorage.removeItem(LocalStorageKeys.ONBOARDING_COMPLETED);
+      if (user?.id) {
+        updateGuidedTourMutation.mutate(false);
+      }
       setStepIndex(0);
       setIsActive(true);
     };
@@ -487,7 +514,7 @@ export default function GuidedTour() {
     return () => {
       window.removeEventListener(RESTART_GUIDED_TOUR_EVENT, handleRestart);
     };
-  }, []);
+  }, [user?.id, updateGuidedTourMutation]);
 
   useEffect(() => {
     if (!isActive || !currentStepId) {
@@ -567,8 +594,11 @@ export default function GuidedTour() {
 
   const endTour = useCallback(() => {
     localStorage.setItem(LocalStorageKeys.ONBOARDING_COMPLETED, 'true');
+    if (user?.id) {
+      updateGuidedTourMutation.mutate(true);
+    }
     setIsActive(false);
-  }, []);
+  }, [user?.id, updateGuidedTourMutation]);
 
   const handleNext = useCallback(() => {
     triggerTransition();
@@ -576,10 +606,13 @@ export default function GuidedTour() {
       const nextIndex = Math.min(prev + 1, tourSteps.length - 1);
       if (nextIndex === tourSteps.length - 1) {
         localStorage.setItem(LocalStorageKeys.ONBOARDING_COMPLETED, 'true');
+        if (user?.id) {
+          updateGuidedTourMutation.mutate(true);
+        }
       }
       return nextIndex;
     });
-  }, [triggerTransition]);
+  }, [triggerTransition, user?.id, updateGuidedTourMutation]);
 
   const handlePrevious = useCallback(() => {
     triggerTransition();
