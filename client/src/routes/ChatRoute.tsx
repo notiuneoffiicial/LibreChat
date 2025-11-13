@@ -6,13 +6,19 @@ import { useGetModelsQuery } from 'librechat-data-provider/react-query';
 import type { TPreset } from 'librechat-data-provider';
 import { useGetConvoIdQuery, useGetStartupConfig, useGetEndpointsQuery } from '~/data-provider';
 import { useNewConvo, useAppStartup, useAssistantListMap, useIdChangeEffect } from '~/hooks';
-import { cn, getDefaultModelSpec, getModelSpecPreset, logger } from '~/utils';
+import { getDefaultModelSpec, getModelSpecPreset, logger } from '~/utils';
 import { ToolCallsMapProvider } from '~/Providers';
 import ChatView from '~/components/Chat/ChatView';
 import useAuthRedirect from './useAuthRedirect';
 import temporaryStore from '~/store/temporary';
 import { useRecoilCallback } from 'recoil';
 import store from '~/store';
+
+const FullscreenSpinner = () => (
+  <div className="flex h-full min-h-screen items-center justify-center">
+    <Spinner className="text-text-secondary" />
+  </div>
+);
 
 export default function ChatRoute() {
   const { data: startupConfig } = useGetStartupConfig();
@@ -122,16 +128,11 @@ export default function ChatRoute() {
   ]);
 
   if (!isAuthenticated) {
-    return <SplashScreen headline="Preparing your Optimist’s Lens…" subtext="Authenticating your session." />;
+    return <FullscreenSpinner />;
   }
 
   if (endpointsQuery.isLoading || modelsQuery.isLoading) {
-    return (
-      <SplashScreen
-        headline="Preparing your Optimist’s Lens…"
-        subtext="Setting up your workspace."
-      />
-    );
+    return <FullscreenSpinner />;
   }
 
   // if not a conversation

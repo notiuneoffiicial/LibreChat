@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Input } from '@librechat/client';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { Input, Switch } from '@librechat/client';
 import { Volume2, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import AnimatedOrb from './AnimatedOrb';
 import { cn } from '~/utils';
+import { useVoicesQuery } from '~/data-provider';
 
 const BRAND_VIOLET = '#6F4DEF';
 const BRAND_INK = '#06070F';
@@ -158,7 +159,8 @@ const THEME_CHOICES: { id: ThemeChoice; label: string; description: string; grad
   },
 ];
 
-const VOICE_OPTIONS = ['No Voice', 'Warm Echo', 'Serene Wave', 'Lively Spark', 'Quiet Muse'];
+const DEFAULT_VOICE_OPTION = 'No Voice';
+const FALLBACK_VOICES = ['Warm Echo', 'Serene Wave', 'Lively Spark', 'Quiet Muse'];
 
 const initialState: OnboardingData = {
   purposes: [],
@@ -188,7 +190,7 @@ const initialState: OnboardingData = {
   displayName: '',
   aiNickname: '',
   theme: 'warm-amber',
-  voice: 'No Voice',
+  voice: DEFAULT_VOICE_OPTION,
   lensBalance: 50,
 };
 
@@ -234,6 +236,31 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [data, setData] = useState<OnboardingData>(initialState);
+
+  const { data: fetchedVoices = [] } = useVoicesQuery();
+  const voiceOptions = useMemo(() => {
+    const normalized = Array.isArray(fetchedVoices)
+      ? fetchedVoices.filter(
+          (voice): voice is string => typeof voice === 'string' && voice.trim().length > 0,
+        )
+      : [];
+    const unique = Array.from(new Set(normalized));
+    const fallback = unique.length > 0 ? unique : FALLBACK_VOICES;
+    const withoutDefault = fallback.filter((voice) => voice !== DEFAULT_VOICE_OPTION);
+    return [DEFAULT_VOICE_OPTION, ...withoutDefault];
+  }, [fetchedVoices]);
+
+  useEffect(() => {
+    setData((prev) => {
+      if (voiceOptions.includes(prev.voice)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        voice: voiceOptions[0] ?? DEFAULT_VOICE_OPTION,
+      };
+    });
+  }, [voiceOptions]);
 
   useEffect(() => {
     if (!previewVoice) {
@@ -324,12 +351,6 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                   <div className="mb-4 text-3xl">{option.icon}</div>
                   <h3 className="text-lg font-semibold text-slate-900">{option.title}</h3>
                   <p className="mt-2 text-sm text-slate-500">{option.description}</p>
-                  {selected && (
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#6F4DEF]">
-                      <Check size={14} />
-                      Selected
-                    </div>
-                  )}
                 </button>
               );
             })}
@@ -500,28 +521,42 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                     memoryEnabled: checked ? false : prev.memoryEnabled,
                   })),
               },
-            ].map((toggle) => (
-              <label
-                key={toggle.id}
-                className="group relative flex items-start gap-4 rounded-[26px] border border-slate-200 bg-white/95 p-5 shadow-sm transition-[transform,box-shadow,border] duration-200 hover:-translate-y-[2px] hover:border-[#C8B9FF] hover:shadow-[0_18px_40px_rgba(45,35,95,0.12)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-[#A996F9] motion-reduce:transform-none motion-reduce:shadow-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={toggle.checked}
-                  onChange={(event) => toggle.onChange(event.target.checked)}
-                  className="peer sr-only"
-                />
-                <div>
-                  <span className="text-base font-semibold text-slate-900">{toggle.label}</span>
-                  <p className="mt-1 text-sm text-slate-500">{toggle.description}</p>
+            ].map((toggle) => {
+              const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  toggle.onChange(!toggle.checked);
+                }
+              };
+
+              return (
+                <div
+                  key={toggle.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={toggle.checked}
+                  onClick={() => toggle.onChange(!toggle.checked)}
+                  onKeyDown={handleKeyDown}
+                  className={cn(
+                    'group relative flex items-start gap-4 rounded-[26px] border border-slate-200 bg-white/95 p-5 text-left shadow-sm transition-[transform,box-shadow,border] duration-200 hover:-translate-y-[2px] hover:border-[#C8B9FF] hover:shadow-[0_18px_40px_rgba(45,35,95,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#A996F9] motion-reduce:transform-none motion-reduce:shadow-none',
+                    toggle.checked && 'border-[#8B76FF] shadow-[0_22px_50px_rgba(108,89,255,0.16)]',
+                  )}
+                >
+                  <div className="pr-6">
+                    <span className="text-base font-semibold text-slate-900">{toggle.label}</span>
+                    <p className="mt-1 text-sm text-slate-500">{toggle.description}</p>
+                  </div>
+                  <Switch
+                    checked={toggle.checked}
+                    onCheckedChange={toggle.onChange}
+                    className="ml-auto mt-1"
+                    aria-label={toggle.label}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
                 </div>
-                <span className="ml-auto inline-flex items-center">
-                  <span className="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-200 transition-colors duration-200 peer-checked:bg-[#6F4DEF] motion-reduce:transition-none">
-                    <span className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5 motion-reduce:transition-none" />
-                  </span>
-                </span>
-              </label>
-            ))}
+              );
+            })}
             <div className="lg:col-span-2">
               <label className="text-sm font-medium text-slate-800" htmlFor="memory-notes">
                 Add a few things you’d like me to remember:
@@ -671,35 +706,47 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
               },
             ].map((toggle) => {
               const checked = data.privacy[toggle.id as keyof typeof data.privacy];
+              const handleToggle = (next: boolean) =>
+                setData((prev) => ({
+                  ...prev,
+                  privacy: {
+                    ...prev.privacy,
+                    [toggle.id]: next,
+                  },
+                }));
+              const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleToggle(!checked);
+                }
+              };
+
               return (
-                <label
+                <div
                   key={toggle.id}
-                  className="group relative flex items-start gap-4 rounded-[26px] border border-slate-200 bg-white/95 p-5 shadow-sm transition-[transform,box-shadow,border] duration-200 hover:-translate-y-[2px] hover:border-[#C8B9FF] hover:shadow-[0_18px_40px_rgba(45,35,95,0.12)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-[#A996F9] motion-reduce:transform-none motion-reduce:shadow-none"
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={checked}
+                  onClick={() => handleToggle(!checked)}
+                  onKeyDown={handleKeyDown}
+                  className={cn(
+                    'group relative flex items-start gap-4 rounded-[26px] border border-slate-200 bg-white/95 p-5 text-left shadow-sm transition-[transform,box-shadow,border] duration-200 hover:-translate-y-[2px] hover:border-[#C8B9FF] hover:shadow-[0_18px_40px_rgba(45,35,95,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#A996F9] motion-reduce:transform-none motion-reduce:shadow-none',
+                    checked && 'border-[#8B76FF] shadow-[0_22px_50px_rgba(108,89,255,0.16)]',
+                  )}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) =>
-                      setData((prev) => ({
-                        ...prev,
-                        privacy: {
-                          ...prev.privacy,
-                          [toggle.id]: event.target.checked,
-                        },
-                      }))
-                    }
-                    className="peer sr-only"
-                  />
-                  <div>
+                  <div className="pr-6">
                     <span className="text-base font-semibold text-slate-900">{toggle.title}</span>
                     <p className="mt-1 text-sm text-slate-500">{toggle.description}</p>
                   </div>
-                  <span className="ml-auto inline-flex items-center">
-                    <span className="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-200 transition-colors duration-200 peer-checked:bg-[#6F4DEF] motion-reduce:transition-none">
-                      <span className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5 motion-reduce:transition-none" />
-                    </span>
-                  </span>
-                </label>
+                  <Switch
+                    checked={checked}
+                    onCheckedChange={handleToggle}
+                    className="ml-auto mt-1"
+                    aria-label={toggle.title}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
+                </div>
               );
             })}
           </div>
@@ -743,7 +790,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                   onChange={(event) => setData((prev) => ({ ...prev, voice: event.target.value }))}
                   className="flex-1 rounded-[18px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-[#A996F9] focus:outline-none focus:ring-2 focus:ring-[#A996F9]/30"
                 >
-                  {VOICE_OPTIONS.map((voice) => (
+                  {voiceOptions.map((voice) => (
                     <option key={voice} value={voice}>
                       {voice}
                     </option>
@@ -783,7 +830,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                       <div className="flex items-center gap-3">
                         <span
                           className={cn(
-                            'h-10 w-10 rounded-full border border-white/40 shadow-inner',
+                            'h-10 w-10 flex-shrink-0 rounded-full border border-white/40 shadow-inner',
                             `bg-gradient-to-br ${choice.gradient}`,
                           )}
                         />
@@ -792,9 +839,6 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                           <p className="text-xs text-slate-500">{choice.description}</p>
                         </div>
                       </div>
-                      {selected && (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-[#6F4DEF]">Selected</span>
-                      )}
                     </button>
                   );
                 })}
@@ -935,7 +979,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         ),
       },
     ],
-    [data, handleThemeSelect, prefersReducedMotion, previewVoice],
+    [data, handleThemeSelect, prefersReducedMotion, previewVoice, voiceOptions],
   );
 
   const totalSteps = screenConfigs.length;
