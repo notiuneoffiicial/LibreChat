@@ -33,6 +33,8 @@ export interface IUser extends Document {
   termsAccepted?: boolean;
   personalization?: {
     memories?: boolean;
+    onboardingCompleted?: boolean;
+    guidedTourCompleted?: boolean;
   };
   createdAt?: Date;
   updatedAt?: Date;

@@ -138,6 +138,14 @@ const userSchema = new Schema<IUser>(
           type: Boolean,
           default: true,
         },
+        onboardingCompleted: {
+          type: Boolean,
+          default: false,
+        },
+        guidedTourCompleted: {
+          type: Boolean,
+          default: false,
+        },
       },
       default: {},
     },

@@ -353,6 +353,11 @@ export const memories = () => `${BASE_URL}/api/memories`;
 export const memory = (key: string) => `${memories()}/${encodeURIComponent(key)}`;
 export const memoryPreferences = () => `${memories()}/preferences`;
 
+/* Onboarding */
+export const onboarding = () => `${BASE_URL}/api/onboarding`;
+export const onboardingStatus = () => `${onboarding()}/status`;
+export const guidedTourStatus = () => `${onboarding()}/guided-tour`;
+
 export const searchPrincipals = (params: q.PrincipalSearchParams) => {
   const { q: query, limit, types } = params;
   let url = `${BASE_URL}/api/permissions/search-principals?q=${encodeURIComponent(query)}`;

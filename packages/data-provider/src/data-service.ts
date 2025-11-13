@@ -922,6 +922,20 @@ export const updateMemoryPreferences = (preferences: {
   return request.patch(endpoints.memoryPreferences(), preferences);
 };
 
+export const updateOnboardingStatus = (onboardingCompleted: boolean): Promise<{
+  updated: boolean;
+  onboardingCompleted: boolean;
+}> => {
+  return request.patch(endpoints.onboardingStatus(), { onboardingCompleted });
+};
+
+export const updateGuidedTourStatus = (guidedTourCompleted: boolean): Promise<{
+  updated: boolean;
+  guidedTourCompleted: boolean;
+}> => {
+  return request.patch(endpoints.guidedTourStatus(), { guidedTourCompleted });
+};
+
 export const createMemory = (data: {
   key: string;
   value: string;
