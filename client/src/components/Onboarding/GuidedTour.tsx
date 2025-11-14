@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LocalStorageKeys, dataService } from 'librechat-data-provider';
+import { LocalStorageKeys, dataService, QueryKeys } from 'librechat-data-provider';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { GUIDED_TOUR_REFRESH_EVENT, RESTART_GUIDED_TOUR_EVENT } from '~/common/events';
 import { useGetUserQuery } from '~/data-provider';
-import { useMutation, useQueryClient, QueryKeys } from 'librechat-data-provider';
 import { useAuthContext } from '~/hooks';
 
 type Placement = 'center' | 'left' | 'right' | 'bottom' | 'top';
