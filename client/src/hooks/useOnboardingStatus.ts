@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LocalStorageKeys, dataService } from 'librechat-data-provider';
+import { LocalStorageKeys, dataService, QueryKeys } from 'librechat-data-provider';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGetUserQuery } from '~/data-provider';
-import { useMutation, useQueryClient, QueryKeys } from 'librechat-data-provider';
 
 const STORAGE_KEY = 'OPTIMISM_ONBOARDING_COMPLETED';
 
