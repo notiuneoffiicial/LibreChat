@@ -983,6 +983,33 @@ describe('AnthropicClient', () => {
   });
 });
 
+describe('AnthropicClient getMessageMapMethod', () => {
+  it('extracts reasoning content parts when present', () => {
+    const client = new AnthropicClient('test-api-key');
+    client.setOptions({
+      modelOptions: {
+        model: 'claude-2',
+      },
+    });
+
+    const message = {
+      role: 'assistant',
+      content: [
+        { type: 'think', think: ' First idea ' },
+        { type: 'text', text: { value: 'Assistant reply' } },
+        { type: 'think', think: { value: 'Second idea' } },
+      ],
+    };
+
+    const mapMessage = client.getMessageMapMethod();
+    const result = mapMessage(message);
+
+    expect(result.text).toBe('Assistant reply');
+    expect(result.reasoning).toBe('First idea\n\nSecond idea');
+    expect(result.content).toBeUndefined();
+  });
+});
+
 describe('Claude Model Tests', () => {
   it('should handle Claude 3 and 4 series models correctly', () => {
     const client = new AnthropicClient('test-key');
