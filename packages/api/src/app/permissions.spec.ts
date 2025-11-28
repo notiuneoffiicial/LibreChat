@@ -796,6 +796,40 @@ describe('updateInterfacePermissions - permissions', () => {
     );
   });
 
+  it('seeds memory USE permission when existing map is empty and memory is enabled', async () => {
+    mockGetRoleByName
+      .mockResolvedValueOnce({
+        permissions: {
+          [PermissionTypes.MEMORIES]: {},
+        },
+      })
+      .mockResolvedValueOnce(null);
+
+    const config = {
+      memory: {
+        disabled: false,
+      },
+    };
+    const configDefaults = { interface: {} } as TConfigDefaults;
+    const interfaceConfig = await loadDefaultInterface({ config, configDefaults });
+    const appConfig = { config, interfaceConfig } as unknown as AppConfig;
+
+    await updateInterfacePermissions({
+      appConfig,
+      getRoleByName: mockGetRoleByName,
+      updateAccessPermissions: mockUpdateAccessPermissions,
+    });
+
+    const userCall = mockUpdateAccessPermissions.mock.calls.find(
+      ([roleName]) => roleName === SystemRoles.USER,
+    );
+
+    expect(userCall).toBeDefined();
+
+    const [, userPermissions] = userCall!;
+    expect(userPermissions[PermissionTypes.MEMORIES]?.[Permissions.USE]).toBe(true);
+  });
+
   it('should handle memories OPT_OUT based on personalization when memories are enabled', async () => {
     const config = {
       interface: {
