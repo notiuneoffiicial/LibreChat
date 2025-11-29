@@ -65,14 +65,25 @@ async function buildEndpointOption(req, res, next) {
     }
 
     try {
-      currentModelSpec.preset.spec = spec;
+      const mergedConversation = {
+        ...currentModelSpec.preset,
+        ...parsedBody,
+        ...{
+          text: req.body?.text ?? parsedBody?.text,
+          web_search: req.body?.web_search ?? parsedBody?.web_search,
+          ephemeralAgent: req.body?.ephemeralAgent ?? parsedBody?.ephemeralAgent,
+        },
+        spec,
+      };
+
       if (currentModelSpec.iconURL != null && currentModelSpec.iconURL !== '') {
-        currentModelSpec.preset.iconURL = currentModelSpec.iconURL;
+        mergedConversation.iconURL = currentModelSpec.iconURL;
       }
+
       parsedBody = parseCompactConvo({
         endpoint,
         endpointType,
-        conversation: currentModelSpec.preset,
+        conversation: mergedConversation,
       });
     } catch (error) {
       logger.error(`Error parsing model spec for endpoint ${endpoint}`, error);
