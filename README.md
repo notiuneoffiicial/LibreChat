@@ -112,4 +112,4 @@ logger level to `info` and capture meta prompt diagnostics when needed.
 
 ## Positive news feed
 
-The news tab in Chat is backed by a cached feed generated from your configured news APIs. See [docs/news-feed.md](docs/news-feed.md) for configuration, refresh, and endpoint details.
+The news tab in Chat is backed by a cached feed generated from your configured RSS/Atom feeds. See [docs/news-feed.md](docs/news-feed.md) for configuration, refresh, and endpoint details.

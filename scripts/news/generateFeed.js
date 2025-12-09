@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { parseStringPromise } = require('xml2js');
 const getLogger = () => {
   try {
     const { logger } = require('@librechat/data-schemas');
@@ -13,8 +14,7 @@ const getLogger = () => {
 const logger = getLogger();
 
 const {
-  NEWS_API_ENDPOINTS,
-  NEWS_API_KEY,
+  NEWS_RSS_FEEDS,
   NEWS_SUMMARY_API_KEY,
   NEWS_SUMMARY_API_BASE,
   NEWS_SUMMARY_MODEL,
@@ -119,17 +119,56 @@ const extractArticles = (payload) => {
     return payload.results;
   }
 
+  if (payload?.rss?.channel?.item) {
+    const items = payload.rss.channel.item;
+    return Array.isArray(items) ? items : [items];
+  }
+
+  if (payload?.feed?.entry) {
+    const entries = payload.feed.entry;
+    return Array.isArray(entries) ? entries : [entries];
+  }
+
   return Array.isArray(payload) ? payload : [];
 };
 
-const normalizeArticle = (article) => ({
-  title: article.title || article.headline || article.name,
-  source: article.source?.name || article.source || article.publisher || 'Unknown',
-  category: article.category || article.section || article.topic || 'General',
-  summary: article.summary || article.description || '',
-  link: article.url || article.link || '#',
-  publishedAt: article.publishedAt || article.date || article.created_at || article.pubDate || null,
-});
+const normalizeArticle = (article) => {
+  const resolvedSource =
+    article.source?.title ||
+    article.source?.name ||
+    article.source ||
+    article.creator ||
+    article.author ||
+    article['dc:creator'];
+
+  let hostname;
+  if (!resolvedSource && article.link) {
+    try {
+      hostname = new URL(article.link).hostname;
+    } catch (error) {
+      logger.debug('Unable to derive hostname for article', error);
+    }
+  }
+
+  const primaryCategory = Array.isArray(article.categories)
+    ? article.categories[0]
+    : article.categories;
+
+  return {
+    title: article.title || article.headline || article.name,
+    source: resolvedSource || hostname || 'Unknown',
+    category:
+      primaryCategory ||
+      (Array.isArray(article.category) ? article.category[0] : article.category) ||
+      article.section ||
+      article.topic ||
+      'General',
+    summary:
+      article.contentSnippet || article.summary || article.description || article.content || article['content:encoded'] || '',
+    link: article.url || article.link || article.guid || '#',
+    publishedAt: article.isoDate || article.publishedAt || article.date || article.created_at || article.pubDate || null,
+  };
+};
 
 const buildPrompt = (article) => {
   const details = `Title: ${article.title}\nSource: ${article.source}\nCategory: ${article.category}\nLink: ${article.link}\nOriginal summary: ${
@@ -192,19 +231,18 @@ const summarizeArticle = async (article) => {
   }
 };
 
-const fetchFromEndpoint = async (endpoint) => {
-  const headers = {};
-  if (NEWS_API_KEY) {
-    headers.Authorization = `Bearer ${NEWS_API_KEY}`;
-  }
-
+const fetchFromFeed = async (endpoint) => {
   try {
-    const response = await fetch(endpoint, { headers });
+    const response = await fetch(endpoint);
     if (!response.ok) {
       throw new Error(`Failed to load feed: ${response.status}`);
     }
-    const data = await response.json();
-    return extractArticles(data)
+
+    const body = await response.text();
+    const parsed = await parseStringPromise(body, { explicitArray: false, mergeAttrs: true, trim: true });
+    const items = extractArticles(parsed) || parsed.items || [];
+
+    return items
       .map(normalizeArticle)
       .filter((article) => article.title && article.link);
   } catch (error) {
@@ -214,16 +252,16 @@ const fetchFromEndpoint = async (endpoint) => {
 };
 
 const loadSources = async () => {
-  if (!NEWS_API_ENDPOINTS) {
+  if (!NEWS_RSS_FEEDS) {
     return fallbackArticles;
   }
 
-  const endpoints = NEWS_API_ENDPOINTS.split(',').map((value) => value.trim()).filter(Boolean);
+  const endpoints = NEWS_RSS_FEEDS.split(',').map((value) => value.trim()).filter(Boolean);
   if (endpoints.length === 0) {
     return fallbackArticles;
   }
 
-  const articleGroups = await Promise.all(endpoints.map((endpoint) => fetchFromEndpoint(endpoint)));
+  const articleGroups = await Promise.all(endpoints.map((endpoint) => fetchFromFeed(endpoint)));
   const merged = articleGroups.flat();
   return merged.length > 0 ? merged : fallbackArticles;
 };
