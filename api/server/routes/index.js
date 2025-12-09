@@ -28,6 +28,7 @@ const keys = require('./keys');
 const user = require('./user');
 const mcp = require('./mcp');
 const onboarding = require('./onboarding');
+const news = require('./news');
 
 module.exports = {
   mcp,
@@ -40,6 +41,7 @@ module.exports = {
   oauth,
   files,
   share,
+  news,
   banner,
   agents,
   convos,
