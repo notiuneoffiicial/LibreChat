@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useForm } from 'react-hook-form';
 import { Spinner } from '@librechat/client';
@@ -20,6 +20,8 @@ import { cn } from '~/utils';
 import store from '~/store';
 import VoiceModeOverlay from './VoiceMode/VoiceModeOverlay';
 import GuidedTour from '../Onboarding/GuidedTour';
+import NewsGrid from '../News/NewsGrid';
+import newsData from '../News/newsData';
 
 function LoadingSpinner() {
   return (
@@ -38,6 +40,8 @@ function ChatView({ index = 0 }: { index?: number }) {
   const centerFormOnLanding = useRecoilValue(store.centerFormOnLanding);
 
   const fileMap = useFileMapContext();
+  const [activeView, setActiveView] = useState<'chat' | 'news'>('chat');
+  const isChatView = activeView === 'chat';
 
   const { data: messagesTree = null, isLoading } = useGetMessagesByConvoId(conversationId ?? '', {
     select: useCallback(
@@ -66,15 +70,27 @@ function ChatView({ index = 0 }: { index?: number }) {
     (conversationId === Constants.NEW_CONVO || !conversationId);
   const isNavigating = (!messagesTree || messagesTree.length === 0) && conversationId != null;
 
-  if (isLoading && conversationId !== Constants.NEW_CONVO) {
-    content = <LoadingSpinner />;
-  } else if ((isLoading || isNavigating) && !isLandingPage) {
-    content = <LoadingSpinner />;
-  } else if (!isLandingPage) {
-    content = <MessagesView messagesTree={messagesTree} />;
-  } else {
-    content = <Landing centerFormOnLanding={centerFormOnLanding} />;
+  if (isChatView) {
+    if (isLoading && conversationId !== Constants.NEW_CONVO) {
+      content = <LoadingSpinner />;
+    } else if ((isLoading || isNavigating) && !isLandingPage) {
+      content = <LoadingSpinner />;
+    } else if (!isLandingPage) {
+      content = <MessagesView messagesTree={messagesTree} />;
+    } else {
+      content = <Landing centerFormOnLanding={centerFormOnLanding} />;
+    }
   }
+
+  const handleToggle = (view: 'chat' | 'news') => {
+    setActiveView(view);
+  };
+
+  const toggleButtonClasses = (isActive: boolean) =>
+    cn(
+      'rounded-full px-4 py-1 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring focus-visible:ring-accent-primary/40',
+      isActive ? 'bg-accent-primary text-white shadow-sm' : 'text-text-secondary hover:text-text-primary',
+    );
 
   return (
     <ChatFormProvider {...methods}>
@@ -83,29 +99,55 @@ function ChatView({ index = 0 }: { index?: number }) {
           <Presentation>
             <div className="flex h-full w-full flex-col">
               {!isLoading && <Header />}
-              <>
-                <div
-                  data-tour="chat-messages"
-                  className={cn(
-                    'flex flex-col',
-                    isLandingPage
-                      ? 'flex-1 items-center justify-end sm:justify-center'
-                      : 'h-full overflow-y-auto',
-                  )}
-                >
-                  {content}
+              <div className="flex w-full justify-center px-4 pb-3 pt-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border-light bg-surface-primary p-1 shadow-sm">
+                  <button
+                    type="button"
+                    className={toggleButtonClasses(isChatView)}
+                    aria-pressed={isChatView}
+                    onClick={() => handleToggle('chat')}
+                  >
+                    Chat
+                  </button>
+                  <button
+                    type="button"
+                    className={toggleButtonClasses(!isChatView)}
+                    aria-pressed={!isChatView}
+                    onClick={() => handleToggle('news')}
+                  >
+                    News
+                  </button>
+                </div>
+              </div>
+              {isChatView ? (
+                <>
                   <div
+                    data-tour="chat-messages"
                     className={cn(
-                      'w-full',
-                      isLandingPage && 'max-w-3xl transition-all duration-200 xl:max-w-4xl',
+                      'flex flex-col',
+                      isLandingPage
+                        ? 'flex-1 items-center justify-end sm:justify-center'
+                        : 'h-full overflow-y-auto',
                     )}
                   >
-                    <ChatForm index={index} />
-                    {isLandingPage ? <ConversationStarters /> : <Footer />}
+                    {content}
+                    <div
+                      className={cn(
+                        'w-full',
+                        isLandingPage && 'max-w-3xl transition-all duration-200 xl:max-w-4xl',
+                      )}
+                    >
+                      <ChatForm index={index} />
+                      {isLandingPage ? <ConversationStarters /> : <Footer />}
+                    </div>
                   </div>
+                  {isLandingPage && <Footer />}
+                </>
+              ) : (
+                <div className="h-full overflow-y-auto px-4 pb-6">
+                  <NewsGrid articles={newsData} />
                 </div>
-                {isLandingPage && <Footer />}
-              </>
+              )}
             </div>
             <VoiceModeOverlay index={index} />
             <GuidedTour />
