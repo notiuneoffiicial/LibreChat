@@ -88,8 +88,10 @@ function ChatView({ index = 0 }: { index?: number }) {
 
   const toggleButtonClasses = (isActive: boolean) =>
     cn(
-      'rounded-full px-4 py-1 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring focus-visible:ring-accent-primary/40',
-      isActive ? 'bg-accent-primary text-white shadow-sm' : 'text-text-secondary hover:text-text-primary',
+      'rounded-full border px-4 py-1 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring focus-visible:ring-accent-primary/40',
+      isActive
+        ? 'border-accent-primary bg-accent-primary/10 text-text-primary shadow-sm hover:bg-accent-primary/15 active:bg-accent-primary/20'
+        : 'border-transparent text-text-secondary hover:border-border-medium hover:bg-surface-tertiary hover:text-text-primary active:bg-surface-hover',
     );
 
   return (
