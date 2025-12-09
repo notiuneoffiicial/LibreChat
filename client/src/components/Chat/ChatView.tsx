@@ -21,7 +21,7 @@ import store from '~/store';
 import VoiceModeOverlay from './VoiceMode/VoiceModeOverlay';
 import GuidedTour from '../Onboarding/GuidedTour';
 import NewsGrid from '../News/NewsGrid';
-import newsData from '../News/newsData';
+import useNewsFeed from '../News/useNewsFeed';
 
 function LoadingSpinner() {
   return (
@@ -56,6 +56,8 @@ function ChatView({ index = 0 }: { index?: number }) {
 
   const chatHelpers = useChatHelpers(index, conversationId);
   const addedChatHelpers = useAddedResponse({ rootIndex: index });
+
+  const { articles: newsArticles, isLoading: isNewsLoading, isError: isNewsError } = useNewsFeed();
 
   useSSE(rootSubmission, chatHelpers, false);
   useSSE(addedSubmission, addedChatHelpers, true);
@@ -147,7 +149,19 @@ function ChatView({ index = 0 }: { index?: number }) {
                 </>
               ) : (
                 <div className="h-full overflow-y-auto px-4 pb-6">
-                  <NewsGrid articles={newsData} />
+                  {isNewsLoading ? (
+                    <LoadingSpinner />
+                  ) : isNewsError ? (
+                    <div className="flex h-full items-center justify-center text-sm text-text-secondary">
+                      Unable to load positive news right now. Please try again later.
+                    </div>
+                  ) : newsArticles.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-sm text-text-secondary">
+                      No uplifting stories are available yet.
+                    </div>
+                  ) : (
+                    <NewsGrid articles={newsArticles} />
+                  )}
                 </div>
               )}
             </div>

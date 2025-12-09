@@ -1,4 +1,4 @@
-import type { NewsArticle } from './newsData';
+import type { NewsArticle } from './types';
 
 type NewsGridProps = {
   articles: NewsArticle[];
@@ -9,7 +9,7 @@ const NewsGrid = ({ articles }: NewsGridProps) => {
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {articles.map((article) => (
         <article
-          key={article.title}
+          key={article.link || article.title}
           className="flex h-full flex-col rounded-xl border border-border-light bg-surface-primary p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
         >
           <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
