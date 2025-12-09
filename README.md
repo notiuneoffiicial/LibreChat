@@ -109,3 +109,7 @@ Meta prompt updates are logged at the `info` level. Production builds default to
 `warn`, so these entries are normally suppressed. Set the
 `META_PROMPT_LOGS=true` environment variable (or `1`/`yes`) to raise the base
 logger level to `info` and capture meta prompt diagnostics when needed.
+
+## Positive news feed
+
+The news tab in Chat is backed by a cached feed generated from your configured news APIs. See [docs/news-feed.md](docs/news-feed.md) for configuration, refresh, and endpoint details.
