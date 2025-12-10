@@ -6,6 +6,10 @@
 **/.vscode
 **/node_modules
 
+# Ensure lockfile stays in context for reproducible installs
+!package-lock.json
+!**/package-lock.json
+
 # Specific patterns to ignore
 data-node
 meili_data*

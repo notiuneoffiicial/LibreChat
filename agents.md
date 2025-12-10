@@ -130,6 +130,7 @@
   - `routes/convos.js` → REST (GET/POST/PATCH/DELETE) returning conversation documents with pagination metadata.
   - `routes/messages.js` → POST for completions/streaming; expects message payload, responds with SSE or JSON status.
   - `routes/files/index.js` → multipart upload, responds with stored file metadata & embedding flags.
+  - `routes/news.js` → GET `/api/news` returns `{ articles }` from the cached/generated positive feed; `refresh=true` regenerates via script.
   - Update this log when modifying/adding routes.
 
 ---
