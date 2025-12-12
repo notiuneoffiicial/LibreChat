@@ -38,7 +38,7 @@ RUN \
     npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 15000 && \
     if [ ! -f package-lock.json ]; then npm install --package-lock-only --ignore-scripts --legacy-peer-deps; fi && \
-    npm ci --no-audit --legacy-peer-deps
+    npm install --no-audit --legacy-peer-deps
 
 # Copy project files
 COPY --chown=node:node . .
