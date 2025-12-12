@@ -6,11 +6,15 @@ import store from '~/store';
 import { useLocalize } from '~/hooks';
 import DOMPurify from 'dompurify';
 import { X } from 'lucide-react';
+import ChatForm from '../Chat/Input/ChatForm';
+import { useChatContext } from '~/Providers';
 
 const NewsGrid = () => {
   const [articles, setArticles] = useState<(NewsArticle & { content?: string, pubDate?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState<(NewsArticle & { content?: string, pubDate?: string }) | null>(null);
+
+  const { setFiles } = useChatContext();
 
   useEffect(() => {
     // Fetch news from backend
@@ -28,17 +32,14 @@ const NewsGrid = () => {
     fetchNews();
   }, []);
 
-  const handleChatAbout = (article: NewsArticle) => {
-    console.log('Chat about:', article.title);
-    // Future integration point: Create new conversation with context
-  };
-
-  const openReader = (article: NewsArticle) => {
+  const openReader = (article: NewsArticle & { content?: string }) => {
     setSelectedArticle(article);
+    setFiles(new Map());
   };
 
   const closeReader = () => {
     setSelectedArticle(null);
+    setFiles(new Map());
   };
 
   if (loading) {
@@ -49,9 +50,14 @@ const NewsGrid = () => {
     );
   }
 
+  // Configure DOMPurify to strip images
+  const cleanContent = (html: string) => {
+    return DOMPurify.sanitize(html, { FORBID_TAGS: ['img'] });
+  };
+
   return (
     <div className="relative h-full">
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-4 overflow-y-auto h-full">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-4 overflow-y-auto h-full pb-20">
         {articles.map((article, i) => (
           <article
             key={i}
@@ -59,7 +65,7 @@ const NewsGrid = () => {
             onClick={() => openReader(article)}
           >
             {article.image && (
-              <div className="relative h-48 w-full overflow-hidden">
+              <div className="relative h-56 w-full overflow-hidden shrink-0">
                 <img
                   src={article.image}
                   alt={article.title}
@@ -82,28 +88,17 @@ const NewsGrid = () => {
                 <span>{article.pubDate ? new Date(article.pubDate).toLocaleDateString() : ''}</span>
               </div>
             </div>
-            <div className="p-4 pt-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleChatAbout(article);
-                }}
-                className="w-full rounded-lg bg-accent-primary/10 px-3 py-2 text-xs font-semibold text-accent-primary hover:bg-accent-primary/20 transition-colors"
-              >
-                Chat about this
-              </button>
-            </div>
           </article>
         ))}
       </div>
 
       {/* Reader Modal */}
       {selectedArticle && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity duration-200">
-          <div className="relative flex h-full max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-primary shadow-2xl ring-1 ring-black/5">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
+          <div className="relative flex h-full w-full max-w-4xl flex-col bg-surface-primary shadow-2xl md:rounded-t-2xl md:mt-10 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-border-light px-6 py-4">
-              <div className="flex flex-col">
+            <div className="flex items-center justify-between border-b border-border-light px-6 py-4 shrink-0">
+              <div className="flex flex-col overflow-hidden">
                 <h2 className="text-xl font-bold text-text-primary line-clamp-1" title={selectedArticle.title}>
                   {selectedArticle.title}
                 </h2>
@@ -115,14 +110,14 @@ const NewsGrid = () => {
               </div>
               <button
                 onClick={closeReader}
-                className="rounded-full p-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
+                className="rounded-full p-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors shrink-0 ml-4"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 md:p-10">
+            <div className="flex-1 overflow-y-auto p-6 md:p-10 pb-40">
               {selectedArticle.image && (
                 <img
                   src={selectedArticle.image}
@@ -134,11 +129,11 @@ const NewsGrid = () => {
               <div
                 className="prose prose-lg dark:prose-invert max-w-none text-text-primary"
                 dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(selectedArticle.content || selectedArticle.summary || '')
+                  __html: cleanContent(selectedArticle.content || selectedArticle.summary || '')
                 }}
               />
 
-              <div className="mt-10 flex justify-center border-t border-border-light pt-8">
+              <div className="mt-10 flex justify-center border-t border-border-light pt-8 mb-20">
                 <a
                   href={selectedArticle.link}
                   target="_blank"
@@ -147,6 +142,13 @@ const NewsGrid = () => {
                 >
                   Read full article on original site
                 </a>
+              </div>
+            </div>
+
+            {/* Composer */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-4">
+              <div className="mx-auto max-w-3xl">
+                <ChatForm index={0} headerPlaceholder="Chat about this article" />
               </div>
             </div>
           </div>

@@ -41,7 +41,7 @@ import VoiceModeButton from '../VoiceMode/VoiceModeButton';
 import store from '~/store';
 import { useLocalize } from '~/hooks';
 
-const ChatForm = memo(({ index = 0 }: { index?: number }) => {
+const ChatForm = memo(({ index = 0, headerPlaceholder }: { index?: number; headerPlaceholder?: string }) => {
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   useFocusChatEffect(textAreaRef);
@@ -147,12 +147,16 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
       return localize('com_endpoint_assistant_placeholder');
     }
 
+    if (headerPlaceholder) {
+      return headerPlaceholder;
+    }
+
     if (missingAgent) {
       return localize('com_endpoint_agent_placeholder');
     }
 
     return localize('com_endpoint_message_placeholder');
-  }, [endpoint, invalidAssistant, localize, missingAgent, requiresKey]);
+  }, [endpoint, invalidAssistant, localize, missingAgent, requiresKey, headerPlaceholder]);
 
   const ariaLabel = useMemo(
     () => localize('com_endpoint_message_new', { 0: messageRecipient }),
