@@ -51,7 +51,7 @@ const NewsGrid = () => {
 
   return (
     <div className="relative h-full">
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-4 overflow-y-auto h-full">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-4 overflow-y-auto h-full">
         {articles.map((article, i) => (
           <article
             key={i}

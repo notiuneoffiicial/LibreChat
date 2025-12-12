@@ -76,8 +76,8 @@ router.get('/', async (req, res) => {
     // Sort by date descending
     allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-    // Limit to 20 for performance in this demo
-    const slicedArticles = allArticles.slice(0, 20);
+    // Limit to 9 for a 3x3 grid
+    const slicedArticles = allArticles.slice(0, 9);
 
     // If no articles found (e.g. all feeds failed), use fallback
     if (slicedArticles.length === 0) {
