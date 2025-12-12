@@ -21,6 +21,7 @@ import store from '~/store';
 const BookmarkNav = lazy(() => import('./Bookmarks/BookmarkNav'));
 const AccountSettings = lazy(() => import('./AccountSettings'));
 const AgentMarketplaceButton = lazy(() => import('./AgentMarketplaceButton'));
+const NewsHistory = lazy(() => import('~/components/News/NewsHistory'));
 
 const NAV_WIDTH_DESKTOP = '260px';
 const NAV_WIDTH_MOBILE = '320px';
@@ -68,6 +69,7 @@ const Nav = memo(
     });
 
     const search = useRecoilValue(store.search);
+    const newsView = useRecoilValue(store.newsViewActive);
 
     const { data, fetchNextPage, isFetchingNextPage, isLoading, isFetching, refetch } =
       useConversationsInfiniteQuery(
@@ -220,15 +222,35 @@ const Nav = memo(
                         headerButtons={headerButtons}
                         isSmallScreen={isSmallScreen}
                       />
-                      <Conversations
-                        conversations={conversations}
-                        moveToTop={moveToTop}
-                        toggleNav={itemToggleNav}
-                        containerRef={listRef}
-                        loadMoreConversations={loadMoreConversations}
-                        isLoading={isFetchingNextPage || showLoading || isLoading}
-                        isSearchLoading={isSearchLoading}
-                      />
+                      {search.enabled && !newsView ? (
+                        // If search is enabled, we might want to hide news history or keep it?
+                        // For now, simplicity: if newsView active -> show NewsHistory, else -> Conversations
+                        // BUT wait, search is a recoil value. 
+                        // Let's use the newsView atom to decide.
+                        <Conversations
+                          conversations={conversations}
+                          moveToTop={moveToTop}
+                          toggleNav={itemToggleNav}
+                          containerRef={listRef}
+                          loadMoreConversations={loadMoreConversations}
+                          isLoading={isFetchingNextPage || showLoading || isLoading}
+                          isSearchLoading={isSearchLoading}
+                        />
+                      ) : newsView ? (
+                        <Suspense fallback={<div className="p-4">Loading...</div>}>
+                          <NewsHistory />
+                        </Suspense>
+                      ) : (
+                        <Conversations
+                          conversations={conversations}
+                          moveToTop={moveToTop}
+                          toggleNav={itemToggleNav}
+                          containerRef={listRef}
+                          loadMoreConversations={loadMoreConversations}
+                          isLoading={isFetchingNextPage || showLoading || isLoading}
+                          isSearchLoading={isSearchLoading}
+                        />
+                      )}
                     </div>
                     <Suspense fallback={null}>
                       <AccountSettings />

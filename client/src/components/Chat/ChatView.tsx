@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from 'react';
-import { useRecoilValue } from 'recoil';
+import { useRecoilValue, useRecoilState } from 'recoil';
 import { useForm } from 'react-hook-form';
 import { Spinner } from '@librechat/client';
 import { useParams } from 'react-router-dom';
@@ -21,7 +21,7 @@ import store from '~/store';
 import VoiceModeOverlay from './VoiceMode/VoiceModeOverlay';
 import GuidedTour from '../Onboarding/GuidedTour';
 import NewsGrid from '../News/NewsGrid';
-import newsData from '../News/newsData';
+import NewsGrid from '../News/NewsGrid';
 
 function LoadingSpinner() {
   return (
@@ -40,8 +40,8 @@ function ChatView({ index = 0 }: { index?: number }) {
   const centerFormOnLanding = useRecoilValue(store.centerFormOnLanding);
 
   const fileMap = useFileMapContext();
-  const [activeView, setActiveView] = useState<'chat' | 'news'>('chat');
-  const isChatView = activeView === 'chat';
+  const [newsView, setNewsView] = useRecoilState(store.newsViewActive);
+  const isChatView = !newsView;
 
   const { data: messagesTree = null, isLoading } = useGetMessagesByConvoId(conversationId ?? '', {
     select: useCallback(
@@ -83,7 +83,7 @@ function ChatView({ index = 0 }: { index?: number }) {
   }
 
   const handleToggle = (view: 'chat' | 'news') => {
-    setActiveView(view);
+    setNewsView(view === 'news');
   };
 
   const toggleButtonClasses = (isActive: boolean) =>
@@ -146,8 +146,8 @@ function ChatView({ index = 0 }: { index?: number }) {
                   {isLandingPage && <Footer />}
                 </>
               ) : (
-                <div className="h-full overflow-y-auto px-4 pb-6">
-                  <NewsGrid articles={newsData} />
+                <div className="h-full overflow-y-auto w-full bg-surface-tertiary">
+                  <NewsGrid />
                 </div>
               )}
             </div>

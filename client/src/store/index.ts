@@ -12,6 +12,7 @@ import lang from './language';
 import settings from './settings';
 import misc from './misc';
 import voice from './voice';
+import * as news from './news';
 import isTemporary from './temporary';
 export * from './agents';
 export * from './mcp';
@@ -31,5 +32,6 @@ export default {
   ...settings,
   ...misc,
   ...voice,
+  ...news,
   ...isTemporary,
 };

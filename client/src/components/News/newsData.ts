@@ -4,6 +4,7 @@ export type NewsArticle = {
   category: string;
   summary: string;
   link: string;
+  image?: string;
 };
 
 const newsData: NewsArticle[] = [
