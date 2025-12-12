@@ -54,6 +54,7 @@
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@modelcontextprotocol/sdk": "^1.17.1",
     "@node-saml/passport-saml": "^5.1.0",
+    "@smithy/eventstream-codec": "^2.2.0",
     "@smithy/signature-v4": "^2.3.0",
     "@waylaidwanderer/fetch-event-source": "^3.0.1",
     "axios": "^1.12.1",
