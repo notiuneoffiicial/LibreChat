@@ -73,13 +73,14 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
 
     // HTML Clean
     const cleanContent = (html: string) => {
-        // Images allowed in modal
-        return DOMPurify.sanitize(html, { ADD_TAGS: ['img'] });
+        // Forbid images to prevent duplicates with the Hero image
+        return DOMPurify.sanitize(html, { FORBID_TAGS: ['img'] });
     };
 
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
-            <div className="relative flex h-full w-full max-w-6xl flex-col bg-surface-primary shadow-2xl md:rounded-t-2xl md:mt-10 overflow-hidden">
+            {/* Removed md:mt-10 to fix top spacing issue */}
+            <div className="relative flex h-full w-full max-w-6xl flex-col bg-surface-primary shadow-2xl md:rounded-t-2xl overflow-hidden">
 
                 {/* Helper Provider Context */}
                 <ChatFormProvider {...methods}>
@@ -110,38 +111,40 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
                             <div className="flex-1 flex overflow-hidden relative">
                                 {/* Article Column */}
                                 <div className={`flex-1 overflow-y-auto p-6 md:p-10 pb-40 transition-all duration-300 ${isChatOpen ? 'w-2/3' : 'w-full'}`}>
-                                    {article.image && (
-                                        <img
-                                            src={article.image}
-                                            alt={article.title}
-                                            className="mb-8 h-64 w-full rounded-xl object-cover shadow-sm md:h-96"
+                                    <div className="mx-auto max-w-3xl flex flex-col items-center">
+                                        {article.image && (
+                                            <img
+                                                src={article.image}
+                                                alt={article.title}
+                                                className="mb-8 h-64 w-full rounded-xl object-cover shadow-sm md:h-96"
+                                            />
+                                        )}
+
+                                        <div
+                                            className="prose prose-lg dark:prose-invert max-w-none text-text-primary text-center"
+                                            dangerouslySetInnerHTML={{
+                                                __html: cleanContent(article.content || article.summary || '')
+                                            }}
                                         />
-                                    )}
 
-                                    <div
-                                        className="prose prose-lg dark:prose-invert max-w-none text-text-primary"
-                                        dangerouslySetInnerHTML={{
-                                            __html: cleanContent(article.content || article.summary || '')
-                                        }}
-                                    />
-
-                                    <div className="mt-10 flex justify-center border-t border-border-light pt-8 mb-20">
-                                        <a href={article.link} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline font-semibold">
-                                            Read full article on original site
-                                        </a>
+                                        <div className="mt-10 flex justify-center border-t border-border-light pt-8 mb-20">
+                                            <a href={article.link} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline font-semibold">
+                                                Read full article on original site
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Chat Column */}
                                 {isChatOpen && (
-                                    <div className="w-1/3 min-w-[320px] transition-all duration-300">
+                                    <div className="w-1/3 min-w-[320px] transition-all duration-300 border-l border-border-light">
                                         <NewsChatPane messagesTree={messagesTree} index={index} />
                                     </div>
                                 )}
 
                                 {/* Floating Composer (Only visible if chat is NOT open) */}
                                 {!isChatOpen && (
-                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-4">
+                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-4 z-10">
                                         <div className="mx-auto max-w-3xl">
                                             <ChatForm index={index} headerPlaceholder="Chat about this article" />
                                         </div>
