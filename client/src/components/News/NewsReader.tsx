@@ -144,7 +144,7 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
 
                                 {/* Floating Composer (Only visible if chat is NOT open) */}
                                 {!isChatOpen && (
-                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-12 z-10">
+                                    <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-12 z-10 w-full overflow-visible">
                                         <div className="mx-auto max-w-3xl">
                                             <ChatForm index={index} headerPlaceholder="Chat about this article" />
                                         </div>
