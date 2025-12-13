@@ -30,7 +30,6 @@ const LoadingSpinner = () => (
 const NewsReader = ({ article, onClose }: NewsReaderProps) => {
     const index = 1; // Separate index for news chat
     const [conversationId, setConversationId] = useState('new');
-    // Tracks if the chat view should be visible (split view)
     const [isChatOpen, setIsChatOpen] = useState(false);
 
     // Initialize Chat Helpers
@@ -79,16 +78,15 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
 
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
-            {/* Main Modal Card - Reverted to initial structure (removed md:mt-10) */}
+            {/* Modal Card - Relative for Absolute positioning of Composer */}
             <div className="relative flex h-full w-full max-w-6xl flex-col bg-surface-primary shadow-2xl md:rounded-t-2xl overflow-hidden">
 
-                {/* Helper Provider Context */}
                 <ChatFormProvider {...methods}>
                     <ChatContext.Provider value={modifiedChatHelpers}>
                         <AddedChatContext.Provider value={addedChatHelpers}>
 
                             {/* Header */}
-                            <div className="flex items-center justify-between border-b border-border-light px-6 py-4 shrink-0 bg-surface-primary">
+                            <div className="flex items-center justify-between border-b border-border-light px-6 py-4 shrink-0 bg-surface-primary z-20">
                                 <div className="flex flex-col overflow-hidden">
                                     <h2 className="text-xl font-bold text-text-primary line-clamp-1" title={article.title}>
                                         {article.title}
@@ -107,7 +105,7 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
                                 </button>
                             </div>
 
-                            {/* Body: Split View */}
+                            {/* Main Content Area */}
                             <div className="flex-1 flex overflow-hidden relative">
                                 {/* Article Column */}
                                 <div className={`flex-1 overflow-y-auto p-6 md:p-10 pb-40 transition-all duration-300 ${isChatOpen ? 'w-2/3' : 'w-full'}`}>
@@ -135,22 +133,22 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
                                     </div>
                                 </div>
 
-                                {/* Chat Column */}
+                                {/* Chat Column (Right Pane) */}
                                 {isChatOpen && (
                                     <div className="w-1/3 min-w-[320px] transition-all duration-300 border-l border-border-light">
                                         <NewsChatPane messagesTree={messagesTree} index={index} />
                                     </div>
                                 )}
-
-                                {/* Floating Composer (Reverted to inside relative container) */}
-                                {!isChatOpen && (
-                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-12 z-10">
-                                        <div className="mx-auto max-w-3xl">
-                                            <ChatForm index={index} headerPlaceholder="Chat about this article" />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
+
+                            {/* Floating Composer - Sibling to Content Area, Absolute to Card */}
+                            {!isChatOpen && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-4 z-20">
+                                    <div className="mx-auto max-w-3xl">
+                                        <ChatForm index={index} headerPlaceholder="Chat about this article" />
+                                    </div>
+                                </div>
+                            )}
 
                         </AddedChatContext.Provider>
                     </ChatContext.Provider>
