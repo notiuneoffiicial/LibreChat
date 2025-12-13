@@ -78,7 +78,7 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
     };
 
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
             {/* Removed md:mt-10 to fix top spacing issue */}
             <div className="relative flex h-full w-full max-w-6xl flex-col bg-surface-primary shadow-2xl md:rounded-t-2xl overflow-hidden">
 
