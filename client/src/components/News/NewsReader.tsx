@@ -78,8 +78,8 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
-            {/* Main Modal Card - Relative for Absolute positioning of Composer */}
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-200">
+            {/* Main Modal Card - Reverted to initial structure (removed md:mt-10) */}
             <div className="relative flex h-full w-full max-w-6xl flex-col bg-surface-primary shadow-2xl md:rounded-t-2xl overflow-hidden">
 
                 {/* Helper Provider Context */}
@@ -88,7 +88,7 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
                         <AddedChatContext.Provider value={addedChatHelpers}>
 
                             {/* Header */}
-                            <div className="flex items-center justify-between border-b border-border-light px-6 py-4 shrink-0 z-20 bg-surface-primary">
+                            <div className="flex items-center justify-between border-b border-border-light px-6 py-4 shrink-0 bg-surface-primary">
                                 <div className="flex flex-col overflow-hidden">
                                     <h2 className="text-xl font-bold text-text-primary line-clamp-1" title={article.title}>
                                         {article.title}
@@ -141,17 +141,16 @@ const NewsReader = ({ article, onClose }: NewsReaderProps) => {
                                         <NewsChatPane messagesTree={messagesTree} index={index} />
                                     </div>
                                 )}
-                            </div>
 
-                            {/* Floating Composer (Moved OUTSIDE the scrollable content, as a direct child of the Modal Card) */}
-                            {/* This ensures it sits on top of the content and is not clipped by 'overflow-hidden' of the body */}
-                            {!isChatOpen && (
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-12 z-20">
-                                    <div className="mx-auto max-w-3xl">
-                                        <ChatForm index={index} headerPlaceholder="Chat about this article" />
+                                {/* Floating Composer (Reverted to inside relative container) */}
+                                {!isChatOpen && (
+                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-surface-primary via-surface-primary to-transparent pt-10 px-4 pb-12 z-10">
+                                        <div className="mx-auto max-w-3xl">
+                                            <ChatForm index={index} headerPlaceholder="Chat about this article" />
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
 
                         </AddedChatContext.Provider>
                     </ChatContext.Provider>
