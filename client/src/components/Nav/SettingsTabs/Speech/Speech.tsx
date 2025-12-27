@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRecoilState } from 'recoil';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Lightbulb, Cog } from 'lucide-react';
@@ -31,7 +31,7 @@ import {
   RealtimeVADSettings,
 } from './Realtime';
 import { useLocalize } from '~/hooks';
-import { cn } from '~/utils';
+import { cn, evaluateBooleanExpression } from '~/utils';
 import store from '~/store';
 
 function Speech() {
@@ -43,7 +43,6 @@ function Speech() {
 
   const [sttExternal, setSttExternal] = useState(false);
   const [ttsExternal, setTtsExternal] = useState(false);
-  const [realtimeAvailable, setRealtimeAvailable] = useState(false);
   const [advancedMode, setAdvancedMode] = useRecoilState(store.advancedMode);
   const [autoTranscribeAudio, setAutoTranscribeAudio] = useRecoilState(store.autoTranscribeAudio);
   const [speechToText, setSpeechToText] = useRecoilState(store.speechToText);
@@ -129,7 +128,6 @@ function Speech() {
 
   useEffect(() => {
     if (data && data.message !== 'not_found') {
-      setRealtimeAvailable(Boolean(data.realtime));
       Object.entries(data).forEach(([key, value]) => {
         // Only apply config values as defaults if no user preference exists in localStorage
         const existingValue = localStorage.getItem(key);
@@ -142,6 +140,77 @@ function Speech() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
+  const configEvaluated = data !== undefined;
+  const hasRealtimeConfig = Boolean(data?.realtime);
+
+  const expressionContext = useMemo(
+    () => ({
+      advancedMode,
+      speechToText,
+      textToSpeech,
+      engineSTT,
+      engineTTS,
+      sttExternal,
+      ttsExternal,
+      autoTranscribeAudio,
+      autoSendText,
+      decibelValue,
+      languageSTT,
+      languageTTS,
+      cacheTTS,
+      voice,
+      cloudBrowserVoices,
+      automaticPlayback,
+      playbackRate,
+      realtimeConfigured: hasRealtimeConfig,
+      configLoaded: configEvaluated,
+    }),
+    [
+      advancedMode,
+      speechToText,
+      textToSpeech,
+      engineSTT,
+      engineTTS,
+      sttExternal,
+      ttsExternal,
+      autoTranscribeAudio,
+      autoSendText,
+      decibelValue,
+      languageSTT,
+      languageTTS,
+      cacheTTS,
+      voice,
+      cloudBrowserVoices,
+      automaticPlayback,
+      playbackRate,
+      hasRealtimeConfig,
+      configEvaluated,
+    ],
+  );
+
+  const realtimeDisabled = useMemo(
+    () =>
+      evaluateBooleanExpression(
+        typeof data?.realtimeDisableExpression === 'string'
+          ? data.realtimeDisableExpression
+          : undefined,
+        expressionContext,
+      ),
+    [data?.realtimeDisableExpression, expressionContext],
+  );
+
+  const realtimeAvailable = hasRealtimeConfig && !realtimeDisabled;
+
+  useEffect(() => {
+    if (!configEvaluated) {
+      return;
+    }
+
+    if (!realtimeAvailable && engineSTT === 'realtime') {
+      setEngineSTT(sttExternal ? 'external' : 'browser');
+    }
+  }, [configEvaluated, realtimeAvailable, engineSTT, sttExternal, setEngineSTT]);
 
   // Reset engineTTS if it is set to a removed/invalid value (e.g., 'edge')
   // TODO: remove this once the 'edge' engine is fully deprecated

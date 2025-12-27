@@ -199,6 +199,10 @@ registration:
 #               minDecisionIntervalMs: 750
 #       include:
 #         - item.input_audio_transcription.logprobs # GA-supported telemetry fields
+#   speechTab:
+#     speechToText:
+#       # Disable realtime engine unless the Speech to Text toggle is enabled in the UI
+#       realtimeDisableExpression: "!speechToText"
 
 # rateLimits:
 #   fileUploads:
