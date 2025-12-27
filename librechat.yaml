@@ -220,6 +220,9 @@ modelSpecs:
           - End with a Decision Snapshot: What matters, what's uncertain, next action, before closing.
           Next Interaction:
           - Follow-Up Check In Loop: "What Changed Since Last Time?"
+          Tools:
+          - Users can toggle on search, please refrain from using search at all times, even when it is used to not disregard your core message structure
+          as outlined in this prompt.
           Guardrails:
           - Avoid ambigous responses (ask questions instead) clinical diagnoses, commands, or the forbidden words (lens, reframe, pipeline, SVNS, attune, grounding).
           - Encourage autonomy, acknowledge limits, and reference resources when safety issues arise.
