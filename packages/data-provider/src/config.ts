@@ -656,6 +656,8 @@ export const interfaceSchema = z
         use: z.boolean().optional(),
       })
       .optional(),
+    viewsMenu: z.boolean().optional(),
+    newsMenu: z.boolean().optional(),
     fileSearch: z.boolean().optional(),
     fileCitations: z.boolean().optional(),
   })
@@ -683,6 +685,8 @@ export const interfaceSchema = z
     marketplace: {
       use: false,
     },
+    viewsMenu: true,
+    newsMenu: true,
     fileSearch: true,
     fileCitations: true,
   });

@@ -1,15 +1,15 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRecoilValue, useRecoilState } from 'recoil';
 import { useForm } from 'react-hook-form';
 import { Spinner } from '@librechat/client';
 import { useParams } from 'react-router-dom';
-import { Constants, buildTree } from 'librechat-data-provider';
+import { Constants, buildTree, getConfigDefaults } from 'librechat-data-provider';
 import type { TMessage } from 'librechat-data-provider';
 import type { ChatFormValues } from '~/common';
 import { ChatContext, AddedChatContext, useFileMapContext, ChatFormProvider } from '~/Providers';
 import { useChatHelpers, useAddedResponse, useSSE } from '~/hooks';
 import ConversationStarters from './Input/ConversationStarters';
-import { useGetMessagesByConvoId } from '~/data-provider';
+import { useGetMessagesByConvoId, useGetStartupConfig } from '~/data-provider';
 import MessagesView from './Messages/MessagesView';
 import Presentation from './Presentation';
 import ChatForm from './Input/ChatForm';
@@ -21,7 +21,8 @@ import store from '~/store';
 import VoiceModeOverlay from './VoiceMode/VoiceModeOverlay';
 import GuidedTour from '../Onboarding/GuidedTour';
 import NewsGrid from '../News/NewsGrid';
-import NewsGrid from '../News/NewsGrid';
+
+const defaultInterface = getConfigDefaults().interface;
 
 function LoadingSpinner() {
   return (
@@ -38,10 +39,17 @@ function ChatView({ index = 0 }: { index?: number }) {
   const rootSubmission = useRecoilValue(store.submissionByIndex(index));
   const addedSubmission = useRecoilValue(store.submissionByIndex(index + 1));
   const centerFormOnLanding = useRecoilValue(store.centerFormOnLanding);
+  const { data: startupConfig } = useGetStartupConfig();
+  const interfaceConfig = useMemo(
+    () => startupConfig?.interface ?? defaultInterface,
+    [startupConfig],
+  );
 
   const fileMap = useFileMapContext();
   const [newsView, setNewsView] = useRecoilState(store.newsViewActive);
-  const isChatView = !newsView;
+  const showViewsMenu = interfaceConfig.viewsMenu !== false;
+  const showNewsMenu = interfaceConfig.newsMenu !== false;
+  const isChatView = !newsView || !showNewsMenu || !showViewsMenu;
 
   const { data: messagesTree = null, isLoading } = useGetMessagesByConvoId(conversationId ?? '', {
     select: useCallback(
@@ -63,6 +71,12 @@ function ChatView({ index = 0 }: { index?: number }) {
   const methods = useForm<ChatFormValues>({
     defaultValues: { text: '' },
   });
+
+  useEffect(() => {
+    if (!showNewsMenu || !showViewsMenu) {
+      setNewsView(false);
+    }
+  }, [setNewsView, showNewsMenu, showViewsMenu]);
 
   let content: JSX.Element | null | undefined;
   const isLandingPage =
@@ -101,26 +115,30 @@ function ChatView({ index = 0 }: { index?: number }) {
           <Presentation>
             <div className="flex h-full w-full flex-col">
               {!isLoading && <Header />}
-              <div className="flex w-full justify-center px-4 pb-3 pt-2">
-                <div className="inline-flex items-center gap-2 rounded-full border border-border-light bg-surface-primary p-1 shadow-sm">
-                  <button
-                    type="button"
-                    className={toggleButtonClasses(isChatView)}
-                    aria-pressed={isChatView}
-                    onClick={() => handleToggle('chat')}
-                  >
-                    Chat
-                  </button>
-                  <button
-                    type="button"
-                    className={toggleButtonClasses(!isChatView)}
-                    aria-pressed={!isChatView}
-                    onClick={() => handleToggle('news')}
-                  >
-                    News
-                  </button>
+              {showViewsMenu && (
+                <div className="flex w-full justify-center px-4 pb-3 pt-2">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border-light bg-surface-primary p-1 shadow-sm">
+                    <button
+                      type="button"
+                      className={toggleButtonClasses(isChatView)}
+                      aria-pressed={isChatView}
+                      onClick={() => handleToggle('chat')}
+                    >
+                      Chat
+                    </button>
+                    {showNewsMenu && (
+                      <button
+                        type="button"
+                        className={toggleButtonClasses(!isChatView)}
+                        aria-pressed={!isChatView}
+                        onClick={() => handleToggle('news')}
+                      >
+                        News
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
               {isChatView ? (
                 <>
                   <div
