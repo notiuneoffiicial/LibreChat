@@ -139,6 +139,17 @@ export const librechat = {
     placeholderCode: true,
     optionType: 'model',
   } as const,
+  promptPresetKey: {
+    key: 'promptPresetKey',
+    label: 'com_ui_prompt',
+    labelCode: true,
+    type: 'string',
+    default: '',
+    component: 'input',
+    placeholder: 'com_ui_select_or_create_prompt',
+    placeholderCode: true,
+    optionType: 'model',
+  } as const,
   fileTokenLimit: {
     key: 'fileTokenLimit',
     label: 'com_ui_file_token_limit',
@@ -628,6 +639,7 @@ const google: Record<string, SettingDefinition> = {
 const googleConfig: SettingsConfiguration = [
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
   librechat.maxContextTokens,
   google.maxOutputTokens,
   google.temperature,
@@ -644,6 +656,7 @@ const googleCol1: SettingsConfiguration = [
   baseDefinitions.model as SettingDefinition,
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
 ];
 
 const googleCol2: SettingsConfiguration = [
@@ -662,6 +675,7 @@ const googleCol2: SettingsConfiguration = [
 const openAI: SettingsConfiguration = [
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
   librechat.maxContextTokens,
   openAIParams.max_tokens,
   openAIParams.temperature,
@@ -684,6 +698,7 @@ const openAICol1: SettingsConfiguration = [
   baseDefinitions.model as SettingDefinition,
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
 ];
 
 const openAICol2: SettingsConfiguration = [
@@ -708,6 +723,7 @@ const openAICol2: SettingsConfiguration = [
 const anthropicConfig: SettingsConfiguration = [
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
   librechat.maxContextTokens,
   anthropic.maxOutputTokens,
   anthropic.temperature,
@@ -725,6 +741,7 @@ const anthropicCol1: SettingsConfiguration = [
   baseDefinitions.model as SettingDefinition,
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
 ];
 
 const anthropicCol2: SettingsConfiguration = [
@@ -760,6 +777,7 @@ const bedrockAnthropic: SettingsConfiguration = [
 const bedrockMistral: SettingsConfiguration = [
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
   librechat.maxContextTokens,
   bedrock.maxTokens,
   mistral.temperature,
@@ -772,6 +790,7 @@ const bedrockMistral: SettingsConfiguration = [
 const bedrockCohere: SettingsConfiguration = [
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
   librechat.maxContextTokens,
   bedrock.maxTokens,
   cohere.temperature,
@@ -784,6 +803,7 @@ const bedrockCohere: SettingsConfiguration = [
 const bedrockGeneral: SettingsConfiguration = [
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
   librechat.maxContextTokens,
   meta.temperature,
   meta.topP,
@@ -816,6 +836,7 @@ const bedrockMistralCol1: SettingsConfiguration = [
   baseDefinitions.model as SettingDefinition,
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
 ];
 
 const bedrockMistralCol2: SettingsConfiguration = [
@@ -832,6 +853,7 @@ const bedrockCohereCol1: SettingsConfiguration = [
   baseDefinitions.model as SettingDefinition,
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
 ];
 
 const bedrockCohereCol2: SettingsConfiguration = [
@@ -848,6 +870,7 @@ const bedrockGeneralCol1: SettingsConfiguration = [
   baseDefinitions.model as SettingDefinition,
   librechat.modelLabel,
   librechat.promptPrefix,
+  librechat.promptPresetKey,
 ];
 
 const bedrockGeneralCol2: SettingsConfiguration = [

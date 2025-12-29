@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ZodError } from 'zod';
 import type { TModelsConfig } from './types';
-import { EModelEndpoint, eModelEndpointSchema } from './schemas';
+import { EModelEndpoint, eModelEndpointSchema, questionFormulationSchema } from './schemas';
 import { specsConfigSchema, TSpecsConfig } from './models';
 import { fileConfigSchema } from './file-config';
 import { FileSources } from './types/files';
@@ -716,6 +716,7 @@ export type TStartupConfig = {
   appTitle: string;
   socialLogins?: string[];
   interface?: TInterfaceConfig;
+  questionFormulation?: z.infer<typeof questionFormulationSchema>;
   turnstile?: TTurnstileConfig;
   balance?: TBalanceConfig;
   transactions?: TTransactionsConfig;
@@ -938,6 +939,7 @@ export const configSchema = z.object({
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
+  questionFormulation: questionFormulationSchema,
   secureImageLinks: z.boolean().optional(),
   imageOutputType: z.nativeEnum(EImageOutputType).default(EImageOutputType.PNG),
   includedTools: z.array(z.string()).optional(),
