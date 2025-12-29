@@ -29,6 +29,7 @@ export type TEndpointOption = Pick<
   | 'modelLabel'
   | 'chatGptLabel'
   | 'promptPrefix'
+  | 'promptPresetKey'
   | 'temperature'
   | 'topP'
   | 'topK'
