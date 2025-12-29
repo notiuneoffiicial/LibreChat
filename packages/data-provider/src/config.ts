@@ -716,7 +716,7 @@ export type TStartupConfig = {
   appTitle: string;
   socialLogins?: string[];
   interface?: TInterfaceConfig;
-  questionFormulation?: z.infer<typeof questionFormulationSchema>;
+  questionFormulation?: TQuestionFormulationConfig;
   turnstile?: TTurnstileConfig;
   balance?: TBalanceConfig;
   transactions?: TTransactionsConfig;
@@ -929,6 +929,8 @@ export const memorySchema = z.object({
 });
 
 export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
+
+export type TQuestionFormulationConfig = z.infer<typeof questionFormulationSchema>;
 
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
