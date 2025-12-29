@@ -53,6 +53,8 @@ interface:
   agents: false
   showThoughts: false
   # hides Agent Builder/Marketplace & artifacts
+  viewsMenu: false
+  newsMenu: false
 
   # Remove advanced knobs
   modelSelect: false

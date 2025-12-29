@@ -87,6 +87,10 @@ interface:
   # Set to true to keep the selector visible but disable interaction (default: false)
   modelSelectReadOnly: false
   parameters: true
+  # Toggle the Chat/News view selector visibility (default: true)
+  viewsMenu: true
+  # Toggle the News option inside the view selector (default: true)
+  newsMenu: true
   sidePanel: true
   presets: true
   prompts: true
