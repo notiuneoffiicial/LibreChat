@@ -101,6 +101,7 @@ router.get('/', async function (req, res) {
         process.env.SHOW_BIRTHDAY_ICON === '',
       helpAndFaqURL: process.env.HELP_AND_FAQ_URL || 'https://librechat.ai',
       interface: appConfig?.interfaceConfig,
+      questionFormulation: appConfig?.questionFormulation,
       turnstile: appConfig?.turnstileConfig,
       modelSpecs: appConfig?.modelSpecs,
       balance: balanceConfig,

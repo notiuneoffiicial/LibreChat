@@ -71,6 +71,8 @@ export interface AppConfig {
   imageOutputType: string;
   /** Interface configuration */
   interfaceConfig?: TCustomConfig['interface'];
+  /** Question formulation configuration */
+  questionFormulation?: TCustomConfig['questionFormulation'];
   /** Turnstile configuration */
   turnstileConfig?: Partial<TCustomConfig['turnstile']>;
   /** Balance configuration */

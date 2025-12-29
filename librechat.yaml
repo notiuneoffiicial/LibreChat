@@ -196,6 +196,12 @@ memory:
     model_parameters:
       temperature: 0.8
       max_tokens: 4096
+
+questionFormulation:
+  enabled: false
+  provider: "openAI"
+  model: "gpt-4o-mini"
+  promptPresetKey: "question-formulation"
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
   enforce: false
