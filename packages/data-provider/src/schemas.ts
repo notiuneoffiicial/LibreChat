@@ -245,6 +245,19 @@ export const defaultAgentFormValues = {
   },
 };
 
+export const questionFormulationSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    provider: z.string().optional(),
+    model: z.string().optional(),
+    promptPresetKey: z.string().optional(),
+  })
+  .default({
+    enabled: false,
+  });
+
+export type TQuestionFormulationConfig = z.infer<typeof questionFormulationSchema>;
+
 export const ImageVisionTool: FunctionTool = {
   type: Tools.function,
   [Tools.function]: {
@@ -688,6 +701,7 @@ export const tConversationSchema = z.object({
   userLabel: z.string().optional(),
   model: z.string().nullable().optional(),
   promptPrefix: z.string().nullable().optional(),
+  promptPresetKey: z.string().nullable().optional(),
   temperature: z.number().nullable().optional(),
   topP: z.number().optional(),
   topK: z.number().optional(),
@@ -812,6 +826,7 @@ export const tQueryParamsSchema = tConversationSchema
      * ; otherwise, a message with `system` role is added to the chat history
      */
     promptPrefix: true,
+    promptPresetKey: true,
     // Model parameters
     /** @endpoints openAI, custom, azureOpenAI, google, anthropic, assistants, azureAssistants, bedrock */
     model: true,
@@ -915,6 +930,7 @@ export const googleBaseSchema = tConversationSchema.pick({
   model: true,
   modelLabel: true,
   promptPrefix: true,
+  promptPresetKey: true,
   examples: true,
   temperature: true,
   maxOutputTokens: true,
@@ -966,6 +982,7 @@ const gptPluginsBaseSchema = tConversationSchema.pick({
   modelLabel: true,
   chatGptLabel: true,
   promptPrefix: true,
+  promptPresetKey: true,
   temperature: true,
   artifacts: true,
   top_p: true,
@@ -1055,6 +1072,7 @@ const assistantBaseSchema = tConversationSchema.pick({
   instructions: true,
   artifacts: true,
   promptPrefix: true,
+  promptPresetKey: true,
   iconURL: true,
   greeting: true,
   spec: true,
@@ -1068,6 +1086,7 @@ export const assistantSchema = assistantBaseSchema
     assistant_id: obj.assistant_id ?? undefined,
     instructions: obj.instructions ?? undefined,
     promptPrefix: obj.promptPrefix ?? null,
+    promptPresetKey: obj.promptPresetKey ?? null,
     iconURL: obj.iconURL ?? undefined,
     greeting: obj.greeting ?? undefined,
     spec: obj.spec ?? undefined,
@@ -1078,6 +1097,7 @@ export const assistantSchema = assistantBaseSchema
     assistant_id: undefined,
     instructions: undefined,
     promptPrefix: null,
+    promptPresetKey: null,
     iconURL: undefined,
     greeting: undefined,
     spec: undefined,
@@ -1089,6 +1109,7 @@ const compactAssistantBaseSchema = tConversationSchema.pick({
   assistant_id: true,
   instructions: true,
   promptPrefix: true,
+  promptPresetKey: true,
   artifacts: true,
   iconURL: true,
   greeting: true,
@@ -1111,6 +1132,7 @@ export const agentsBaseSchema = tConversationSchema.pick({
   agent_id: true,
   instructions: true,
   promptPrefix: true,
+  promptPresetKey: true,
   iconURL: true,
   greeting: true,
   maxContextTokens: true,
@@ -1131,6 +1153,7 @@ export const agentsSchema = agentsBaseSchema
     agent_id: obj.agent_id ?? undefined,
     instructions: obj.instructions ?? undefined,
     promptPrefix: obj.promptPrefix ?? null,
+    promptPresetKey: obj.promptPresetKey ?? null,
     iconURL: obj.iconURL ?? undefined,
     greeting: obj.greeting ?? undefined,
     maxContextTokens: obj.maxContextTokens ?? undefined,
@@ -1147,6 +1170,7 @@ export const agentsSchema = agentsBaseSchema
     agent_id: undefined,
     instructions: undefined,
     promptPrefix: null,
+    promptPresetKey: null,
     iconURL: undefined,
     greeting: undefined,
     maxContextTokens: undefined,
@@ -1157,6 +1181,7 @@ export const openAIBaseSchema = tConversationSchema.pick({
   modelLabel: true,
   chatGptLabel: true,
   promptPrefix: true,
+  promptPresetKey: true,
   temperature: true,
   top_p: true,
   presence_penalty: true,
@@ -1207,6 +1232,7 @@ export const anthropicBaseSchema = tConversationSchema.pick({
   model: true,
   modelLabel: true,
   promptPrefix: true,
+  promptPresetKey: true,
   temperature: true,
   maxOutputTokens: true,
   topP: true,
@@ -1241,6 +1267,9 @@ export const compactPluginsSchema = gptPluginsBaseSchema
     }
     if (newObj.promptPrefix === null) {
       delete newObj.promptPrefix;
+    }
+    if (newObj.promptPresetKey === null) {
+      delete newObj.promptPresetKey;
     }
     if (newObj.temperature === 0.8) {
       delete newObj.temperature;
@@ -1288,6 +1317,7 @@ export const compactAgentsBaseSchema = tConversationSchema.pick({
   model: true,
   modelLabel: true,
   promptPrefix: true,
+  promptPresetKey: true,
   temperature: true,
   top_p: true,
   topP: true,
