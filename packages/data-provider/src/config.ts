@@ -716,7 +716,7 @@ export type TStartupConfig = {
   appTitle: string;
   socialLogins?: string[];
   interface?: TInterfaceConfig;
-  questionFormulation?: TQuestionFormulationConfig;
+  questionFormulation?: z.infer<typeof questionFormulationSchema>;
   turnstile?: TTurnstileConfig;
   balance?: TBalanceConfig;
   transactions?: TTransactionsConfig;

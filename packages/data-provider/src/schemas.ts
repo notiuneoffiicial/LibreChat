@@ -256,7 +256,6 @@ export const questionFormulationSchema = z
     enabled: false,
   });
 
-export type TQuestionFormulationConfig = z.infer<typeof questionFormulationSchema>;
 
 export const ImageVisionTool: FunctionTool = {
   type: Tools.function,
