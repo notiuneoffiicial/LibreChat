@@ -930,6 +930,8 @@ export const memorySchema = z.object({
 
 export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
 
+export type TQuestionFormulationConfig = z.infer<typeof questionFormulationSchema>;
+
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
 export const configSchema = z.object({
