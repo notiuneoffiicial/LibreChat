@@ -1,25 +1,32 @@
 import { memo } from 'react';
+import { ThinkingContent } from '~/components/Artifacts/Thinking';
+import { cn } from '~/utils';
 import Container from '../Container';
-import MarkdownLite from '../MarkdownLite';
 
 type FormulatedQuestionProps = {
   question: string;
+  thought?: string;
 };
 
-const FormulatedQuestion = ({ question }: FormulatedQuestionProps) => {
-  if (!question) {
+const FormulatedQuestion = ({ question, thought }: FormulatedQuestionProps) => {
+  const hasContent = !!question || !!thought;
+  if (!hasContent) {
     return null;
   }
 
   return (
     <Container>
-      <div className="rounded-xl border border-border-medium bg-surface-secondary px-3 py-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-          Formulated question
-        </div>
-        <div className="mt-1 text-sm text-text-primary">
-          <MarkdownLite content={question} />
-        </div>
+      <div className="flex flex-col gap-2 my-2">
+        {!!thought && (
+          <div className="text-text-secondary">
+            <ThinkingContent isPart={true}>{thought}</ThinkingContent>
+          </div>
+        )}
+        {!!question && (
+          <div className={cn('text-lg font-medium tracking-tight shimmer')}>
+            {question}
+          </div>
+        )}
       </div>
     </Container>
   );

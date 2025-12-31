@@ -77,8 +77,11 @@ const Part = memo(
     } else if (part.type === ContentTypes.QUESTION_FORMULATION) {
       const questionData = part[ContentTypes.QUESTION_FORMULATION];
       const question =
-        typeof questionData === 'string' ? questionData : questionData?.text ?? '';
-      return <FormulatedQuestion question={question} />;
+        typeof questionData === 'string'
+          ? questionData
+          : questionData?.question ?? questionData?.text ?? '';
+      const thought = typeof questionData === 'object' ? questionData?.thought : undefined;
+      return <FormulatedQuestion question={question} thought={thought} />;
     } else if (part.type === ContentTypes.TEXT) {
       const text = typeof part.text === 'string' ? part.text : part.text?.value;
 

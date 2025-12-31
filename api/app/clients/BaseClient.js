@@ -308,11 +308,11 @@ class BaseClient {
     const userMessage = opts.isEdited
       ? this.currentMessages[this.currentMessages.length - 2]
       : this.createUserMessage({
-          messageId: userMessageId,
-          parentMessageId,
-          conversationId,
-          text: message,
-        });
+        messageId: userMessageId,
+        parentMessageId,
+        conversationId,
+        text: message,
+      });
 
     if (typeof opts?.getReqData === 'function') {
       opts.getReqData({
@@ -913,6 +913,42 @@ class BaseClient {
       }
     }
 
+    if (!shouldAskQuestion && formulationResult) {
+      const { question, thought } = formulationResult;
+      if (question || thought) {
+        const formulationPart = {
+          type: ContentTypes.QUESTION_FORMULATION,
+          question_formulation: {
+            question,
+            thought,
+          },
+        };
+
+        if (!responseMessage.content) {
+          responseMessage.content = [];
+        }
+
+        if (typeof responseMessage.content === 'string') {
+          responseMessage.content = [
+            {
+              type: ContentTypes.TEXT,
+              text: responseMessage.content
+            }
+          ];
+        }
+
+        if (responseMessage.text && responseMessage.content.length === 0) {
+          responseMessage.content.push({
+            type: ContentTypes.TEXT,
+            text: responseMessage.text,
+          });
+        }
+
+        // Add formulation part at the beginning
+        responseMessage.content.unshift(formulationPart);
+      }
+    }
+
     responseMessage.databasePromise = this.saveMessageToDatabase(
       responseMessage,
       saveOptions,
@@ -1278,44 +1314,59 @@ class BaseClient {
       this.sendCompletion(formulationPayload, { abortController }),
     );
 
-    const question = this.normalizeQuestionFormulationOutput(completion);
-    if (!question) {
+    const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
+
+    if (!question && !thought) {
       return null;
     }
 
     let decision = 'answer';
     const gate = questionFormulation.gate;
-    if (gate?.mode === 'model' && gate?.model) {
-      const gatePrompt = (gate.prompt ?? DEFAULT_FORMULATION_GATE_PROMPT).trim();
-      const gatePayload = this.buildQuestionFormulationPayload(
-        [
-          {
-            role: 'user',
-            content: `User request:\n${userText ?? ''}\n\nFormulated question:\n${question}`,
-          },
-        ],
-        gatePrompt,
-      );
 
-      if (gatePayload) {
-        const gateOverrides = {
-          model: gate.model,
-          temperature: 0,
-          max_tokens: 16,
-          maxOutputTokens: 16,
-        };
-        const gateResult = await this.withTemporaryModelOptions(gateOverrides, async () =>
-          this.sendCompletion(gatePayload, { abortController }),
+    // logic: If we have a question, we might Ask or Answer based on gate/confidence.
+    // If we ONLY have a thought (no question), we definitely just Answer (decision='answer'),
+    // but we pass the thought along to be displayed.
+
+    if (question) {
+      if (gate?.mode === 'model' && gate?.model) {
+        const gatePrompt = (gate.prompt ?? DEFAULT_FORMULATION_GATE_PROMPT).trim();
+        const gatePayload = this.buildQuestionFormulationPayload(
+          [
+            {
+              role: 'user',
+              content: `User request:\n${userText ?? ''}\n\nFormulated question:\n${question}`,
+            },
+          ],
+          gatePrompt,
         );
-        const gateDecision = this.normalizeQuestionFormulationOutput(gateResult).toLowerCase();
-        decision = gateDecision.includes('ask') ? 'ask' : 'answer';
+
+        if (gatePayload) {
+          const gateOverrides = {
+            model: gate.model,
+            temperature: 0,
+            max_tokens: 16,
+            maxOutputTokens: 16,
+          };
+          const gateResult = await this.withTemporaryModelOptions(gateOverrides, async () =>
+            this.sendCompletion(gatePayload, { abortController }),
+          );
+          // Note: normalizeQuestionFormulationOutput returns object now, handled below
+          const gateParsed = this.normalizeQuestionFormulationOutput(gateResult);
+          const gateDecision = (gateParsed.question || '').toLowerCase(); // Fallback if regular text
+          decision = gateDecision.includes('ask') ? 'ask' : 'answer';
+        }
+      } else if (this.shouldAskFormulatedQuestion({ question, userText })) {
+        decision = 'ask';
       }
-    } else if (this.shouldAskFormulatedQuestion({ question, userText })) {
-      decision = 'ask';
     }
+
+    // If decision is 'ask', we return the question to be asked to the user.
+    // If decision is 'answer', logic usually proceeds to generate main response.
+    // The `question` (and now `thought`) will be attached as metadata if supported.
 
     return {
       question,
+      thought,
       decision,
       model: overrides.model,
     };
