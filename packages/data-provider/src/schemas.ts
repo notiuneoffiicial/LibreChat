@@ -3,6 +3,7 @@ import { Tools } from './types/assistants';
 import type { TMessageContentParts, FunctionTool, FunctionToolCall } from './types/assistants';
 import { TFeedback, feedbackSchema } from './feedback';
 import type { SearchResultData } from './types/web';
+import type { QuestionFormulationOutput } from './types/formulation';
 import type { TFile } from './types/files';
 
 export const isUUID = z.string().uuid();
@@ -647,6 +648,7 @@ export type TAttachmentMetadata = {
   [Tools.ui_resources]?: UIResource[];
   [Tools.web_search]?: SearchResultData;
   [Tools.file_search]?: SearchResultData;
+  [Tools.question_formulation]?: QuestionFormulationOutput;
 };
 
 export type TAttachment =

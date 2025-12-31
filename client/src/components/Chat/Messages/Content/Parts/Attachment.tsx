@@ -84,7 +84,7 @@ export default function Attachment({ attachment }: { attachment?: TAttachment })
   if (!attachment) {
     return null;
   }
-  if (attachment.type === Tools.web_search) {
+  if (attachment.type === Tools.web_search || attachment.type === Tools.question_formulation) {
     return null;
   }
 
@@ -120,7 +120,10 @@ export function AttachmentGroup({ attachments }: { attachments?: TAttachment[] }
 
     if (isImage) {
       imageAttachments.push(attachment);
-    } else if (attachment.type !== Tools.web_search) {
+    } else if (
+      attachment.type !== Tools.web_search &&
+      attachment.type !== Tools.question_formulation
+    ) {
       fileAttachments.push(attachment);
     }
   });
