@@ -198,7 +198,7 @@ memory:
       max_tokens: 4096
 
 questionFormulation:
-  enabled: true
+  enabled: false
   provider: "Deepseek"
   model: "deepseek-reasoner"
   promptPresetKey: "question-formulation"
