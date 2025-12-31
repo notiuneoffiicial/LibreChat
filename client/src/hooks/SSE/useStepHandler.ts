@@ -48,6 +48,7 @@ type AllContentTypes =
   | ContentTypes.TOOL_CALL
   | ContentTypes.IMAGE_FILE
   | ContentTypes.IMAGE_URL
+  | ContentTypes.QUESTION_FORMULATION
   | ContentTypes.ERROR;
 
 export default function useStepHandler({

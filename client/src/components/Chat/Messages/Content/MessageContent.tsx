@@ -1,6 +1,7 @@
 import { memo, Suspense, useMemo } from 'react';
 import { useRecoilValue } from 'recoil';
 import { DelayedRender } from '@librechat/client';
+import { ContentTypes } from 'librechat-data-provider';
 import type { TMessage } from 'librechat-data-provider';
 import type { TMessageContentProps, TDisplayProps } from '~/common';
 import Error from '~/components/Messages/Content/Error';
@@ -14,6 +15,7 @@ import Container from './Container';
 import Markdown from './Markdown';
 import { cn } from '~/utils';
 import generalizeReasoning from '~/utils/generalizeReasoning';
+import { FormulatedQuestion } from './Parts';
 import store from '~/store';
 
 export const ErrorMessage = ({
@@ -169,6 +171,18 @@ const MessageContent = ({
     [isSubmitting, unfinished, message],
   );
 
+  const formulatedQuestion = useMemo(() => {
+    if (!message?.content?.length) {
+      return '';
+    }
+    const part = message.content.find((item) => item?.type === ContentTypes.QUESTION_FORMULATION);
+    if (!part || part.type !== ContentTypes.QUESTION_FORMULATION) {
+      return '';
+    }
+    const question = part.question_formulation;
+    return typeof question === 'string' ? question : question?.text ?? '';
+  }, [message?.content]);
+
   if (error) {
     return <ErrorMessage message={props.message} text={text} />;
   } else if (edit) {
@@ -177,6 +191,9 @@ const MessageContent = ({
 
   return (
     <>
+      {formulatedQuestion && (
+        <FormulatedQuestion key={`formulation-${messageId}`} question={formulatedQuestion} />
+      )}
       {displayedThinkingSummary.length > 0 && (
         <Thinking key={`thinking-${messageId}`}>
           <ul className="list-outside list-disc space-y-2 pl-5 text-sm leading-6 text-text-secondary">

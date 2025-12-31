@@ -930,7 +930,20 @@ export const memorySchema = z.object({
 
 export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
 
-export type TQuestionFormulationConfig = z.infer<typeof questionFormulationSchema>;
+const questionFormulationSchema = z.object({
+  enabled: z.boolean().default(false),
+  model: z.string().optional(),
+  prompt: z.string().optional(),
+  temperature: z.number().optional(),
+  maxTokens: z.number().optional(),
+  gate: z
+    .object({
+      mode: z.enum(['rules', 'model']).default('rules'),
+      model: z.string().optional(),
+      prompt: z.string().optional(),
+    })
+    .optional(),
+});
 
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
@@ -941,7 +954,7 @@ export const configSchema = z.object({
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
-  questionFormulation: questionFormulationSchema,
+  questionFormulation: questionFormulationSchema.optional(),
   secureImageLinks: z.boolean().optional(),
   imageOutputType: z.nativeEnum(EImageOutputType).default(EImageOutputType.PNG),
   includedTools: z.array(z.string()).optional(),

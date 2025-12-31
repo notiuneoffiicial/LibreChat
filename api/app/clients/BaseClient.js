@@ -32,6 +32,15 @@ const { initializeMemoryContext } = require('~/server/services/Memory');
 const { ConversationSummaryManager } = require('./memory');
 const TextStream = require('./TextStream');
 
+const DEFAULT_FORMULATION_PROMPT = `You are a question formulation assistant.
+Your task is to propose the single most helpful clarifying question to ask the user before answering.
+Use the full conversation context and any retrieved sources.
+If no clarification is needed, respond with "NO_QUESTION".
+Return only the question text or "NO_QUESTION".`;
+
+const DEFAULT_FORMULATION_GATE_PROMPT = `Decide whether the assistant should ask the formulated question instead of answering now.
+Reply with "ASK" if the question should be sent to the user, otherwise reply with "ANSWER".`;
+
 class BaseClient {
   constructor(apiKey, options = {}) {
     this.apiKey = apiKey;
@@ -778,8 +787,17 @@ class BaseClient {
       });
     }
 
+    const formulationResult = await this.runQuestionFormulation({
+      payload,
+      userText: userMessage.text ?? message,
+      abortController: opts.abortController,
+    });
+    const shouldAskQuestion = formulationResult?.decision === 'ask';
+
     /** @type {string|string[]|undefined} */
-    const completion = await this.sendCompletion(payload, opts);
+    const completion = shouldAskQuestion
+      ? formulationResult?.question
+      : await this.sendCompletion(payload, opts);
     if (this.abortController) {
       this.abortController.requestCompleted = true;
     }
@@ -791,7 +809,9 @@ class BaseClient {
       parentMessageId: userMessage.messageId,
       isCreatedByUser: false,
       isEdited,
-      model: this.getResponseModel(),
+      model: shouldAskQuestion
+        ? formulationResult?.model ?? this.getResponseModel()
+        : this.getResponseModel(),
       sender: this.sender,
       promptTokens,
       iconURL: this.options.iconURL,
@@ -826,6 +846,17 @@ class BaseClient {
       }
     } else if (Array.isArray(completion)) {
       responseMessage.text = completion.join('');
+    }
+
+    if (formulationResult?.question && !shouldAskQuestion) {
+      responseMessage.content = responseMessage.content ?? [];
+      responseMessage.content.unshift({
+        type: ContentTypes.QUESTION_FORMULATION,
+        [ContentTypes.QUESTION_FORMULATION]: {
+          text: formulationResult.question,
+          decision: formulationResult.decision,
+        },
+      });
     }
 
     if (
@@ -1131,6 +1162,163 @@ class BaseClient {
 
   getMemorySummary() {
     return this.memorySummary;
+  }
+
+  getQuestionFormulationConfig() {
+    return this.options?.req?.config?.questionFormulation;
+  }
+
+  buildQuestionFormulationPayload(payload, prompt) {
+    if (!Array.isArray(payload) || !prompt) {
+      return null;
+    }
+
+    const hasRole = payload.some((message) => typeof message?.role === 'string');
+    const hasSystem = payload.some((message) => message?.role === 'system');
+
+    if (hasRole) {
+      const directive = {
+        role: hasSystem ? 'system' : 'user',
+        content: prompt,
+      };
+      return [directive, ...payload];
+    }
+
+    const hasAuthor = payload.some((message) => typeof message?.author === 'string');
+    if (hasAuthor) {
+      const directive = {
+        author: payload[0]?.author ?? 'user',
+        content: prompt,
+      };
+      return [directive, ...payload];
+    }
+
+    return null;
+  }
+
+  normalizeQuestionFormulationOutput(output) {
+    if (!output || typeof output !== 'string') {
+      return '';
+    }
+    return output.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+  }
+
+  async withTemporaryModelOptions(overrides, fn) {
+    const savedOptions = {
+      ...(this.options ?? {}),
+      modelOptions: { ...(this.options?.modelOptions ?? {}) },
+    };
+
+    const nextOptions = {
+      ...savedOptions,
+      modelOptions: {
+        ...savedOptions.modelOptions,
+        ...overrides,
+      },
+      replaceOptions: true,
+    };
+
+    this.setOptions(nextOptions);
+
+    try {
+      return await fn();
+    } finally {
+      this.setOptions({ ...savedOptions, replaceOptions: true });
+    }
+  }
+
+  shouldAskFormulatedQuestion({ question, userText }) {
+    if (!question) {
+      return false;
+    }
+
+    const normalized = question.trim();
+    if (!normalized || /^no_?question$/i.test(normalized)) {
+      return false;
+    }
+
+    if (!/[?？]$/.test(normalized)) {
+      return false;
+    }
+
+    if (normalized.length < 4 || normalized.length > 400) {
+      return false;
+    }
+
+    if (typeof userText === 'string' && normalized.toLowerCase() === userText.trim().toLowerCase()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  async runQuestionFormulation({ payload, userText, abortController }) {
+    const questionFormulation = this.getQuestionFormulationConfig();
+    if (!questionFormulation?.enabled || isAgentsEndpoint(this.options?.endpoint)) {
+      return null;
+    }
+
+    const prompt = (questionFormulation.prompt ?? DEFAULT_FORMULATION_PROMPT).trim();
+    const formulationPayload = this.buildQuestionFormulationPayload(payload, prompt);
+    if (!formulationPayload) {
+      return null;
+    }
+
+    const overrides = {
+      model: questionFormulation.model ?? this.modelOptions?.model,
+      temperature: questionFormulation.temperature ?? 0.2,
+    };
+
+    if (questionFormulation.maxTokens != null) {
+      overrides.max_tokens = questionFormulation.maxTokens;
+      overrides.maxOutputTokens = questionFormulation.maxTokens;
+    }
+
+    const completion = await this.withTemporaryModelOptions(overrides, async () =>
+      this.sendCompletion(formulationPayload, { abortController }),
+    );
+
+    const question = this.normalizeQuestionFormulationOutput(completion);
+    if (!question) {
+      return null;
+    }
+
+    let decision = 'answer';
+    const gate = questionFormulation.gate;
+    if (gate?.mode === 'model' && gate?.model) {
+      const gatePrompt = (gate.prompt ?? DEFAULT_FORMULATION_GATE_PROMPT).trim();
+      const gatePayload = this.buildQuestionFormulationPayload(
+        [
+          {
+            role: 'user',
+            content: `User request:\n${userText ?? ''}\n\nFormulated question:\n${question}`,
+          },
+        ],
+        gatePrompt,
+      );
+
+      if (gatePayload) {
+        const gateOverrides = {
+          model: gate.model,
+          temperature: 0,
+          max_tokens: 16,
+          maxOutputTokens: 16,
+        };
+        const gateResult = await this.withTemporaryModelOptions(gateOverrides, async () =>
+          this.sendCompletion(gatePayload, { abortController }),
+        );
+        const gateDecision = this.normalizeQuestionFormulationOutput(gateResult).toLowerCase();
+        decision = gateDecision.includes('ask') ? 'ask' : 'answer';
+      }
+    } else if (this.shouldAskFormulatedQuestion({ question, userText })) {
+      decision = 'ask';
+    }
+
+    return {
+      question,
+      decision,
+      model: overrides.model,
+    };
   }
 
   startMemoryProcessing(messages) {
