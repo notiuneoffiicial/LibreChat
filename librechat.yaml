@@ -198,9 +198,9 @@ memory:
       max_tokens: 4096
 
 questionFormulation:
-  enabled: false
-  provider: "openAI"
-  model: "gpt-4o-mini"
+  enabled: true
+  provider: "Deepseek"
+  model: "deepseek-reasoner"
   promptPresetKey: "question-formulation"
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
