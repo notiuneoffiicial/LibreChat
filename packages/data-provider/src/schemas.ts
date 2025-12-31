@@ -495,6 +495,21 @@ export const eModelEndpointSchema = z.nativeEnum(EModelEndpoint);
 
 export const extendedModelEndpointSchema = z.union([eModelEndpointSchema, z.string()]);
 
+export const questionFormulationSchema = z.object({
+  enabled: z.boolean().default(false),
+  model: z.string().optional(),
+  prompt: z.string().optional(),
+  temperature: z.number().optional(),
+  maxTokens: z.number().optional(),
+  gate: z
+    .object({
+      mode: z.enum(['rules', 'model']).default('rules'),
+      model: z.string().optional(),
+      prompt: z.string().optional(),
+    })
+    .optional(),
+});
+
 export const tPluginAuthConfigSchema = z.object({
   authField: z.string(),
   label: z.string(),
