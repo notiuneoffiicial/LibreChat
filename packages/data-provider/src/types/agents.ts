@@ -28,6 +28,14 @@ export namespace Agents {
     };
   };
 
+  export type QuestionFormulation = {
+    type: ContentTypes.QUESTION_FORMULATION;
+    question_formulation: {
+      text: string;
+      decision?: 'ask' | 'answer';
+    };
+  };
+
   export type MessageContentImageUrl = {
     type: ContentTypes.IMAGE_URL;
     image_url: string | { url: string; detail?: ImageDetail };
@@ -36,6 +44,7 @@ export namespace Agents {
   export type MessageContentComplex =
     | ReasoningContentText
     | AgentUpdate
+    | QuestionFormulation
     | MessageContentText
     | MessageContentImageUrl
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

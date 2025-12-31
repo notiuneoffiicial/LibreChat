@@ -6,6 +6,7 @@ export enum ContentTypes {
   IMAGE_FILE = 'image_file',
   IMAGE_URL = 'image_url',
   AGENT_UPDATE = 'agent_update',
+  QUESTION_FORMULATION = 'question_formulation',
   ERROR = 'error',
 }
 

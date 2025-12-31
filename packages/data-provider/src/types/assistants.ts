@@ -501,6 +501,13 @@ export type TMessageContentParts =
         PartMetadata;
     }
   | { type: ContentTypes.IMAGE_FILE; image_file: ImageFile & PartMetadata }
+  | {
+      type: ContentTypes.QUESTION_FORMULATION;
+      question_formulation: {
+        text: string;
+        decision?: 'ask' | 'answer';
+      };
+    }
   | Agents.AgentUpdate
   | Agents.MessageContentImageUrl;
 

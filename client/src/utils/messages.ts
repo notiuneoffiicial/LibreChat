@@ -104,6 +104,17 @@ const getLatestContentForKey = (message: TMessage): string => {
       const tcOutput = String(part.tool_call?.['output'] || 'none').slice(0, 20);
       text = `tc_${tcType}_${tcName}_${tcArgs}_${tcOutput}`;
     }
+    // Handle QUESTION_FORMULATION - use question text
+    else if (
+      type === ContentTypes.QUESTION_FORMULATION &&
+      'question_formulation' in part
+    ) {
+      const question =
+        typeof part.question_formulation === 'string'
+          ? part.question_formulation
+          : (part.question_formulation?.text ?? '');
+      text = question.slice(0, 60);
+    }
     // Handle IMAGE_FILE - use simple marker with file_id suffix
     else if (type === ContentTypes.IMAGE_FILE && 'image_file' in part) {
       const fileId = part.image_file?.file_id || 'x';
