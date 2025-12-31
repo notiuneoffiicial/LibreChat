@@ -13,6 +13,7 @@ import RetrievalCall from './RetrievalCall';
 import CodeAnalyze from './CodeAnalyze';
 import Container from './Container';
 import WebSearch from './WebSearch';
+import QuestionFormulation from './QuestionFormulation';
 import ToolCall from './ToolCall';
 import ImageGen from './ImageGen';
 import Image from './Image';
@@ -131,6 +132,12 @@ const Part = memo(
             isLast={isLast}
           />
         );
+      } else if (isToolCall && toolCall.name === Tools.question_formulation) {
+        const formulationAttachment = attachments?.find(
+          (attachment) => attachment.type === Tools.question_formulation,
+        );
+        const formulationData = formulationAttachment?.[Tools.question_formulation];
+        return <QuestionFormulation output={toolCall.output ?? ''} data={formulationData} />;
       } else if (isToolCall) {
         return (
           <ToolCall

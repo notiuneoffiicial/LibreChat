@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { useRecoilState } from 'recoil';
-import { ContentTypes } from 'librechat-data-provider';
+import { ContentTypes, Tools } from 'librechat-data-provider';
 import type {
   TMessageContentParts,
   SearchResultData,
@@ -17,6 +17,7 @@ import { useLocalize } from '~/hooks';
 import { useGetStartupConfig } from '~/data-provider';
 import store from '~/store';
 import Part from './Part';
+import QuestionFormulation from './QuestionFormulation';
 
 type ContentPartsProps = {
   content: Array<TMessageContentParts | undefined> | undefined;
@@ -59,6 +60,10 @@ const ContentParts = memo(
     const [isExpanded, setIsExpanded] = useState(showThinking);
     const attachmentMap = useMemo(() => mapAttachments(attachments ?? []), [attachments]);
     const showThoughts = startupConfig?.interface?.showThoughts !== false;
+    const formulationAttachment = useMemo(
+      () => attachments?.find((attachment) => attachment.type === Tools.question_formulation),
+      [attachments],
+    );
 
     const sanitizedContent = useMemo(() => {
       if (!content) {
@@ -100,6 +105,14 @@ const ContentParts = memo(
     if (!sanitizedContent) {
       return null;
     }
+    const hasFormulationPart =
+      sanitizedContent?.some((part) => {
+        const toolCall =
+          part?.type === ContentTypes.TOOL_CALL
+            ? (part[ContentTypes.TOOL_CALL] as Agents.ToolCall)
+            : undefined;
+        return toolCall?.name === Tools.question_formulation;
+      }) ?? false;
     if (edit === true && enterEdit && setSiblingIdx) {
       return (
         <>
@@ -145,6 +158,9 @@ const ContentParts = memo(
         <SearchContext.Provider value={{ searchResults }}>
           <MemoryArtifacts attachments={attachments} />
           <Sources messageId={messageId} conversationId={conversationId || undefined} />
+          {!hasFormulationPart && formulationAttachment?.[Tools.question_formulation] && (
+            <QuestionFormulation data={formulationAttachment[Tools.question_formulation]} />
+          )}
           {hasReasoningParts && (
             <div className="mb-5">
               <ThinkingButton

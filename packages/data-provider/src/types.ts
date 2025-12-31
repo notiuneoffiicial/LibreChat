@@ -14,6 +14,7 @@ import type { TMinimalFeedback } from './feedback';
 import type { ContentTypes } from './types/runs';
 import type { Agent } from './types/assistants';
 import type { RealtimeAudioConfig, RealtimeSessionDefaults } from './types/files';
+export type { QuestionFormulationOutput } from './types/formulation';
 
 export * from './schemas';
 
