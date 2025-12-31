@@ -103,6 +103,8 @@ export const AppService = async (params?: {
   const turnstileConfig = loadTurnstileConfig(config, configDefaults);
   const speech = mergeSpeechConfig(configDefaults.speech, config.speech);
   const autoRouterEnabled = config.autoRouter ?? configDefaults.autoRouter ?? true;
+  const questionFormulation =
+    config.questionFormulation ?? configDefaults.questionFormulation ?? undefined;
 
   const defaultConfig = {
     ocr,
@@ -124,6 +126,7 @@ export const AppService = async (params?: {
     turnstileConfig,
     fileStrategies: config.fileStrategies,
     autoRouterEnabled,
+    questionFormulation,
   };
 
   const agentsDefaults = agentsConfigSetup(config);

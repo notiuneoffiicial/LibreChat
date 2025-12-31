@@ -36,6 +36,10 @@ export const conversationPreset = {
     type: String,
     required: false,
   },
+  promptPresetKey: {
+    type: String,
+    required: false,
+  },
   temperature: {
     type: Number,
     required: false,
