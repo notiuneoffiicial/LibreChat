@@ -1343,15 +1343,14 @@ class BaseClient {
     }
 
     // Signal "thinking started" to client with progress = 0.1
+    // Use flat format expected by useContentHandler
     if (onProgress) {
       onProgress({
-        text: '',
-        content: [
-          {
-            type: ContentTypes.QUESTION_FORMULATION,
-            question_formulation: { progress: 0.1 },
-          },
-        ],
+        type: ContentTypes.QUESTION_FORMULATION,
+        index: 0,
+        messageId: this.responseMessageId,
+        conversationId: this.conversationId,
+        [ContentTypes.QUESTION_FORMULATION]: { progress: 0.1 },
       });
     }
 
@@ -1360,6 +1359,17 @@ class BaseClient {
     );
 
     const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
+
+    // Signal "thinking complete" with progress = 1 and final result
+    if (onProgress && (question || thought)) {
+      onProgress({
+        type: ContentTypes.QUESTION_FORMULATION,
+        index: 0,
+        messageId: this.responseMessageId,
+        conversationId: this.conversationId,
+        [ContentTypes.QUESTION_FORMULATION]: { progress: 1, question, thought },
+      });
+    }
 
     if (!question && !thought) {
       return null;

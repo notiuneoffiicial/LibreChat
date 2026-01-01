@@ -21,8 +21,10 @@ const FormulatedQuestion = ({
   progress = 1,
   isSubmitting = false,
 }: FormulatedQuestionProps) => {
-  const isProcessing = progress < 1 && isSubmitting;
-  const isComplete = progress >= 1 || !isSubmitting;
+  // Show shimmer when progress < 1, regardless of isSubmitting state
+  // This ensures the indicator appears as soon as we receive the first progress event
+  const isProcessing = progress < 1;
+  const isComplete = progress >= 1;
   const hasQuestion = !!question && question.trim().length > 0;
 
   // If nothing to show and not processing, hide component
