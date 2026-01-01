@@ -794,6 +794,23 @@ class BaseClient {
     });
     const shouldAskQuestion = formulationResult?.decision === 'ask';
 
+    // [NEW] Immediately send the formulation result (thought/question) to the client
+    // so the user sees the "thought flow" before the main answer starts streaming.
+    if (!shouldAskQuestion && formulationResult && opts.onProgress) {
+      const { question, thought } = formulationResult;
+      if (question || thought) {
+        opts.onProgress({
+          text: '', // Start with empty main text
+          content: [
+            {
+              type: ContentTypes.QUESTION_FORMULATION,
+              question_formulation: { question, thought },
+            },
+          ],
+        });
+      }
+    }
+
     /** @type {string|string[]|undefined} */
     const completion = shouldAskQuestion
       ? formulationResult?.question
