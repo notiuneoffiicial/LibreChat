@@ -173,15 +173,32 @@ const MessageContent = ({
 
   const formulatedQuestion = useMemo(() => {
     if (!message?.content?.length) {
-      return '';
+      return null;
     }
     const part = message.content.find((item) => item?.type === ContentTypes.QUESTION_FORMULATION);
     if (!part || part.type !== ContentTypes.QUESTION_FORMULATION) {
-      return '';
+      return null;
     }
-    const question = part.question_formulation;
-    return typeof question === 'string' ? question : question?.text ?? '';
+    const payload = part.question_formulation;
+    if (typeof payload === 'string') {
+      return { question: payload };
+    }
+    return {
+      question: payload?.question ?? payload?.text ?? '',
+      thought: payload?.thought ?? payload?.reasoning ?? '',
+      progress: payload?.progress ?? 1,
+    };
   }, [message?.content]);
+
+  const shouldSuppressText = useMemo(() => {
+    if (!formulatedQuestion?.question) {
+      return false;
+    }
+    if (!regularContent) {
+      return false;
+    }
+    return formulatedQuestion.question.trim() === regularContent.trim();
+  }, [formulatedQuestion?.question, regularContent]);
 
   if (error) {
     return <ErrorMessage message={props.message} text={text} />;
@@ -192,7 +209,13 @@ const MessageContent = ({
   return (
     <>
       {formulatedQuestion && (
-        <FormulatedQuestion key={`formulation-${messageId}`} question={formulatedQuestion} />
+        <FormulatedQuestion
+          key={`formulation-${messageId}`}
+          question={formulatedQuestion.question ?? ''}
+          thought={formulatedQuestion.thought}
+          progress={formulatedQuestion.progress ?? 1}
+          isSubmitting={isSubmitting}
+        />
       )}
       {displayedThinkingSummary.length > 0 && (
         <Thinking key={`thinking-${messageId}`}>
@@ -203,12 +226,14 @@ const MessageContent = ({
           </ul>
         </Thinking>
       )}
-      <DisplayMessage
-        key={`display-${messageId}`}
-        showCursor={showRegularCursor}
-        text={regularContent}
-        {...props}
-      />
+      {!shouldSuppressText && (
+        <DisplayMessage
+          key={`display-${messageId}`}
+          showCursor={showRegularCursor}
+          text={regularContent}
+          {...props}
+        />
+      )}
       {unfinishedMessage}
     </>
   );
