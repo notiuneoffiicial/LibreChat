@@ -34,15 +34,22 @@ const FormulatedQuestion = ({
 
   return (
     <Container>
-      <div className="relative my-2.5 flex items-center gap-2.5">
-        {/* Processing state: shimmer indicator */}
+      <div className="relative my-2.5 flex flex-col gap-2">
+        {/* Processing state: shimmer with streaming thought */}
         {isProcessing && (
-          <>
-            <Spinner className="size-5 shrink-0" />
-            <span className="shimmer text-sm font-medium text-token-text-secondary">
-              Formulating question...
-            </span>
-          </>
+          <div className="flex items-start gap-2.5">
+            <Spinner className="size-5 shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <span className="shimmer text-sm font-medium text-token-text-secondary">
+                Formulating question...
+              </span>
+              {thought && (
+                <span className="shimmer text-xs text-token-text-tertiary leading-relaxed max-w-prose">
+                  {thought}
+                </span>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Complete state: show final question */}

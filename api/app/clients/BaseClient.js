@@ -1334,7 +1334,7 @@ class BaseClient {
     const overrides = {
       model: questionFormulation.model ?? this.modelOptions?.model,
       temperature: questionFormulation.temperature ?? 0.2,
-      stream: false, // Disable streaming for cleaner progress indicator
+      stream: true, // Enable streaming for real-time reasoning display
     };
 
     if (questionFormulation.maxTokens != null) {
@@ -1342,26 +1342,39 @@ class BaseClient {
       overrides.maxOutputTokens = questionFormulation.maxTokens;
     }
 
-    // Signal "thinking started" to client with progress = 0.1
-    // Use flat format expected by useContentHandler
-    if (onProgress) {
-      onProgress({
-        type: ContentTypes.QUESTION_FORMULATION,
-        index: 0,
-        messageId: this.responseMessageId,
-        conversationId: this.conversationId,
-        [ContentTypes.QUESTION_FORMULATION]: { progress: 0.1 },
-      });
-    }
+    // Track accumulated text for streaming
+    let accumulatedText = '';
+
+    // Create streaming callback that sends reasoning to frontend
+    const streamingCallback = onProgress
+      ? (partialText) => {
+        accumulatedText = partialText;
+        // Extract current thought content from partial text
+        const { thought } = this.normalizeQuestionFormulationOutput(partialText);
+        onProgress({
+          type: ContentTypes.QUESTION_FORMULATION,
+          index: 0,
+          messageId: this.responseMessageId,
+          conversationId: this.conversationId,
+          [ContentTypes.QUESTION_FORMULATION]: {
+            progress: 0.5, // In progress
+            thought: thought || partialText, // Show raw text if no thought parsed yet
+          },
+        });
+      }
+      : undefined;
 
     const completion = await this.withTemporaryModelOptions(overrides, async () =>
-      this.sendCompletion(formulationPayload, { abortController }),
+      this.sendCompletion(formulationPayload, {
+        abortController,
+        onProgress: streamingCallback,
+      }),
     );
 
     const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
 
     // Signal "thinking complete" with progress = 1 and final result
-    if (onProgress && (question || thought)) {
+    if (onProgress) {
       onProgress({
         type: ContentTypes.QUESTION_FORMULATION,
         index: 0,
