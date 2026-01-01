@@ -100,7 +100,7 @@ function createOnQuestionFormulation(res) {
  * @param {object} data
  */
 function writeSSE(res, data) {
-    if (res && !res.headersSent === false && res.writable) {
+    if (res && res.writable) {
         try {
             res.write(`data: ${JSON.stringify(data)}\n\n`);
         } catch (err) {

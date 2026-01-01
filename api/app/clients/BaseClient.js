@@ -828,7 +828,11 @@ class BaseClient {
       ...(this.metadata ?? {}),
     };
 
-    if (typeof completion === 'string') {
+    if (shouldAskQuestion) {
+      // When question is formulated, don't set text - use content array instead
+      // SSE events already handled the streaming display
+      responseMessage.text = '';
+    } else if (typeof completion === 'string') {
       responseMessage.text = completion;
     } else if (
       Array.isArray(completion) &&
