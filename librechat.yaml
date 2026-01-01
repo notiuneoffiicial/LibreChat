@@ -51,7 +51,7 @@ interface:
   bookmarks: true
   prompts: false
   agents: false
-  showThoughts: false
+  showThoughts: true
   # hides Agent Builder/Marketplace & artifacts
   viewsMenu: false
   newsMenu: false
@@ -201,7 +201,6 @@ questionFormulation:
   enabled: true
   provider: "Deepseek"
   model: "deepseek-reasoner"
-  prompt: 'Return a THOUGHT line explaining your reasoning, followed by the QUESTION line. Example:\nTHOUGHT: The user is asking about...\nQUESTION: What is...?'
   promptPresetKey: "question-formulation"
 
 # ---- Lock the experience to a single, preselected model ----
