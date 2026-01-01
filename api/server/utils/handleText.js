@@ -33,10 +33,10 @@ const createOnProgress = (
   const basePayload = Object.assign({}, base, { text: tokens || '' });
 
   const progressCallback = (chunk, { res, ...rest }) => {
-    // If chunk is a structured content event (object with 'type'), send directly
+    // If chunk is a structured content event (object with 'type'), send it cleanly
+    // WITHOUT merging with base or rest, which would corrupt the event format
     if (chunk && typeof chunk === 'object' && chunk.type) {
-      const payload = Object.assign({}, base, chunk, rest);
-      sendEvent(res, payload);
+      sendEvent(res, chunk);
       return;
     }
 
@@ -119,8 +119,8 @@ function formatAction(action) {
 
   if (action.tool.toLowerCase() === 'self-reflection' || formattedAction.plugin === 'N/A') {
     formattedAction.inputStr = `{\n\tthought: ${formattedAction.input}${!formattedAction.thought.includes(formattedAction.input)
-        ? ' - ' + formattedAction.thought
-        : ''
+      ? ' - ' + formattedAction.thought
+      : ''
       }\n}`;
     formattedAction.inputStr = formattedAction.inputStr.replace('N/A - ', '');
   } else {
