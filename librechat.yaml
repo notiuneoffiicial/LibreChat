@@ -198,10 +198,12 @@ memory:
       max_tokens: 4096
 
 questionFormulation:
-  enabled: false
+  enabled: true
   provider: "Deepseek"
   model: "deepseek-reasoner"
+  prompt: 'Return a THOUGHT line explaining your reasoning, followed by the QUESTION line. Example:\nTHOUGHT: The user is asking about...\nQUESTION: What is...?'
   promptPresetKey: "question-formulation"
+
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
   enforce: false
