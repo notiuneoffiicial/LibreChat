@@ -804,9 +804,14 @@ class BaseClient {
     const shouldAskQuestion = hasFormulatedQuestion;
 
     /** @type {string|string[]|undefined} */
-    const completion = shouldAskQuestion
-      ? formulationResult?.question
-      : await this.sendCompletion(payload, opts);
+    let completion;
+    if (shouldAskQuestion) {
+      logger.info('[sendMessage] Question formulated, skipping sendCompletion');
+      completion = formulationResult?.question;
+    } else {
+      logger.info('[sendMessage] No question formulated, calling sendCompletion');
+      completion = await this.sendCompletion(payload, opts);
+    }
     if (this.abortController) {
       this.abortController.requestCompleted = true;
     }
