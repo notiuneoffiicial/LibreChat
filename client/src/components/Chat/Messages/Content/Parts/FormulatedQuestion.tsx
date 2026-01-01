@@ -1,46 +1,57 @@
-
 import { memo } from 'react';
+import { Spinner } from '@librechat/client';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '~/utils';
 import Container from '../Container';
 
 type FormulatedQuestionProps = {
   question: string;
   thought?: string;
+  progress?: number; // 0 to 1, where 1 means complete
+  isSubmitting?: boolean;
 };
 
-const FormulatedQuestion = ({ question, thought }: FormulatedQuestionProps) => {
-  const hasContent = !!question || !!thought;
-  if (!hasContent) {
+/**
+ * FormulatedQuestion: ChatGPT-style "Formulating question..." indicator.
+ * Shows a shimmer animation while processing, then reveals the final question.
+ */
+const FormulatedQuestion = ({
+  question,
+  thought,
+  progress = 1,
+  isSubmitting = false,
+}: FormulatedQuestionProps) => {
+  const isProcessing = progress < 1 && isSubmitting;
+  const isComplete = progress >= 1 || !isSubmitting;
+  const hasQuestion = !!question && question.trim().length > 0;
+
+  // If nothing to show and not processing, hide component
+  if (!isProcessing && !hasQuestion) {
     return null;
   }
 
   return (
     <Container>
-      <div className="flex flex-col gap-3 my-4">
-        {!!thought && (
-          <div className="relative group">
-            {/* Thought Flow Visualization */}
-            <div className={cn(
-              'text-sm font-medium leading-relaxed tracking-wide',
-              'shimmer', // Applies the silver gradient animation
-              'opacity-90'
-            )}
-            >
-              {thought}
-            </div>
-          </div>
+      <div className="relative my-2.5 flex items-center gap-2.5">
+        {/* Processing state: shimmer indicator */}
+        {isProcessing && (
+          <>
+            <Spinner className="size-5 shrink-0" />
+            <span className="shimmer text-sm font-medium text-token-text-secondary">
+              Formulating question...
+            </span>
+          </>
         )}
-        {!!question && (
-          <div className={cn(
-            'text-lg font-medium tracking-tight text-text-primary',
-            !thought && 'shimmer' // Only shimmer question if no thought shown, or maybe both? User said "shimmer... to represent thought flow"
-            // If thought is the flow, question might be the result.
-            // But let's apply a subtle effect to question too if desired, or keep it solid.
-            // User asked for "silver highlight... across a thin element... thinking -> response"
-            // Let's keep question distinct.
-          )}
-          >
-            {question}
+
+        {/* Complete state: show final question */}
+        {isComplete && hasQuestion && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-token-text-tertiary uppercase tracking-wide">
+              Question
+            </span>
+            <span className="text-base font-medium text-text-primary">
+              {question}
+            </span>
           </div>
         )}
       </div>

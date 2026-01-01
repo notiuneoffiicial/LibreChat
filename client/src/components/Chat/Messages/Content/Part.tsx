@@ -81,7 +81,15 @@ const Part = memo(
           ? questionData
           : questionData?.question ?? questionData?.text ?? '';
       const thought = typeof questionData === 'object' ? questionData?.thought : undefined;
-      return <FormulatedQuestion question={question} thought={thought} />;
+      const progress = typeof questionData === 'object' ? questionData?.progress ?? 1 : 1;
+      return (
+        <FormulatedQuestion
+          question={question}
+          thought={thought}
+          progress={progress}
+          isSubmitting={isSubmitting}
+        />
+      );
     } else if (part.type === ContentTypes.TEXT) {
       const text = typeof part.text === 'string' ? part.text : part.text?.value;
 

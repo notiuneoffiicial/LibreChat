@@ -791,25 +791,9 @@ class BaseClient {
       payload,
       userText: userMessage.text ?? message,
       abortController: opts.abortController,
+      onProgress: opts.onProgress, // Pass streaming handler
     });
     const shouldAskQuestion = formulationResult?.decision === 'ask';
-
-    // [NEW] Immediately send the formulation result (thought/question) to the client
-    // so the user sees the "thought flow" before the main answer starts streaming.
-    if (!shouldAskQuestion && formulationResult && opts.onProgress) {
-      const { question, thought } = formulationResult;
-      if (question || thought) {
-        opts.onProgress({
-          text: '', // Start with empty main text
-          content: [
-            {
-              type: ContentTypes.QUESTION_FORMULATION,
-              question_formulation: { question, thought },
-            },
-          ],
-        });
-      }
-    }
 
     /** @type {string|string[]|undefined} */
     const completion = shouldAskQuestion
@@ -938,6 +922,7 @@ class BaseClient {
           question_formulation: {
             question,
             thought,
+            progress: 1, // Signal completion
           },
         };
 
@@ -1251,9 +1236,38 @@ class BaseClient {
 
   normalizeQuestionFormulationOutput(output) {
     if (!output || typeof output !== 'string') {
-      return '';
+      return { question: '', thought: '' };
     }
-    return output.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+    let text = output.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+
+    // Check for <think> tags (common in reasoning models)
+    // Use [\s\S]* to match across newlines, and handle partial stream (missing closing tag)
+    const thinkMatch = text.match(/<think>([\s\S]*?)(?:<\/think>|$)/i);
+    let thought = '';
+    if (thinkMatch) {
+      thought = thinkMatch[1].trim();
+      // Remove the thought part to find the question, but be careful with partials
+      text = text.replace(/<think>[\s\S]*?(?:<\/think>|$)/i, '').trim();
+    }
+
+    // Fallback: Check for explicit "THOUGHT:" and "QUESTION:" labels
+    if (!thought) {
+      const thoughtLabelMatch = text.match(/THOUGHT:\s*([\s\S]*?)(?=QUESTION:|$)/i);
+      if (thoughtLabelMatch) {
+        thought = thoughtLabelMatch[1].trim();
+        text = text.replace(/THOUGHT:\s*[\s\S]*?(?=QUESTION:|$)/i, '').trim();
+      }
+    }
+
+    // Cleanup "QUESTION:" label if present
+    text = text.replace(/^QUESTION:\s*/i, '').trim();
+
+    // Handle "NO_QUESTION" or empty text as no question
+    if (text.toUpperCase().includes('NO_QUESTION')) {
+      return { question: '', thought };
+    }
+
+    return { question: text, thought };
   }
 
   async withTemporaryModelOptions(overrides, fn) {
@@ -1320,7 +1334,7 @@ class BaseClient {
     const overrides = {
       model: questionFormulation.model ?? this.modelOptions?.model,
       temperature: questionFormulation.temperature ?? 0.2,
-      stream: true, // Enable streaming
+      stream: false, // Disable streaming for cleaner progress indicator
     };
 
     if (questionFormulation.maxTokens != null) {
@@ -1328,24 +1342,21 @@ class BaseClient {
       overrides.maxOutputTokens = questionFormulation.maxTokens;
     }
 
+    // Signal "thinking started" to client with progress = 0.1
+    if (onProgress) {
+      onProgress({
+        text: '',
+        content: [
+          {
+            type: ContentTypes.QUESTION_FORMULATION,
+            question_formulation: { progress: 0.1 },
+          },
+        ],
+      });
+    }
+
     const completion = await this.withTemporaryModelOptions(overrides, async () =>
-      this.sendCompletion(formulationPayload, {
-        abortController,
-        onProgress: onProgress
-          ? (partialText) => {
-            const { question, thought } = this.normalizeQuestionFormulationOutput(partialText);
-            onProgress({
-              text: '',
-              content: [
-                {
-                  type: ContentTypes.QUESTION_FORMULATION,
-                  question_formulation: { question, thought },
-                },
-              ],
-            });
-          }
-          : undefined,
-      }),
+      this.sendCompletion(formulationPayload, { abortController }),
     );
 
     const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
