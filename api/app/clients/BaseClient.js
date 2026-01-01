@@ -22,6 +22,7 @@ const {
 } = require('librechat-data-provider');
 const { getMessages, saveMessage, updateMessage, saveConvo, getConvo } = require('~/models');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
+const { createOnQuestionFormulation } = require('~/server/services/Tools/formulation');
 const { checkBalance } = require('~/models/balanceMethods');
 const { truncateText, truncateToolCallOutputs } = require('./prompts');
 
@@ -787,11 +788,16 @@ class BaseClient {
       });
     }
 
+    // Create formulation callbacks if res is available
+    const formulationCallbacks = this.options.res
+      ? createOnQuestionFormulation(this.options.res)
+      : null;
+
     const formulationResult = await this.runQuestionFormulation({
       payload,
       userText: userMessage.text ?? message,
       abortController: opts.abortController,
-      onProgress: opts.onProgress, // Pass streaming handler
+      callbacks: formulationCallbacks,
     });
     const shouldAskQuestion = formulationResult?.decision === 'ask';
 
@@ -1319,7 +1325,7 @@ class BaseClient {
     return true;
   }
 
-  async runQuestionFormulation({ payload, userText, abortController, onProgress }) {
+  async runQuestionFormulation({ payload, userText, abortController, callbacks }) {
     const questionFormulation = this.getQuestionFormulationConfig();
     if (!questionFormulation?.enabled || isAgentsEndpoint(this.options?.endpoint)) {
       return null;
@@ -1334,7 +1340,7 @@ class BaseClient {
     const overrides = {
       model: questionFormulation.model ?? this.modelOptions?.model,
       temperature: questionFormulation.temperature ?? 0.2,
-      stream: true, // Enable streaming for real-time reasoning display
+      stream: false, // Use non-streaming for cleaner SSE flow
     };
 
     if (questionFormulation.maxTokens != null) {
@@ -1342,46 +1348,23 @@ class BaseClient {
       overrides.maxOutputTokens = questionFormulation.maxTokens;
     }
 
-    // Track accumulated text for streaming
-    let accumulatedText = '';
-
-    // Create streaming callback that sends reasoning to frontend
-    const streamingCallback = onProgress
-      ? (partialText) => {
-        accumulatedText = partialText;
-        // Extract current thought content from partial text
-        const { thought } = this.normalizeQuestionFormulationOutput(partialText);
-        onProgress({
-          type: ContentTypes.QUESTION_FORMULATION,
-          index: 0,
-          messageId: this.responseMessageId,
-          conversationId: this.conversationId,
-          [ContentTypes.QUESTION_FORMULATION]: {
-            progress: 0.5, // In progress
-            thought: thought || partialText, // Show raw text if no thought parsed yet
-          },
-        });
-      }
-      : undefined;
+    // Signal "thinking started" via SSE
+    if (callbacks?.onFormulationStart) {
+      callbacks.onFormulationStart({
+        messageId: this.responseMessageId,
+        conversationId: this.conversationId,
+      });
+    }
 
     const completion = await this.withTemporaryModelOptions(overrides, async () =>
-      this.sendCompletion(formulationPayload, {
-        abortController,
-        onProgress: streamingCallback,
-      }),
+      this.sendCompletion(formulationPayload, { abortController }),
     );
 
     const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
 
-    // Signal "thinking complete" with progress = 1 and final result
-    if (onProgress) {
-      onProgress({
-        type: ContentTypes.QUESTION_FORMULATION,
-        index: 0,
-        messageId: this.responseMessageId,
-        conversationId: this.conversationId,
-        [ContentTypes.QUESTION_FORMULATION]: { progress: 1, question, thought },
-      });
+    // Signal "thinking complete" with final result via SSE
+    if (callbacks?.onComplete) {
+      callbacks.onComplete(question, thought);
     }
 
     if (!question && !thought) {
