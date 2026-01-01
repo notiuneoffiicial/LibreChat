@@ -799,7 +799,9 @@ class BaseClient {
       abortController: opts.abortController,
       callbacks: formulationCallbacks,
     });
-    const shouldAskQuestion = formulationResult?.decision === 'ask';
+    const hasFormulatedQuestion =
+      typeof formulationResult?.question === 'string' && formulationResult.question.trim().length > 0;
+    const shouldAskQuestion = hasFormulatedQuestion;
 
     /** @type {string|string[]|undefined} */
     const completion = shouldAskQuestion
@@ -853,17 +855,6 @@ class BaseClient {
       }
     } else if (Array.isArray(completion)) {
       responseMessage.text = completion.join('');
-    }
-
-    if (formulationResult?.question && !shouldAskQuestion) {
-      responseMessage.content = responseMessage.content ?? [];
-      responseMessage.content.unshift({
-        type: ContentTypes.QUESTION_FORMULATION,
-        [ContentTypes.QUESTION_FORMULATION]: {
-          text: formulationResult.question,
-          decision: formulationResult.decision,
-        },
-      });
     }
 
     if (
@@ -920,14 +911,21 @@ class BaseClient {
       }
     }
 
-    if (!shouldAskQuestion && formulationResult) {
+    if (formulationResult) {
       const { question, thought } = formulationResult;
-      if (question || thought) {
+      const shouldAttachFormulation = Boolean(question || thought);
+      const hasExistingFormulation = Array.isArray(responseMessage.content)
+        ? responseMessage.content.some(
+          (part) => part?.type === ContentTypes.QUESTION_FORMULATION,
+        )
+        : false;
+      if (shouldAttachFormulation && !hasExistingFormulation) {
         const formulationPart = {
           type: ContentTypes.QUESTION_FORMULATION,
           question_formulation: {
             question,
             thought,
+            decision: shouldAskQuestion ? 'ask' : formulationResult.decision,
             progress: 1, // Signal completion
           },
         };
@@ -1268,8 +1266,8 @@ class BaseClient {
     // Cleanup "QUESTION:" label if present
     text = text.replace(/^QUESTION:\s*/i, '').trim();
 
-    // Handle "NO_QUESTION" or empty text as no question
-    if (text.toUpperCase().includes('NO_QUESTION')) {
+    // Handle "NO_QUESTION" or "no question" text as no question
+    if (/^no[\s_-]*question\b[\s.!?]*$/i.test(text) || text.toUpperCase().includes('NO_QUESTION')) {
       return { question: '', thought };
     }
 
