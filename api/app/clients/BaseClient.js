@@ -1305,7 +1305,7 @@ class BaseClient {
     return true;
   }
 
-  async runQuestionFormulation({ payload, userText, abortController }) {
+  async runQuestionFormulation({ payload, userText, abortController, onProgress }) {
     const questionFormulation = this.getQuestionFormulationConfig();
     if (!questionFormulation?.enabled || isAgentsEndpoint(this.options?.endpoint)) {
       return null;
@@ -1320,6 +1320,7 @@ class BaseClient {
     const overrides = {
       model: questionFormulation.model ?? this.modelOptions?.model,
       temperature: questionFormulation.temperature ?? 0.2,
+      stream: true, // Enable streaming
     };
 
     if (questionFormulation.maxTokens != null) {
@@ -1328,7 +1329,23 @@ class BaseClient {
     }
 
     const completion = await this.withTemporaryModelOptions(overrides, async () =>
-      this.sendCompletion(formulationPayload, { abortController }),
+      this.sendCompletion(formulationPayload, {
+        abortController,
+        onProgress: onProgress
+          ? (partialText) => {
+            const { question, thought } = this.normalizeQuestionFormulationOutput(partialText);
+            onProgress({
+              text: '',
+              content: [
+                {
+                  type: ContentTypes.QUESTION_FORMULATION,
+                  question_formulation: { question, thought },
+                },
+              ],
+            });
+          }
+          : undefined,
+      }),
     );
 
     const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
