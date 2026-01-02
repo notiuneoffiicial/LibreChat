@@ -3,7 +3,7 @@ const { logger } = require('@librechat/data-schemas');
 
 /**
  * Creates callbacks to handle question formulation SSE streaming.
- * Follows the same pattern as createOnSearchResults for web search.
+ * Uses the attachment SSE pattern like web search to avoid creating duplicate messages.
  * @param {import('http').ServerResponse} res - The HTTP server response object
  * @returns {{ onFormulationStart: function, onReasoningDelta: function, onComplete: function }}
  */
@@ -11,8 +11,36 @@ function createOnQuestionFormulation(res) {
     const context = {
         messageId: undefined,
         conversationId: undefined,
-        accumulatedThought: '',
+        accumulatedReasoning: '',
     };
+
+    /**
+     * Build attachment object for formulation state
+     * @param {object} formulationData - The formulation state
+     * @returns {object} - The attachment object
+     */
+    function buildAttachment(formulationData) {
+        return {
+            messageId: context.messageId,
+            conversationId: context.conversationId,
+            type: ContentTypes.QUESTION_FORMULATION,
+            [ContentTypes.QUESTION_FORMULATION]: formulationData,
+        };
+    }
+
+    /**
+     * Write SSE as attachment event (like web search)
+     * @param {object} data - Attachment data
+     */
+    function writeAttachmentSSE(data) {
+        if (res && res.writable) {
+            try {
+                res.write(`event: attachment\ndata: ${JSON.stringify(data)}\n\n`);
+            } catch (err) {
+                logger.error('[writeAttachmentSSE] Error writing SSE', err);
+            }
+        }
+    }
 
     /**
      * Called when formulation starts - shows the shimmer indicator
@@ -22,17 +50,11 @@ function createOnQuestionFormulation(res) {
         context.messageId = metadata.messageId;
         context.conversationId = metadata.conversationId;
 
-        const event = {
-            type: ContentTypes.QUESTION_FORMULATION,
-            index: 0,
-            messageId: context.messageId,
-            conversationId: context.conversationId,
-            [ContentTypes.QUESTION_FORMULATION]: {
-                progress: 0.1,
-            },
-        };
+        const attachment = buildAttachment({
+            progress: 0.1,
+        });
 
-        writeSSE(res, event);
+        writeAttachmentSSE(attachment);
         logger.debug('[onFormulationStart] Started formulation', { messageId: context.messageId });
     }
 
@@ -49,41 +71,29 @@ function createOnQuestionFormulation(res) {
             context.conversationId = metadata.conversationId;
         }
 
-        context.accumulatedThought += delta;
+        context.accumulatedReasoning += delta;
 
-        const event = {
-            type: ContentTypes.QUESTION_FORMULATION,
-            index: 0,
-            messageId: context.messageId,
-            conversationId: context.conversationId,
-            [ContentTypes.QUESTION_FORMULATION]: {
-                progress: 0.5,
-                thought: context.accumulatedThought,
-            },
-        };
+        const attachment = buildAttachment({
+            progress: 0.5,
+            reasoning: context.accumulatedReasoning,
+        });
 
-        writeSSE(res, event);
+        writeAttachmentSSE(attachment);
     }
 
     /**
      * Called when formulation completes - shows the final question
      * @param {string} question - The formulated question
-     * @param {string} thought - The reasoning thought
+     * @param {string} reasoning - The reasoning text
      */
-    function onComplete(question, thought) {
-        const event = {
-            type: ContentTypes.QUESTION_FORMULATION,
-            index: 0,
-            messageId: context.messageId,
-            conversationId: context.conversationId,
-            [ContentTypes.QUESTION_FORMULATION]: {
-                progress: 1,
-                question,
-                thought: thought || context.accumulatedThought,
-            },
-        };
+    function onComplete(question, reasoning) {
+        const attachment = buildAttachment({
+            progress: 1,
+            question,
+            reasoning: reasoning || context.accumulatedReasoning,
+        });
 
-        writeSSE(res, event);
+        writeAttachmentSSE(attachment);
         logger.debug('[onComplete] Formulation complete', { messageId: context.messageId, question });
     }
 
@@ -92,21 +102,6 @@ function createOnQuestionFormulation(res) {
         onReasoningDelta,
         onComplete,
     };
-}
-
-/**
- * Write SSE event to the response stream
- * @param {import('http').ServerResponse} res
- * @param {object} data
- */
-function writeSSE(res, data) {
-    if (res && res.writable) {
-        try {
-            res.write(`data: ${JSON.stringify(data)}\n\n`);
-        } catch (err) {
-            logger.error('[writeSSE] Error writing SSE', err);
-        }
-    }
 }
 
 module.exports = {
