@@ -813,9 +813,11 @@ class BaseClient {
     /** @type {string|string[]|undefined} */
     let completion;
     if (shouldAskQuestion) {
+      console.error('[FORMULATION DEBUG] shouldAskQuestion=TRUE, SKIPPING sendCompletion. Question:', formulationResult?.question);
       logger.info('[sendMessage] Question formulated, skipping sendCompletion');
       completion = formulationResult?.question;
     } else {
+      console.error('[FORMULATION DEBUG] shouldAskQuestion=FALSE, CALLING sendCompletion. hasFormulatedQuestion:', hasFormulatedQuestion, 'decision:', formulationResult?.decision);
       logger.info('[sendMessage] No question formulated or decision is answer, calling sendCompletion');
       completion = await this.sendCompletion(payload, opts);
     }
