@@ -801,7 +801,14 @@ class BaseClient {
     });
     const hasFormulatedQuestion =
       typeof formulationResult?.question === 'string' && formulationResult.question.trim().length > 0;
-    const shouldAskQuestion = hasFormulatedQuestion;
+    // Use decision if available, otherwise fall back to just checking if question exists
+    const shouldAskQuestion = hasFormulatedQuestion && (formulationResult?.decision === 'ask' || !formulationResult?.decision);
+
+    logger.info('[sendMessage] Formulation result', {
+      formulationResult: formulationResult ? { question: formulationResult.question, thought: formulationResult.thought, decision: formulationResult.decision } : null,
+      hasFormulatedQuestion,
+      shouldAskQuestion,
+    });
 
     /** @type {string|string[]|undefined} */
     let completion;
@@ -809,7 +816,7 @@ class BaseClient {
       logger.info('[sendMessage] Question formulated, skipping sendCompletion');
       completion = formulationResult?.question;
     } else {
-      logger.info('[sendMessage] No question formulated, calling sendCompletion');
+      logger.info('[sendMessage] No question formulated or decision is answer, calling sendCompletion');
       completion = await this.sendCompletion(payload, opts);
     }
     if (this.abortController) {
