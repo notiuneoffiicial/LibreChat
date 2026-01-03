@@ -1344,12 +1344,14 @@ class BaseClient {
   async runQuestionFormulation({ payload, userText, abortController, callbacks }) {
     const questionFormulation = this.getQuestionFormulationConfig();
     if (!questionFormulation?.enabled || isAgentsEndpoint(this.options?.endpoint)) {
+      console.error('[FORMULATION DEBUG] Returning null: enabled=', questionFormulation?.enabled, 'isAgentsEndpoint=', isAgentsEndpoint(this.options?.endpoint));
       return null;
     }
 
     const prompt = (questionFormulation.prompt ?? DEFAULT_FORMULATION_PROMPT).trim();
     const formulationPayload = this.buildQuestionFormulationPayload(payload, prompt);
     if (!formulationPayload) {
+      console.error('[FORMULATION DEBUG] Returning null: formulationPayload is null');
       return null;
     }
 
@@ -1376,7 +1378,11 @@ class BaseClient {
       this.sendCompletion(formulationPayload, { abortController }),
     );
 
+    console.error('[FORMULATION DEBUG] Raw completion from LLM:', JSON.stringify(completion).slice(0, 500));
+
     const { question, thought } = this.normalizeQuestionFormulationOutput(completion);
+
+    console.error('[FORMULATION DEBUG] After normalization: question=', question, 'thought=', thought);
 
     // Signal "thinking complete" with final result via SSE
     if (callbacks?.onComplete) {
@@ -1384,6 +1390,7 @@ class BaseClient {
     }
 
     if (!question && !thought) {
+      console.error('[FORMULATION DEBUG] Returning null: no question and no thought');
       return null;
     }
 
