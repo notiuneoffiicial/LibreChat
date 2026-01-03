@@ -1257,10 +1257,30 @@ class BaseClient {
   }
 
   normalizeQuestionFormulationOutput(output) {
-    if (!output || typeof output !== 'string') {
+    if (!output) {
       return { question: '', thought: '' };
     }
-    let text = output.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+
+    // Handle array format: [{"type":"text","text":"..."}]
+    let textContent = output;
+    if (Array.isArray(output)) {
+      // Extract text from array of content parts
+      textContent = output
+        .map((part) => {
+          if (typeof part === 'string') return part;
+          if (part?.text) return part.text;
+          if (part?.type === 'text' && part?.text) return part.text;
+          return '';
+        })
+        .join('')
+        .trim();
+    }
+
+    if (typeof textContent !== 'string' || !textContent) {
+      return { question: '', thought: '' };
+    }
+
+    let text = textContent.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
 
     // Check for <think> tags (common in reasoning models)
     // Use [\s\S]* to match across newlines, and handle partial stream (missing closing tag)
