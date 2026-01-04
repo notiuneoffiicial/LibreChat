@@ -32,9 +32,21 @@ export default function useContentHandler({ setMessages, getMessages }: TUseCont
       const { type, messageId, thread_id, conversationId, index } = data;
 
       const _messages = getMessages();
+      // Filter out both exact messageId match AND placeholder messages (ending with _)
+      // This prevents duplicate headers when SSE arrives with a different messageId than placeholder
       const messages =
         _messages
-          ?.filter((m) => m.messageId !== messageId)
+          ?.filter((m) => {
+            // Always filter out exact match
+            if (m.messageId === messageId) return false;
+            // Filter out placeholder responses (userMessageId_) that belong to same parent
+            // The placeholder messageId is typically the parent message ID with _ suffix
+            const parentId = submission.userMessage?.messageId;
+            if (parentId && m.messageId === `${parentId}_` && m.isCreatedByUser === false) {
+              return false;
+            }
+            return true;
+          })
           .map((msg) => ({ ...msg, thread_id })) ?? [];
       const userMessage = messages[messages.length - 1] as TMessage | undefined;
 
