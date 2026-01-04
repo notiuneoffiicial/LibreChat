@@ -819,6 +819,12 @@ class BaseClient {
     } else {
       console.error('[FORMULATION DEBUG] shouldAskQuestion=FALSE, CALLING sendCompletion. hasFormulatedQuestion:', hasFormulatedQuestion, 'decision:', formulationResult?.decision);
       logger.info('[sendMessage] No question formulated or decision is answer, calling sendCompletion');
+
+      // Signal mode change to 'answer' so UI shows "Formulating answer..."
+      if (formulationCallbacks?.onModeChange) {
+        formulationCallbacks.onModeChange('answer');
+      }
+
       completion = await this.sendCompletion(payload, opts);
     }
     if (this.abortController) {

@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Spinner } from '@librechat/client';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '~/utils';
 import Container from '../Container';
 
@@ -9,17 +8,20 @@ type FormulatedQuestionProps = {
   thought?: string;
   progress?: number; // 0 to 1, where 1 means complete
   isSubmitting?: boolean;
+  mode?: 'question' | 'answer'; // 'question' (formulating question) or 'answer' (generating answer)
 };
 
 /**
- * FormulatedQuestion: ChatGPT-style "Formulating question..." indicator.
+ * FormulatedQuestion: ChatGPT-style "Formulating question/answer..." indicator.
  * Shows a shimmer animation while processing, then reveals the final question.
+ * If mode is 'answer', shows "Formulating answer..." instead.
  */
 const FormulatedQuestion = ({
   question,
   thought,
   progress = 1,
   isSubmitting = false,
+  mode = 'question',
 }: FormulatedQuestionProps) => {
   // Show shimmer when progress < 1, regardless of isSubmitting state
   // This ensures the indicator appears as soon as we receive the first progress event
@@ -27,7 +29,11 @@ const FormulatedQuestion = ({
   const isComplete = progress >= 1;
   const hasQuestion = !!question && question.trim().length > 0;
 
+  // Determine the shimmer text based on mode
+  const shimmerText = mode === 'answer' ? 'Formulating answer...' : 'Formulating question...';
+
   // If nothing to show and not processing, hide component
+  // For 'answer' mode, we hide after processing since main response will show
   if (!isProcessing && !hasQuestion) {
     return null;
   }
@@ -41,7 +47,7 @@ const FormulatedQuestion = ({
             <Spinner className="size-5 shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
               <span className="shimmer text-sm font-medium text-token-text-secondary">
-                Formulating question...
+                {shimmerText}
               </span>
               {thought && (
                 <span className="shimmer text-xs text-token-text-tertiary leading-relaxed max-w-prose">
@@ -52,8 +58,8 @@ const FormulatedQuestion = ({
           </div>
         )}
 
-        {/* Complete state: show final question */}
-        {isComplete && hasQuestion && (
+        {/* Complete state: show final question (only for 'question' mode) */}
+        {isComplete && hasQuestion && mode === 'question' && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-token-text-tertiary uppercase tracking-wide">
               Question

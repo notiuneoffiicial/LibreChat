@@ -5,13 +5,14 @@ const { logger } = require('@librechat/data-schemas');
  * Creates callbacks to handle question formulation SSE streaming.
  * Uses data: SSE pattern to trigger contentHandler for shimmer display.
  * @param {import('http').ServerResponse} res - The HTTP server response object
- * @returns {{ onFormulationStart: function, onReasoningDelta: function, onComplete: function }}
+ * @returns {{ onFormulationStart: function, onReasoningDelta: function, onComplete: function, onModeChange: function }}
  */
 function createOnQuestionFormulation(res) {
     const context = {
         messageId: undefined,
         conversationId: undefined,
         accumulatedThought: '',
+        mode: 'question', // 'question' or 'answer'
     };
 
     /**
@@ -36,6 +37,7 @@ function createOnQuestionFormulation(res) {
     function onFormulationStart(metadata) {
         context.messageId = metadata.messageId;
         context.conversationId = metadata.conversationId;
+        context.mode = 'question';
 
         const event = {
             type: ContentTypes.QUESTION_FORMULATION,
@@ -44,6 +46,7 @@ function createOnQuestionFormulation(res) {
             conversationId: context.conversationId,
             [ContentTypes.QUESTION_FORMULATION]: {
                 progress: 0.1,
+                mode: 'question',
             },
         };
 
@@ -74,10 +77,34 @@ function createOnQuestionFormulation(res) {
             [ContentTypes.QUESTION_FORMULATION]: {
                 progress: 0.5,
                 thought: context.accumulatedThought,
+                mode: context.mode,
             },
         };
 
         writeSSE(event);
+    }
+
+    /**
+     * Called when mode changes from 'question' to 'answer' (no question was formulated)
+     * The shimmer text should seamlessly change to "Formulating answer..."
+     */
+    function onModeChange(newMode) {
+        context.mode = newMode;
+
+        const event = {
+            type: ContentTypes.QUESTION_FORMULATION,
+            index: 0,
+            messageId: context.messageId,
+            conversationId: context.conversationId,
+            [ContentTypes.QUESTION_FORMULATION]: {
+                progress: 0.6, // Still processing, just changed mode
+                mode: newMode,
+                thought: context.accumulatedThought,
+            },
+        };
+
+        writeSSE(event);
+        logger.debug('[onModeChange] Changed mode to', newMode);
     }
 
     /**
@@ -95,6 +122,7 @@ function createOnQuestionFormulation(res) {
                 progress: 1,
                 question,
                 thought: thought || context.accumulatedThought,
+                mode: context.mode,
             },
         };
 
@@ -106,6 +134,7 @@ function createOnQuestionFormulation(res) {
         onFormulationStart,
         onReasoningDelta,
         onComplete,
+        onModeChange,
     };
 }
 

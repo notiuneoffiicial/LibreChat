@@ -82,12 +82,14 @@ const Part = memo(
           : questionData?.question ?? questionData?.text ?? '';
       const thought = typeof questionData === 'object' ? questionData?.thought : undefined;
       const progress = typeof questionData === 'object' ? questionData?.progress ?? 1 : 1;
+      const mode = typeof questionData === 'object' ? questionData?.mode : undefined;
       return (
         <FormulatedQuestion
           question={question}
           thought={thought}
           progress={progress}
           isSubmitting={isSubmitting}
+          mode={mode}
         />
       );
     } else if (part.type === ContentTypes.TEXT) {
