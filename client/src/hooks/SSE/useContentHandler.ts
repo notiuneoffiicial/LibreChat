@@ -33,47 +33,28 @@ export default function useContentHandler({ setMessages, getMessages }: TUseCont
 
       const _messages = getMessages();
       const parentId = submission.userMessage?.messageId;
-      const expectedPlaceholderId = parentId ? `${parentId}_` : null;
+      const isContinued = submission.isContinued;
 
-      console.log('[CONTENT_HANDLER DEBUG] SSE received:', {
-        type,
-        messageId,
-        parentId,
-        expectedPlaceholderId,
-        initialResponseId: submission.initialResponse?.messageId,
-        allMessageIds: _messages?.map(m => ({ id: m.messageId, isUser: m.isCreatedByUser })),
-      });
+      let messages = _messages ?? [];
 
-      // Robust Filter: Remove conflicting messages (same ID OR same parent)
-      // This handles placeholders regardless of their ID format
-      const messages =
-        _messages
-          ?.filter((m) => {
-            // 1. Always filter out exact match
-            if (m.messageId === messageId) {
-              console.log('[CONTENT_HANDLER DEBUG] Filtering out exact match:', m.messageId);
-              return false;
-            }
+      // Strategy: Encforce conversation structure (Parent -> Response)
+      // If we have a parent ID and NOT continuing, we truncate everything after the parent.
+      // This automatically removes placeholders, previous answers (regenerate), and duplicates.
+      if (parentId && !isContinued) {
+        const parentIndex = messages.findIndex((m) => m.messageId === parentId);
+        if (parentIndex !== -1) {
+          // Keep messages up to and including the parent
+          messages = messages.slice(0, parentIndex + 1);
+        } else {
+          // Parent not found? Fallback to standard filtering
+          messages = messages.filter((m) => m.messageId !== messageId);
+        }
+      } else {
+        // Continued generation or no parent: just avoid ID collision
+        messages = messages.filter((m) => m.messageId !== messageId);
+      }
 
-            // 2. Filter out any AI message that is a child of the same parent (sibling)
-            // This catches the placeholder which shares the parentId
-            if (parentId && m.parentMessageId === parentId && !m.isCreatedByUser) {
-              console.log('[CONTENT_HANDLER DEBUG] Filtering out sibling/placeholder (same parent):', {
-                id: m.messageId,
-                parentId: m.parentMessageId
-              });
-              return false;
-            }
-
-            return true;
-          })
-          .map((msg) => ({ ...msg, thread_id })) ?? [];
-
-      console.log('[CONTENT_HANDLER DEBUG] After filtering:', {
-        messagesCount: messages.length,
-        remainingIds: messages.map(m => m.messageId),
-      });
-
+      messages = messages.map((msg) => ({ ...msg, thread_id }));
       const userMessage = messages[messages.length - 1] as TMessage | undefined;
 
       const { initialResponse } = submission;
