@@ -84,7 +84,7 @@ const createErrorMessage = ({
     const latestPartValue = latestContentPart?.[latestContentPart.type ?? ''];
     isValidContentPart =
       latestContentPart.type !== ContentTypes.TEXT ||
-      (latestContentPart.type === ContentTypes.TEXT && typeof latestPartValue === 'string')
+        (latestContentPart.type === ContentTypes.TEXT && typeof latestPartValue === 'string')
         ? true
         : latestPartValue?.value !== '';
   }
@@ -194,7 +194,7 @@ export default function useEventHandlers({
   const messageHandler = useCallback(
     (data: string | undefined, submission: EventSubmission) => {
       const {
-        messages,
+        messages: _messages,
         userMessage,
         plugin,
         plugins,
@@ -210,30 +210,42 @@ export default function useEventHandlers({
         lastAnnouncementTimeRef.current = currentTime;
       }
 
-      if (isRegenerate) {
-        setMessages([
-          ...messages,
-          {
-            ...initialResponse,
-            text,
-            plugin: plugin ?? null,
-            plugins: plugins ?? [],
-          },
-        ]);
-      } else {
-        setMessages([
-          ...messages,
-          userMessage,
-          {
-            ...initialResponse,
-            text,
-            plugin: plugin ?? null,
-            plugins: plugins ?? [],
-          },
-        ]);
+      // Truncate logic to remove placeholders/siblings (Same as in useContentHandler)
+      const currentMessages = getMessages();
+      let messages = currentMessages ?? _messages;
+      const parentId = userMessage?.messageId;
+
+      if (!isRegenerate && parentId) {
+        const parentIndex = messages.findIndex((m) => m.messageId === parentId);
+        if (parentIndex !== -1) {
+          messages = messages.slice(0, parentIndex + 1);
+        } else {
+          // Fallback: don't duplicate user message if it's already there
+          messages = messages.filter(m => m.messageId !== userMessage.messageId);
+          messages.push(userMessage);
+        }
+      } else if (isRegenerate) {
+        // If regenerating, we want everything BEFORE the response we are regenerating.
+        // Usually parentId check covers this.
+        if (parentId) {
+          const parentIndex = messages.findIndex((m) => m.messageId === parentId);
+          if (parentIndex !== -1) {
+            messages = messages.slice(0, parentIndex + 1);
+          }
+        }
       }
+
+      setMessages([
+        ...messages,
+        {
+          ...initialResponse,
+          text,
+          plugin: plugin ?? null,
+          plugins: plugins ?? [],
+        },
+      ]);
     },
-    [setMessages, announcePolite, setIsSubmitting],
+    [setMessages, getMessages, announcePolite, setIsSubmitting],
   );
 
   const cancelHandler = useCallback(
@@ -484,7 +496,7 @@ export default function useEventHandlers({
 
       const hasNoResponse =
         responseMessage?.content?.[0]?.['text']?.value ===
-          submission.initialResponse?.content?.[0]?.['text']?.value ||
+        submission.initialResponse?.content?.[0]?.['text']?.value ||
         !!responseMessage?.content?.[0]?.['tool_call']?.auth;
 
       /** Handle edge case where stream is cancelled before any response, which creates a blank page */
@@ -776,9 +788,9 @@ export default function useEventHandlers({
         } else {
           throw new Error(
             'Unexpected response from server; Status: ' +
-              response.status +
-              ' ' +
-              response.statusText,
+            response.status +
+            ' ' +
+            response.statusText,
           );
         }
       } catch (error) {
