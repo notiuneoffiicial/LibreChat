@@ -155,7 +155,7 @@ class AgentClient extends BaseClient {
    * `AgentClient` is not opinionated about vision requests, so we don't do anything here
    * @param {MongoFile[]} attachments
    */
-  checkVisionRequest() {}
+  checkVisionRequest() { }
 
   getSaveOptions() {
     // TODO:
@@ -264,6 +264,13 @@ class AgentClient extends BaseClient {
     }
 
     const formattedMessages = orderedMessages.map((message, i) => {
+      // Filter out question_formulation parts to prevent backend validation errors
+      if (Array.isArray(message.content)) {
+        message.content = message.content.filter(
+          (part) => part.type !== 'question_formulation' && part.type !== ContentTypes.QUESTION_FORMULATION,
+        );
+      }
+
       const formattedMessage = formatMessage({
         message,
         userName: this.options?.name,
