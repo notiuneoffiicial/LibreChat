@@ -112,7 +112,7 @@ function createOnQuestionFormulation(res) {
      * @param {string} question - The formulated question
      * @param {string} thought - The reasoning thought
      */
-    function onComplete(question, thought) {
+    async function onComplete(question, thought) {
         const event = {
             type: ContentTypes.QUESTION_FORMULATION,
             index: 0,
