@@ -55,7 +55,8 @@ export default function useContentHandler({ setMessages, getMessages }: TUseCont
               return false;
             }
             // Filter out placeholder responses (userMessageId_) that belong to same parent
-            if (expectedPlaceholderId && m.messageId === expectedPlaceholderId && m.isCreatedByUser === false) {
+            // Use !m.isCreatedByUser to handle both false and undefined
+            if (expectedPlaceholderId && m.messageId === expectedPlaceholderId && !m.isCreatedByUser) {
               console.log('[CONTENT_HANDLER DEBUG] Filtering out placeholder:', m.messageId);
               return false;
             }
