@@ -151,7 +151,7 @@ export default function useSSE(
           textIndex = index;
         }
 
-        contentHandler({ data, submission: submission as EventSubmission });
+        contentHandler({ data, submission: { ...submission, userMessage } as EventSubmission });
       } else {
         const text = data.text ?? data.response;
         const { plugin, plugins } = data;
@@ -189,9 +189,9 @@ export default function useSSE(
       const conversationId = latestMessages?.[latestMessages.length - 1]?.conversationId;
       return await abortConversation(
         conversationId ??
-          userMessage.conversationId ??
-          submission.conversation?.conversationId ??
-          '',
+        userMessage.conversationId ??
+        submission.conversation?.conversationId ??
+        '',
         submission as EventSubmission,
         latestMessages,
       );

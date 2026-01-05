@@ -220,9 +220,19 @@ export default function useEventHandlers({
         if (parentIndex !== -1) {
           messages = messages.slice(0, parentIndex + 1);
         } else {
-          // Fallback: don't duplicate user message if it's already there
-          messages = messages.filter(m => m.messageId !== userMessage.messageId);
-          messages.push(userMessage);
+          // Fallback: Parent ID mismatch (New vs Old).
+          // Find last user message and replace it to avoid duplicates.
+          const lastUserIndex = messages.findLastIndex ? messages.findLastIndex(m => m.isCreatedByUser) : -1;
+
+          if (lastUserIndex !== -1) {
+            // Replace stale user msg
+            messages = messages.slice(0, lastUserIndex);
+            messages.push(userMessage);
+          } else {
+            // Fallback: append if really missing
+            messages = messages.filter(m => m.messageId !== userMessage.messageId);
+            messages.push(userMessage);
+          }
         }
       } else if (isRegenerate) {
         // If regenerating, we want everything BEFORE the response we are regenerating.
@@ -385,9 +395,19 @@ export default function useEventHandlers({
         if (parentIndex !== -1) {
           messages = messages.slice(0, parentIndex + 1);
         } else {
-          // Fallback
-          messages = messages.filter(m => m.messageId !== userMessage.messageId);
-          messages.push(userMessage);
+          // Fallback: Parent ID (New) mismatch with State ID (Old).
+          // Find the last user message and assume it's the one we need to update.
+          const lastUserIndex = messages.findLastIndex ? messages.findLastIndex(m => m.isCreatedByUser) : -1;
+
+          if (lastUserIndex !== -1) {
+            // Replace the stale user message with the confirmed one
+            messages = messages.slice(0, lastUserIndex);
+            messages.push(userMessage);
+          } else {
+            // Worst case: just append
+            messages = messages.filter(m => m.messageId !== userMessage.messageId);
+            messages.push(userMessage);
+          }
         }
       } else if (isRegenerate) {
         if (parentId) {
