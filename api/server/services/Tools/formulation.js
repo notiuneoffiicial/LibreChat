@@ -128,6 +128,12 @@ function createOnQuestionFormulation(res) {
 
         writeSSE(event);
         logger.debug('[onComplete] Formulation complete', { messageId: context.messageId, question });
+
+        // Adaptive Delay for UX (Activity Log)
+        // If text is long enough/complex, give the user time to read the "checking with Aristotle" steps
+        if (question.length > 50) { // Assuming 'text' refers to 'question' here
+            await new Promise(resolve => setTimeout(resolve, 2500));
+        }
     }
 
     return {
