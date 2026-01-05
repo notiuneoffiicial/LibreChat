@@ -368,17 +368,37 @@ export default function useEventHandlers({
 
   const createdHandler = useCallback(
     (data: TResData, submission: EventSubmission) => {
-      const { messages, userMessage, isRegenerate = false, isTemporary = false } = submission;
+      const { messages: _messages, userMessage, isRegenerate = false, isTemporary = false } = submission;
       const initialResponse = {
         ...submission.initialResponse,
         parentMessageId: userMessage.messageId,
         messageId: userMessage.messageId + '_',
       };
-      if (isRegenerate) {
-        setMessages([...messages, initialResponse]);
-      } else {
-        setMessages([...messages, userMessage, initialResponse]);
+
+      // Truncate logic to remove placeholders/siblings
+      const currentMessages = getMessages();
+      let messages = currentMessages ?? _messages;
+      const parentId = userMessage?.messageId;
+
+      if (!isRegenerate && parentId) {
+        const parentIndex = messages.findIndex((m) => m.messageId === parentId);
+        if (parentIndex !== -1) {
+          messages = messages.slice(0, parentIndex + 1);
+        } else {
+          // Fallback
+          messages = messages.filter(m => m.messageId !== userMessage.messageId);
+          messages.push(userMessage);
+        }
+      } else if (isRegenerate) {
+        if (parentId) {
+          const parentIndex = messages.findIndex((m) => m.messageId === parentId);
+          if (parentIndex !== -1) {
+            messages = messages.slice(0, parentIndex + 1);
+          }
+        }
       }
+
+      setMessages([...messages, initialResponse]);
 
       const { conversationId, parentMessageId } = userMessage;
       lastAnnouncementTimeRef.current = Date.now();
