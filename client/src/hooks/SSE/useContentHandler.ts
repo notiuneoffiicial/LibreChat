@@ -44,29 +44,27 @@ export default function useContentHandler({ setMessages, getMessages }: TUseCont
         allMessageIds: _messages?.map(m => ({ id: m.messageId, isUser: m.isCreatedByUser })),
       });
 
-      // Filter out both exact messageId match AND placeholder messages (ending with _)
-      // This prevents duplicate headers when SSE arrives with a different messageId than placeholder
+      // Robust Filter: Remove conflicting messages (same ID OR same parent)
+      // This handles placeholders regardless of their ID format
       const messages =
         _messages
           ?.filter((m) => {
-            // Always filter out exact match
+            // 1. Always filter out exact match
             if (m.messageId === messageId) {
               console.log('[CONTENT_HANDLER DEBUG] Filtering out exact match:', m.messageId);
               return false;
             }
-            // Filter out placeholder responses (userMessageId_) that belong to same parent
-            // Use !m.isCreatedByUser to handle both false and undefined
-            if (expectedPlaceholderId && m.messageId === expectedPlaceholderId) {
-              console.log('[CONTENT_HANDLER DEBUG] Found placeholder candidate:', {
+
+            // 2. Filter out any AI message that is a child of the same parent (sibling)
+            // This catches the placeholder which shares the parentId
+            if (parentId && m.parentMessageId === parentId && !m.isCreatedByUser) {
+              console.log('[CONTENT_HANDLER DEBUG] Filtering out sibling/placeholder (same parent):', {
                 id: m.messageId,
-                isCreatedByUser: m.isCreatedByUser,
-                shouldFilter: !m.isCreatedByUser
+                parentId: m.parentMessageId
               });
-              if (!m.isCreatedByUser) {
-                console.log('[CONTENT_HANDLER DEBUG] Filtering out placeholder:', m.messageId);
-                return false;
-              }
+              return false;
             }
+
             return true;
           })
           .map((msg) => ({ ...msg, thread_id })) ?? [];
