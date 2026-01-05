@@ -32,22 +32,42 @@ export default function useContentHandler({ setMessages, getMessages }: TUseCont
       const { type, messageId, thread_id, conversationId, index } = data;
 
       const _messages = getMessages();
+      const parentId = submission.userMessage?.messageId;
+      const expectedPlaceholderId = parentId ? `${parentId}_` : null;
+
+      console.log('[CONTENT_HANDLER DEBUG] SSE received:', {
+        type,
+        messageId,
+        parentId,
+        expectedPlaceholderId,
+        initialResponseId: submission.initialResponse?.messageId,
+        allMessageIds: _messages?.map(m => ({ id: m.messageId, isUser: m.isCreatedByUser })),
+      });
+
       // Filter out both exact messageId match AND placeholder messages (ending with _)
       // This prevents duplicate headers when SSE arrives with a different messageId than placeholder
       const messages =
         _messages
           ?.filter((m) => {
             // Always filter out exact match
-            if (m.messageId === messageId) return false;
+            if (m.messageId === messageId) {
+              console.log('[CONTENT_HANDLER DEBUG] Filtering out exact match:', m.messageId);
+              return false;
+            }
             // Filter out placeholder responses (userMessageId_) that belong to same parent
-            // The placeholder messageId is typically the parent message ID with _ suffix
-            const parentId = submission.userMessage?.messageId;
-            if (parentId && m.messageId === `${parentId}_` && m.isCreatedByUser === false) {
+            if (expectedPlaceholderId && m.messageId === expectedPlaceholderId && m.isCreatedByUser === false) {
+              console.log('[CONTENT_HANDLER DEBUG] Filtering out placeholder:', m.messageId);
               return false;
             }
             return true;
           })
           .map((msg) => ({ ...msg, thread_id })) ?? [];
+
+      console.log('[CONTENT_HANDLER DEBUG] After filtering:', {
+        messagesCount: messages.length,
+        remainingIds: messages.map(m => m.messageId),
+      });
+
       const userMessage = messages[messages.length - 1] as TMessage | undefined;
 
       const { initialResponse } = submission;
