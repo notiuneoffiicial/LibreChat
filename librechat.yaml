@@ -201,7 +201,13 @@ questionFormulation:
   enabled: true
   provider: "Deepseek"
   model: "deepseek-reasoner"
-  promptPresetKey: "question-formulation"
+  # promptPresetKey: "question-formulation"
+  prompt: |
+    You are a question formulation assistant.
+    Your task is to propose the single most helpful clarifying question to ask the user before answering.
+    Use the full conversation context and any retrieved sources.
+    If no clarification is needed, respond with "NO_QUESTION".
+    Return only the question text or "NO_QUESTION".
 
 # ---- Lock the experience to a single, preselected model ----
 modelSpecs:
