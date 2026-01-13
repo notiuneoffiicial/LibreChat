@@ -14,6 +14,7 @@ import misc from './misc';
 import voice from './voice';
 import * as news from './news';
 import isTemporary from './temporary';
+import * as decisionSession from './decisionSession';
 export * from './agents';
 export * from './mcp';
 
@@ -34,4 +35,5 @@ export default {
   ...voice,
   ...news,
   ...isTemporary,
+  ...decisionSession,
 };
