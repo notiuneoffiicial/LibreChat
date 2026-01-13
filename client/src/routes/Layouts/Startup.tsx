@@ -30,7 +30,10 @@ export default function StartupLayout({ isAuthenticated }: { isAuthenticated?: b
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/c/new', { replace: true });
+      // Use the stored intended redirect path, or fall back to '/c/new'
+      const intendedPath = sessionStorage.getItem('intendedRedirectPath') || '/c/new';
+      sessionStorage.removeItem('intendedRedirectPath');
+      navigate(intendedPath, { replace: true });
     }
     if (data) {
       setStartupConfig(data);

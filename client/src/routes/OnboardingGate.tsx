@@ -17,6 +17,11 @@ const OnboardingGate = () => {
     }
 
     const timeout = window.setTimeout(() => {
+      // Store the intended path so we can redirect back after login
+      const currentPath = location.pathname + location.search;
+      if (currentPath !== '/' && !currentPath.startsWith('/login')) {
+        sessionStorage.setItem('intendedRedirectPath', currentPath);
+      }
       navigate('/login', { replace: true, state: { from: location } });
     }, 300);
 

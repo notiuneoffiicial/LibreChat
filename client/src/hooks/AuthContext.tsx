@@ -86,7 +86,10 @@ const AuthContextProvider = ({
         return;
       }
       setError(undefined);
-      setUserContext({ token, isAuthenticated: true, user, redirect: '/c/new' });
+      // Use the stored intended redirect path, or fall back to '/c/new'
+      const intendedPath = sessionStorage.getItem('intendedRedirectPath') || '/c/new';
+      sessionStorage.removeItem('intendedRedirectPath');
+      setUserContext({ token, isAuthenticated: true, user, redirect: intendedPath });
     },
     onError: (error: TResError | unknown) => {
       const resError = error as TResError;

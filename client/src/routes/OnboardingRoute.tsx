@@ -29,14 +29,20 @@ const OnboardingRoute = () => {
       return;
     }
     if (status === 'complete') {
-      navigate('/c/new', { replace: true });
+      // Use the stored intended redirect path, or fall back to '/c/new'
+      const intendedPath = sessionStorage.getItem('intendedRedirectPath') || '/c/new';
+      sessionStorage.removeItem('intendedRedirectPath');
+      navigate(intendedPath, { replace: true });
     }
   }, [ready, status, navigate]);
 
   const handleComplete = useCallback(async () => {
     markComplete();
     await Promise.resolve();
-    navigate('/c/new', { replace: true });
+    // Use the stored intended redirect path, or fall back to '/c/new'
+    const intendedPath = sessionStorage.getItem('intendedRedirectPath') || '/c/new';
+    sessionStorage.removeItem('intendedRedirectPath');
+    navigate(intendedPath, { replace: true });
   }, [markComplete, navigate]);
 
   if (!isAuthenticated) {
@@ -48,7 +54,10 @@ const OnboardingRoute = () => {
   }
 
   if (isComplete) {
-    return <Navigate to="/c/new" replace state={{ from: location }} />;
+    // Use the stored intended redirect path, or fall back to '/c/new'
+    const intendedPath = sessionStorage.getItem('intendedRedirectPath') || '/c/new';
+    sessionStorage.removeItem('intendedRedirectPath');
+    return <Navigate to={intendedPath} replace state={{ from: location }} />;
   }
 
   return <OnboardingWizard onComplete={handleComplete} />;
