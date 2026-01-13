@@ -3,4 +3,4 @@
  * Hooks barrel export
  */
 
-export { default as useDecisionSession, useDecisionSession } from './useDecisionSession';
+export { default as useDecisionSession } from './useDecisionSession';
