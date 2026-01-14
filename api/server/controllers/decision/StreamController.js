@@ -7,25 +7,39 @@ const { DecisionStreamManager } = require('~/server/services/Decision/DecisionSt
 const { logger } = require('@librechat/data-schemas');
 
 /**
- * Create a simple model caller using the user's available endpoint
- * This is a simplified version - in production you'd use the full client initialization
+ * Create a simple model caller using DeepSeek's OpenAI-compatible API
+ * Falls back to OpenAI if DeepSeek isn't configured
  */
 function createModelCaller(req) {
     return async function sendMessageToModel(messages, options = {}) {
-        // Use OpenAI client as default for decision engine
-        // This can be made configurable later
         const { OpenAI } = require('openai');
 
-        // Get API key from environment or user settings
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OpenAI API key not configured');
+        // Check for DeepSeek first, then fall back to OpenAI
+        const deepseekKey = process.env.DEEPSEEK_API_KEY;
+        const openaiKey = process.env.OPENAI_API_KEY;
+
+        let client;
+        let model;
+
+        if (deepseekKey) {
+            // Use DeepSeek with OpenAI-compatible endpoint
+            client = new OpenAI({
+                apiKey: deepseekKey,
+                baseURL: 'https://api.deepseek.com',
+            });
+            model = options.model || 'deepseek-chat';
+            logger.debug('[DecisionStreamController] Using DeepSeek');
+        } else if (openaiKey) {
+            // Fall back to OpenAI
+            client = new OpenAI({ apiKey: openaiKey });
+            model = options.model || 'gpt-4o-mini';
+            logger.debug('[DecisionStreamController] Using OpenAI');
+        } else {
+            throw new Error('No API key configured. Set DEEPSEEK_API_KEY or OPENAI_API_KEY');
         }
 
-        const client = new OpenAI({ apiKey });
-
         const response = await client.chat.completions.create({
-            model: options.model || 'gpt-4o-mini',
+            model,
             messages,
             temperature: options.temperature || 0.7,
             stream: false, // Decision engine uses non-streaming for JSON parsing
