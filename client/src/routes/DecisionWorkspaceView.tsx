@@ -15,7 +15,9 @@ import {
     TraceOverlay,
     LeaningIndicator,
     SessionEndingCard,
+    CommandMenu,
 } from '~/components/DecisionSurface';
+import Settings from '~/components/Nav/Settings';
 import { useDecisionSession } from '~/hooks/DecisionSurface';
 import { useAuthContext } from '~/hooks';
 import store from '~/store';
@@ -47,6 +49,9 @@ function DecisionWorkspaceView() {
 
     // Local state for ending card dismissal
     const [endingCardVisible, setEndingCardVisible] = useState(false);
+
+    // Settings modal state
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     // Show ending card when session ends
     useEffect(() => {
@@ -159,31 +164,14 @@ function DecisionWorkspaceView() {
                     </h1>
                 </div>
 
-                {/* Right: Menu (placeholder) */}
+                {/* Right: Command Menu */}
                 <div className="pointer-events-auto">
-                    <button
-                        className={cn(
-                            'p-2 rounded-full',
-                            'text-white/40 hover:text-white/60',
-                            'hover:bg-white/5',
-                            'transition-colors duration-150',
-                        )}
-                        title="Menu"
-                    >
-                        <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M4 6h16M4 12h16M4 18h16"
-                            />
-                        </svg>
-                    </button>
+                    <CommandMenu
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        onToggleTrace={handleTraceToggle}
+                        onEndSession={() => setSessionEndingState('clarity')}
+                        traceOpen={traceOpen}
+                    />
                 </div>
             </header>
 
@@ -225,6 +213,9 @@ function DecisionWorkspaceView() {
                     </span>
                 </div>
             )}
+
+            {/* Settings modal */}
+            <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />
         </div>
     );
 }
