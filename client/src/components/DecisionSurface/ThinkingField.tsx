@@ -10,10 +10,12 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
 import { cn } from '~/utils';
 import store from '~/store';
+import { useDecisionSession } from '~/hooks/DecisionSurface';
 import { FIELD, COMPOSER } from './nodeMotionConfig';
 import type { ThinkingFieldProps } from '~/common/DecisionSession.types';
 import DecisionComposer from './DecisionComposer';
 import ThoughtNode from './ThoughtNode';
+import SatelliteNode from './SatelliteNode';
 
 /**
  * ThinkingField - The living decision surface
@@ -28,15 +30,19 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-    // State
+    // State from store
     const [composerSubmitted, setComposerSubmitted] = useRecoilState(store.composerSubmittedAtom);
     const [anchorPosition, setAnchorPosition] = useRecoilState(store.anchorPositionAtom);
     const sessionPhase = useRecoilValue(store.sessionPhaseAtom);
     const thoughtNodes = useRecoilValue(store.thoughtNodesAtom);
     const activeNodeId = useRecoilValue(store.activeNodeIdAtom);
-    const setActiveNodeId = useSetRecoilState(store.activeNodeIdAtom);
+    const isMerging = useRecoilValue(store.isMergingAtom);
     const vignetteIntensity = useRecoilValue(store.vignetteIntensityAtom);
     const fieldSettling = useRecoilValue(store.fieldSettlingAtom);
+    const setTraceOverlayOpen = useSetRecoilState(store.traceOverlayOpenAtom);
+
+    // Session state machine hook
+    const { submitDecision, selectNode } = useDecisionSession(conversationId);
 
     // Vignette "breathe" animation
     const [vignetteSpring, vignetteApi] = useSpring(() => ({
@@ -67,7 +73,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 const rect = containerRef.current.getBoundingClientRect();
                 setDimensions({ width: rect.width, height: rect.height });
 
-                // Set anchor position to center (slightly above for composer)
+                // Set anchor position to center
                 const anchorY = rect.height / 2;
                 const anchorX = rect.width / 2;
                 setAnchorPosition({ x: anchorX, y: anchorY });
@@ -79,25 +85,36 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         return () => window.removeEventListener('resize', updateDimensions);
     }, [setAnchorPosition]);
 
-    // Handle node selection
+    // Handle node selection via state machine
     const handleNodeSelect = useCallback(
         (nodeId: string) => {
-            setActiveNodeId(nodeId);
+            selectNode(nodeId);
         },
-        [setActiveNodeId],
+        [selectNode],
     );
 
-    // Handle composer submit
+    // Handle composer submit via state machine
     const handleComposerSubmit = useCallback(
         (message: string) => {
             console.log('[ThinkingField] Composer submitted:', message);
-            setComposerSubmitted(true);
-
-            // TODO: Dispatch to session state machine
-            // This will trigger IDLE → INTAKE transition
+            submitDecision(message);
         },
-        [setComposerSubmitted],
+        [submitDecision],
     );
+
+    // Handle satellite answer
+    const handleSatelliteAnswer = useCallback((satelliteId: string) => {
+        console.log('[ThinkingField] Satellite clicked:', satelliteId);
+        // TODO: Open input for answering the satellite question
+    }, []);
+
+    // Open trace overlay
+    const handleOpenTrace = useCallback(() => {
+        setTraceOverlayOpen(true);
+    }, [setTraceOverlayOpen]);
+
+    // Check if any node is active (for disengage behavior)
+    const hasActiveNode = activeNodeId !== null;
 
     return (
         <div
@@ -152,8 +169,22 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         isActive={node.id === activeNodeId}
                         anchorPosition={anchorPosition}
                         onSelect={handleNodeSelect}
+                        otherNodeActive={hasActiveNode && node.id !== activeNodeId}
+                        disableDrift={isMerging}
                     />
                 ))}
+
+                {/* Satellite nodes */}
+                {thoughtNodes.map((node) =>
+                    node.satellites.map((satellite) => (
+                        <SatelliteNode
+                            key={satellite.id}
+                            satellite={satellite}
+                            parentPosition={node.position}
+                            onAnswer={handleSatelliteAnswer}
+                        />
+                    )),
+                )}
             </div>
 
             {/* Decision Composer */}
@@ -173,12 +204,19 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                             'hover:text-white/50',
                             'focus:outline-none focus:ring-1 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-transparent',
                         )}
-                        onClick={() => {
-                            // TODO: Open trace overlay
-                        }}
+                        onClick={handleOpenTrace}
                     >
                         Trace my thinking
                     </button>
+                </div>
+            )}
+
+            {/* Phase debug indicator */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="absolute top-4 left-4 z-50">
+                    <span className="rounded bg-white/10 px-2 py-1 text-[10px] text-white/40">
+                        {sessionPhase} | Nodes: {thoughtNodes.length}
+                    </span>
                 </div>
             )}
         </div>

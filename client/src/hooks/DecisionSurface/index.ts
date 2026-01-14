@@ -4,3 +4,4 @@
  */
 
 export { default as useDecisionSession } from './useDecisionSession';
+export { default as useNodeMotion } from './useNodeMotion';

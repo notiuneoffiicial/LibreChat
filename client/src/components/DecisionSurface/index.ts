@@ -9,6 +9,9 @@ export { default as ThoughtNode } from './ThoughtNode';
 export { default as SatelliteNode } from './SatelliteNode';
 export { default as LeaningIndicator } from './LeaningIndicator';
 export { default as TraceOverlay } from './TraceOverlay';
+export { default as MergeAnimation } from './MergeAnimation';
+export { default as DecisionCore } from './DecisionCore';
+export { default as SessionEndingCard } from './SessionEndingCard';
 
 // Re-export config
 export * from './nodeMotionConfig';
