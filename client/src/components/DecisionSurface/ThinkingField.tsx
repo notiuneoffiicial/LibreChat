@@ -5,17 +5,18 @@
  * "A calm, almost empty field... the system responds to me, not the other way around"
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
 import { cn } from '~/utils';
 import store from '~/store';
-import { useDecisionSession } from '~/hooks/DecisionSurface';
+import { useDecisionSession, useQuestionEngine } from '~/hooks/DecisionSurface';
 import { FIELD, COMPOSER } from './nodeMotionConfig';
 import type { ThinkingFieldProps } from '~/common/DecisionSession.types';
 import DecisionComposer from './DecisionComposer';
 import ThoughtNode from './ThoughtNode';
 import SatelliteNode from './SatelliteNode';
+import AnswerInput from './AnswerInput';
 
 /**
  * ThinkingField - The living decision surface
@@ -36,13 +37,23 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const sessionPhase = useRecoilValue(store.sessionPhaseAtom);
     const thoughtNodes = useRecoilValue(store.thoughtNodesAtom);
     const activeNodeId = useRecoilValue(store.activeNodeIdAtom);
+    const setActiveNodeId = useSetRecoilState(store.activeNodeIdAtom);
     const isMerging = useRecoilValue(store.isMergingAtom);
     const vignetteIntensity = useRecoilValue(store.vignetteIntensityAtom);
     const fieldSettling = useRecoilValue(store.fieldSettlingAtom);
     const setTraceOverlayOpen = useSetRecoilState(store.traceOverlayOpenAtom);
 
     // Session state machine hook
-    const { submitDecision, selectNode } = useDecisionSession(conversationId);
+    const { submitDecision, selectNode, answerQuestion } = useDecisionSession(conversationId);
+
+    // Question engine hook
+    const { processAnswer, isProcessing } = useQuestionEngine();
+
+    // Get active node for answer input
+    const activeNode = useMemo(
+        () => thoughtNodes.find((n) => n.id === activeNodeId) || null,
+        [thoughtNodes, activeNodeId],
+    );
 
     // Vignette "breathe" animation
     const [vignetteSpring, vignetteApi] = useSpring(() => ({
@@ -102,10 +113,34 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         [submitDecision],
     );
 
+    // Handle answer submission
+    const handleAnswerSubmit = useCallback(
+        async (nodeId: string, answer: string) => {
+            console.log('[ThinkingField] Answer submitted for node:', nodeId);
+
+            // Find the node to get the question
+            const node = thoughtNodes.find((n) => n.id === nodeId);
+            if (!node) return;
+
+            // Process answer via question engine (extracts insights, signals)
+            await processAnswer(nodeId, node.question, answer);
+
+            // The processAnswer already updates the node state via its internal setters
+            // Clear active node
+            setActiveNodeId(null);
+        },
+        [thoughtNodes, processAnswer, setActiveNodeId],
+    );
+
+    // Handle answer dismiss (deselect node without answering)
+    const handleAnswerDismiss = useCallback(() => {
+        setActiveNodeId(null);
+    }, [setActiveNodeId]);
+
     // Handle satellite answer
     const handleSatelliteAnswer = useCallback((satelliteId: string) => {
         console.log('[ThinkingField] Satellite clicked:', satelliteId);
-        // TODO: Open input for answering the satellite question
+        // TODO: Find the satellite and open answer input for it
     }, []);
 
     // Open trace overlay
@@ -187,16 +222,26 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 )}
             </div>
 
-            {/* Decision Composer */}
-            <DecisionComposer
-                onSubmit={handleComposerSubmit}
-                isSubmitting={sessionPhase === 'INTAKE'}
-                hasSubmitted={composerSubmitted}
-                placeholder="What are you deciding?"
+            {/* Decision Composer (hidden when answering) */}
+            {!activeNode && (
+                <DecisionComposer
+                    onSubmit={handleComposerSubmit}
+                    isSubmitting={sessionPhase === 'INTAKE'}
+                    hasSubmitted={composerSubmitted}
+                    placeholder="What are you deciding?"
+                />
+            )}
+
+            {/* Answer Input (shown when node is active) */}
+            <AnswerInput
+                node={activeNode}
+                onSubmit={handleAnswerSubmit}
+                onDismiss={handleAnswerDismiss}
+                isProcessing={isProcessing}
             />
 
             {/* Trace overlay affordance */}
-            {sessionPhase !== 'IDLE' && (
+            {sessionPhase !== 'IDLE' && !activeNode && (
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 transform">
                     <button
                         className={cn(
@@ -215,7 +260,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
             {process.env.NODE_ENV === 'development' && (
                 <div className="absolute top-4 left-4 z-50">
                     <span className="rounded bg-white/10 px-2 py-1 text-[10px] text-white/40">
-                        {sessionPhase} | Nodes: {thoughtNodes.length}
+                        {sessionPhase} | Nodes: {thoughtNodes.length} | Active: {activeNodeId || 'none'}
                     </span>
                 </div>
             )}

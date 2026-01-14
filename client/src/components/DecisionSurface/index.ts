@@ -12,6 +12,7 @@ export { default as TraceOverlay } from './TraceOverlay';
 export { default as MergeAnimation } from './MergeAnimation';
 export { default as DecisionCore } from './DecisionCore';
 export { default as SessionEndingCard } from './SessionEndingCard';
+export { default as AnswerInput } from './AnswerInput';
 
 // Re-export config
 export * from './nodeMotionConfig';
