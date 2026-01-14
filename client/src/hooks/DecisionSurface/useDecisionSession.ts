@@ -256,9 +256,60 @@ export function useDecisionSession(conversationId?: string) {
 
             // Clear active node
             setActiveNodeId(null);
+
+            // Check for convergence after a delay (let state update)
+            setTimeout(() => {
+                checkAndTriggerConvergence();
+            }, 500);
         },
         [nodes, setNodes, setActiveNodeId, addMilestone],
     );
+
+    /**
+     * Check if session should converge and trigger ending
+     */
+    const checkAndTriggerConvergence = useCallback(() => {
+        // Get current nodes state
+        setNodes((currentNodes) => {
+            const resolvedNodes = currentNodes.filter((n) => n.state === 'RESOLVED');
+            const merged = currentNodes.filter((n) => n.state === 'MERGED');
+            const dormant = currentNodes.filter((n) => n.state === 'DORMANT');
+
+            // All primary nodes resolved?
+            if (dormant.length === 0 && resolvedNodes.length + merged.length >= 3) {
+                // Check session state for ending type
+                const hasUnresolvedAssumptions = session?.assumptions?.some((a) => !a.resolved);
+                const hasInsights = (session?.insights?.length || 0) > 0;
+
+                let endingType: 'clarity' | 'conditional_clarity' | 'rest' = 'clarity';
+
+                if (hasUnresolvedAssumptions) {
+                    endingType = 'conditional_clarity';
+                } else if (!hasInsights) {
+                    endingType = 'rest';
+                }
+
+                // Trigger session ending
+                setPhase('CONVERGENCE');
+                setFieldSettling(true);
+                setSessionEndingState(endingType);
+                setSession((prev) =>
+                    prev
+                        ? {
+                            ...prev,
+                            phase: 'CONVERGENCE',
+                            endingState: endingType,
+                            updatedAt: Date.now(),
+                        }
+                        : prev,
+                );
+
+                addMilestone('session_ended', `Reached ${endingType}`);
+            }
+
+            return currentNodes; // No change, just reading
+        });
+    }, [session, setNodes, setPhase, setFieldSettling, setSessionEndingState, setSession, addMilestone]);
 
     /**
      * Handle TRIGGER_MERGE event

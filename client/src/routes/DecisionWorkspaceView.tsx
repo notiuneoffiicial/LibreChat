@@ -6,11 +6,16 @@
  * Minimal wrapper — no sidebars, no header by default.
  */
 
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useRecoilState, useSetRecoilState } from 'recoil';
+import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { Spinner } from '@librechat/client';
-import { ThinkingField, TraceOverlay, LeaningIndicator } from '~/components/DecisionSurface';
+import {
+    ThinkingField,
+    TraceOverlay,
+    LeaningIndicator,
+    SessionEndingCard,
+} from '~/components/DecisionSurface';
 import { useDecisionSession } from '~/hooks/DecisionSurface';
 import { useAuthContext } from '~/hooks';
 import store from '~/store';
@@ -24,6 +29,7 @@ import { cn } from '~/utils';
  * - Minimal top bar (thread title + menu)
  * - Trace overlay (hidden by default)
  * - Leaning indicator (when applicable)
+ * - Session ending card
  */
 function DecisionWorkspaceView() {
     const { sessionId } = useParams<{ sessionId?: string }>();
@@ -31,11 +37,23 @@ function DecisionWorkspaceView() {
 
     // State
     const [traceOpen, setTraceOpen] = useRecoilState(store.traceOverlayOpenAtom);
-    const leaningVisible = store.leaningVisibleSelector;
+    const sessionEndingState = useRecoilValue(store.sessionEndingStateAtom);
     const setDecisionWorkspaceEnabled = useSetRecoilState(store.decisionWorkspaceEnabledAtom);
+    const setSessionEndingState = useSetRecoilState(store.sessionEndingStateAtom);
+    const setFieldSettling = useSetRecoilState(store.fieldSettlingAtom);
 
     // Session hook
-    const { session, phase, milestones, leaning, initSession } = useDecisionSession();
+    const { session, phase, milestones, leaning, initSession, endSession } = useDecisionSession();
+
+    // Local state for ending card dismissal
+    const [endingCardVisible, setEndingCardVisible] = useState(false);
+
+    // Show ending card when session ends
+    useEffect(() => {
+        if (sessionEndingState) {
+            setEndingCardVisible(true);
+        }
+    }, [sessionEndingState]);
 
     // Initialize session on mount if needed
     useEffect(() => {
@@ -53,15 +71,63 @@ function DecisionWorkspaceView() {
     }, [session, sessionId, isAuthenticated, initSession, setDecisionWorkspaceEnabled]);
 
     // Handle trace toggle
-    const handleTraceToggle = () => {
+    const handleTraceToggle = useCallback(() => {
         setTraceOpen((prev) => !prev);
-    };
+    }, [setTraceOpen]);
 
     // Handle trace jump
-    const handleTraceJumpTo = (milestoneId: string) => {
-        console.log('[DecisionWorkspaceView] Jump to milestone:', milestoneId);
-        // TODO: Implement jump-back behavior
-        setTraceOpen(false);
+    const handleTraceJumpTo = useCallback(
+        (milestoneId: string) => {
+            console.log('[DecisionWorkspaceView] Jump to milestone:', milestoneId);
+            // TODO: Implement jump-back behavior
+            setTraceOpen(false);
+        },
+        [setTraceOpen],
+    );
+
+    // Handle ending card dismissal
+    const handleEndingCardDismiss = useCallback(() => {
+        setEndingCardVisible(false);
+        setSessionEndingState(null);
+        setFieldSettling(false);
+    }, [setSessionEndingState, setFieldSettling]);
+
+    // Generate ending message based on state
+    const getEndingMessage = () => {
+        const coreInsight = session?.insights?.[0] || 'You have explored this decision.';
+
+        switch (sessionEndingState) {
+            case 'clarity':
+                return `You know what to do. ${coreInsight}`;
+            case 'conditional_clarity':
+                return `The path is clear, pending one thing. ${coreInsight}`;
+            case 'rest':
+                return `This decision needs time. Come back when you have more information.`;
+            default:
+                return coreInsight;
+        }
+    };
+
+    // Get detail for conditional clarity
+    const getEndingDetail = () => {
+        if (sessionEndingState !== 'conditional_clarity') return undefined;
+        const firstAssumption = session?.assumptions?.find((a) => !a.resolved);
+        return firstAssumption?.text || 'Test your key assumption first.';
+    };
+
+    // Get next step suggestion
+    const getNextStep = () => {
+        if (!leaning) return undefined;
+        switch (sessionEndingState) {
+            case 'clarity':
+                return `Take action: ${leaning.direction}`;
+            case 'conditional_clarity':
+                return 'Validate the condition, then decide.';
+            case 'rest':
+                return 'Schedule a reminder to revisit this.';
+            default:
+                return undefined;
+        }
     };
 
     // Loading state
@@ -74,7 +140,10 @@ function DecisionWorkspaceView() {
     }
 
     return (
-        <div className="relative flex h-full w-full flex-col overflow-hidden">
+        <div
+            className="relative flex h-full w-full flex-col overflow-hidden"
+            onClick={endingCardVisible ? handleEndingCardDismiss : undefined}
+        >
             {/* Minimal header */}
             <header
                 className={cn(
@@ -120,14 +189,14 @@ function DecisionWorkspaceView() {
 
             {/* Main thinking field */}
             <main className="flex-1">
-                <ThinkingField
-                    sessionId={session?.id}
-                    conversationId={session?.conversationId}
-                />
+                <ThinkingField sessionId={session?.id} conversationId={session?.conversationId} />
             </main>
 
             {/* Leaning indicator */}
-            <LeaningIndicator leaning={leaning ?? undefined} visible={phase === 'SYNTHESIS' || phase === 'CONVERGENCE'} />
+            <LeaningIndicator
+                leaning={leaning ?? undefined}
+                visible={phase === 'SYNTHESIS' || phase === 'CONVERGENCE'}
+            />
 
             {/* Trace overlay */}
             <TraceOverlay
@@ -136,6 +205,17 @@ function DecisionWorkspaceView() {
                 isOpen={traceOpen}
                 onToggle={handleTraceToggle}
             />
+
+            {/* Session ending card */}
+            {sessionEndingState && (
+                <SessionEndingCard
+                    endingState={sessionEndingState}
+                    message={getEndingMessage()}
+                    detail={getEndingDetail()}
+                    nextStep={getNextStep()}
+                    visible={endingCardVisible}
+                />
+            )}
 
             {/* Phase indicator (dev mode) */}
             {process.env.NODE_ENV === 'development' && (

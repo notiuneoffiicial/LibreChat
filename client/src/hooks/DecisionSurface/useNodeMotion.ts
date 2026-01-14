@@ -6,15 +6,19 @@
  * - Idle drift (subtle alive movement)
  * - Engage/disengage transitions
  * - Spawn animations
+ * - Session ending slowdown
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSpring, config } from '@react-spring/web';
+import { useRecoilValue } from 'recoil';
+import store from '~/store';
 import {
     DRIFT,
     ENGAGE,
     DISENGAGE,
     SPAWN,
+    ENDING,
     getRandomDriftAmplitude,
     getRandomDriftPeriod,
 } from '~/components/DecisionSurface/nodeMotionConfig';
@@ -57,6 +61,18 @@ export function useNodeMotion({
     otherNodeActive,
     disableDrift = false,
 }: UseNodeMotionOptions): NodeMotionResult {
+    // Session state for slowdown
+    const sessionPhase = useRecoilValue(store.sessionPhaseAtom);
+    const fieldSettling = useRecoilValue(store.fieldSettlingAtom);
+
+    // Calculate slowdown factor based on session state
+    const slowdownFactor = useMemo(() => {
+        if (fieldSettling || sessionPhase === 'CONVERGENCE') {
+            return ENDING.FINAL_DRIFT_AMPLITUDE / DRIFT.AMPLITUDE_MAX; // ~0.1
+        }
+        return 1;
+    }, [fieldSettling, sessionPhase]);
+
     // Generate stable random drift parameters
     const driftParams = useMemo(
         () => ({
@@ -114,7 +130,7 @@ export function useNodeMotion({
         return basePosition;
     }, [basePosition, state, isActive, anchorPosition, otherNodeActive]);
 
-    // Idle drift animation loop
+    // Idle drift animation loop with slowdown support
     useEffect(() => {
         if (disableDrift || isActive || state === 'MERGED') {
             setDriftOffset({ x: 0, y: 0 });
@@ -124,12 +140,21 @@ export function useNodeMotion({
         const animate = () => {
             const elapsed = Date.now() - startTimeRef.current;
 
+            // Apply slowdown factor to amplitude
+            const effectiveAmplitudeX = driftParams.amplitudeX * slowdownFactor;
+            const effectiveAmplitudeY = driftParams.amplitudeY * slowdownFactor;
+
+            // Increase period when slowing down (slower movement)
+            const periodMultiplier = slowdownFactor < 1 ? 2 : 1;
+            const effectivePeriodX = driftParams.periodX * periodMultiplier;
+            const effectivePeriodY = driftParams.periodY * periodMultiplier;
+
             const offsetX =
-                Math.sin((elapsed / driftParams.periodX) * Math.PI * 2 + driftParams.phaseX) *
-                driftParams.amplitudeX;
+                Math.sin((elapsed / effectivePeriodX) * Math.PI * 2 + driftParams.phaseX) *
+                effectiveAmplitudeX;
             const offsetY =
-                Math.sin((elapsed / driftParams.periodY) * Math.PI * 2 + driftParams.phaseY) *
-                driftParams.amplitudeY;
+                Math.sin((elapsed / effectivePeriodY) * Math.PI * 2 + driftParams.phaseY) *
+                effectiveAmplitudeY;
 
             setDriftOffset({ x: offsetX, y: offsetY });
             animationFrameRef.current = requestAnimationFrame(animate);
@@ -142,7 +167,7 @@ export function useNodeMotion({
                 cancelAnimationFrame(animationFrameRef.current);
             }
         };
-    }, [disableDrift, isActive, state, driftParams]);
+    }, [disableDrift, isActive, state, driftParams, slowdownFactor]);
 
     // Spring for position
     const [positionSpring] = useSpring(
@@ -157,18 +182,26 @@ export function useNodeMotion({
         [targetPosition, driftOffset, disableDrift, isActive],
     );
 
-    // Spring for visual properties
+    // Spring for visual properties with settling support
     const [visualSpring] = useSpring(
         () => ({
-            opacity: state === 'MERGED' ? 0 : isActive ? ENGAGE.ACTIVE_OPACITY : otherNodeActive ? DISENGAGE.DIMMED_OPACITY : 1,
-            scale: state === 'MERGED' ? 0.96 : 1,
+            opacity: state === 'MERGED'
+                ? 0
+                : fieldSettling
+                    ? 0.85
+                    : isActive
+                        ? ENGAGE.ACTIVE_OPACITY
+                        : otherNodeActive
+                            ? DISENGAGE.DIMMED_OPACITY
+                            : 1,
+            scale: state === 'MERGED' ? 0.96 : fieldSettling ? 0.98 : 1,
             borderAlpha: isActive ? ENGAGE.ACTIVE_BORDER_ALPHA : ENGAGE.DORMANT_BORDER_ALPHA,
             config: {
-                tension: ENGAGE.SPRING_CONFIG.tension,
-                friction: ENGAGE.SPRING_CONFIG.friction,
+                tension: fieldSettling ? 80 : ENGAGE.SPRING_CONFIG.tension, // Slower when settling
+                friction: fieldSettling ? 30 : ENGAGE.SPRING_CONFIG.friction,
             },
         }),
-        [state, isActive, otherNodeActive],
+        [state, isActive, otherNodeActive, fieldSettling],
     );
 
     return {
