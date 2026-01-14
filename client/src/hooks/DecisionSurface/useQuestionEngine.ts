@@ -361,40 +361,62 @@ async function simulateQuestionGeneration(
     statement: string,
 ): Promise<QuestionGenerationResult> {
     // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // Detect domain from keywords
-    const lowerStatement = statement.toLowerCase();
+    const lower = statement.toLowerCase();
+
+    // Extract key entities and patterns from the statement
+    const keywords = extractKeywords(statement);
+    const hasTimeReference = /\b(soon|now|immediately|urgent|deadline|month|week|year)\b/i.test(statement);
+    const hasMoneyReference = /\b(cost|expensive|afford|budget|salary|price|\$\d+)\b/i.test(statement);
+    const hasPersonReference = /\b(partner|family|boss|friend|colleague|parent|child)\b/i.test(statement);
+    const isComparison = /\b(or|versus|vs|between|either|whether)\b/i.test(statement);
+    const isMovement = /\b(leave|quit|move|change|start|end|begin|stop)\b/i.test(statement);
+
+    // Detect domain with more nuance
     let domain = 'other';
-    if (lowerStatement.includes('job') || lowerStatement.includes('career') || lowerStatement.includes('work')) {
+    let emotionDetected = 'neutral';
+
+    if (/\b(job|career|work|boss|resign|quit|promotion|salary|hire|fired)\b/i.test(lower)) {
         domain = 'career';
-    } else if (lowerStatement.includes('money') || lowerStatement.includes('invest') || lowerStatement.includes('buy')) {
+    } else if (/\b(invest|money|buy|sell|stock|house|rent|mortgage|debt|loan|save)\b/i.test(lower)) {
         domain = 'finance';
-    } else if (lowerStatement.includes('relationship') || lowerStatement.includes('partner')) {
+    } else if (/\b(relationship|partner|marry|divorce|dating|love|break.?up)\b/i.test(lower)) {
         domain = 'relationship';
+    } else if (/\b(health|doctor|surgery|treatment|diagnosis|sick|pain)\b/i.test(lower)) {
+        domain = 'health';
+    } else if (/\b(move|relocate|city|country|abroad|immigration)\b/i.test(lower)) {
+        domain = 'relocation';
+    } else if (/\b(school|degree|study|education|college|university)\b/i.test(lower)) {
+        domain = 'education';
     }
 
-    // Generate contextual questions based on domain
+    // Detect emotion from language
+    if (/\b(stressed|anxious|worried|scared|afraid|nervous)\b/i.test(lower)) {
+        emotionDetected = 'anxious';
+    } else if (/\b(excited|happy|eager|thrilled)\b/i.test(lower)) {
+        emotionDetected = 'excited';
+    } else if (/\b(stuck|torn|confused|conflicted)\b/i.test(lower)) {
+        emotionDetected = 'conflicted';
+    } else if (/\b(overwhelmed|exhausted|tired)\b/i.test(lower)) {
+        emotionDetected = 'overwhelmed';
+    }
+
+    // Generate contextual questions based on extracted features
     const questions: GeneratedQuestion[] = [
         {
             category: 'reality',
-            question: domain === 'career'
-                ? 'What financial runway do you have if you make this change?'
-                : 'What constraints are truly non-negotiable in this decision?',
+            question: generateRealityQuestion(domain, keywords, hasTimeReference, hasMoneyReference),
             expectedType: 'fact',
         },
         {
             category: 'values',
-            question: domain === 'career'
-                ? 'What feels most misaligned about your current situation?'
-                : 'What would you regret more: acting or not acting?',
+            question: generateValuesQuestion(domain, keywords, emotionDetected, hasPersonReference),
             expectedType: 'value',
         },
         {
             category: 'options',
-            question: domain === 'career'
-                ? 'What paths exist between staying fully and leaving completely?'
-                : 'What alternatives have you not yet considered?',
+            question: generateOptionsQuestion(domain, keywords, isComparison, isMovement),
             expectedType: 'option',
         },
     ];
@@ -402,9 +424,120 @@ async function simulateQuestionGeneration(
     return {
         questions,
         domain,
-        uncertainty: 0.7,
-        emotionDetected: 'neutral',
+        uncertainty: isComparison ? 0.8 : 0.6,
+        emotionDetected,
     };
+}
+
+/**
+ * Extract meaningful keywords from the decision statement
+ */
+function extractKeywords(statement: string): string[] {
+    const stopWords = new Set([
+        'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'you', 'your', 'he', 'she', 'it',
+        'they', 'them', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+        'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+        'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must',
+        'shall', 'can', 'need', 'dare', 'ought', 'used', 'a', 'an', 'the', 'and', 'but',
+        'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with',
+        'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after',
+        'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over',
+        'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where',
+        'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
+        'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just',
+        'deciding', 'decision', 'whether', 'should', 'thinking', 'considering',
+    ]);
+
+    const words = statement.toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(word => word.length > 2 && !stopWords.has(word));
+
+    return [...new Set(words)].slice(0, 5);
+}
+
+function generateRealityQuestion(
+    domain: string,
+    keywords: string[],
+    hasTime: boolean,
+    hasMoney: boolean,
+): string {
+    const keywordStr = keywords[0] || 'this';
+
+    if (hasMoney) {
+        return `What's the actual financial impact of ${keywordStr}, and what's your runway?`;
+    }
+    if (hasTime) {
+        return `What's the real deadline or timeline you're working with?`;
+    }
+
+    const domainQuestions: Record<string, string> = {
+        career: `What would you lose if you left, and what would you gain?`,
+        finance: `What's the number you need, and how did you calculate it?`,
+        relationship: `What specific behaviors lead you to this decision?`,
+        health: `What have the doctors actually said versus what you're assuming?`,
+        relocation: `What are the non-negotiable requirements for where you live?`,
+        education: `What career outcomes does this education actually enable?`,
+        other: `What facts do you know for certain, versus what you're guessing?`,
+    };
+
+    return domainQuestions[domain] || domainQuestions.other;
+}
+
+function generateValuesQuestion(
+    domain: string,
+    keywords: string[],
+    emotion: string,
+    hasPerson: boolean,
+): string {
+    if (hasPerson) {
+        return `Whose opinion matters most here, and why does it matter to you?`;
+    }
+
+    if (emotion === 'anxious') {
+        return `What's the fear underneath this decision?`;
+    }
+    if (emotion === 'conflicted') {
+        return `What part of you wants one thing, and what part wants another?`;
+    }
+
+    const domainQuestions: Record<string, string> = {
+        career: `If success wasn't about money, what would "winning" look like here?`,
+        finance: `What does this money represent to you beyond its number?`,
+        relationship: `What version of yourself emerges in each scenario?`,
+        health: `What quality of life are you really optimizing for?`,
+        relocation: `What kind of daily life are you trying to create?`,
+        education: `What's the person you want to become, and does this path lead there?`,
+        other: `What would you regret more: trying and failing, or never trying?`,
+    };
+
+    return domainQuestions[domain] || domainQuestions.other;
+}
+
+function generateOptionsQuestion(
+    domain: string,
+    keywords: string[],
+    isComparison: boolean,
+    isMovement: boolean,
+): string {
+    if (isComparison) {
+        return `What third option exists that combines the best of both?`;
+    }
+    if (isMovement) {
+        return `What would a "test drive" or partial version of this change look like?`;
+    }
+
+    const domainQuestions: Record<string, string> = {
+        career: `What paths exist between where you are and where you want to be?`,
+        finance: `What are three different approaches with different risk profiles?`,
+        relationship: `What would need to change for you to feel differently?`,
+        health: `What range of treatments or approaches haven't you explored?`,
+        relocation: `What compromise locations might give you 80% of what you want?`,
+        education: `What alternative ways could you acquire the same skills or credentials?`,
+        other: `What creative alternatives haven't you fully considered?`,
+    };
+
+    return domainQuestions[domain] || domainQuestions.other;
 }
 
 async function simulateAnswerProcessing(
