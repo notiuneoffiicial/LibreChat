@@ -29,6 +29,7 @@ const user = require('./user');
 const mcp = require('./mcp');
 const onboarding = require('./onboarding');
 const news = require('./news');
+const decision = require('./decision');
 
 module.exports = {
   mcp,
@@ -62,4 +63,6 @@ module.exports = {
   accessPermissions,
   onboarding,
   news,
+  decision,
 };
+

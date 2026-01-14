@@ -143,6 +143,7 @@ const startServer = async () => {
   app.use('/api/permissions', routes.accessPermissions);
   app.use('/api/onboarding', routes.onboarding);
   app.use('/api/news', routes.news);
+  app.use('/api/decision', routes.decision);
 
   app.use('/api/tags', routes.tags);
   app.use('/api/mcp', routes.mcp);

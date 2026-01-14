@@ -13,6 +13,7 @@ import { useSetRecoilState, useRecoilValue } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
 import { getSpawnPosition } from '~/components/DecisionSurface/nodeMotionConfig';
+import { useDecisionStream } from './useDecisionStream';
 import type {
     ThoughtNodeData,
     SatelliteNodeData,
@@ -120,7 +121,14 @@ interface MergeDetectionResult {
 // Hook
 // ============================================================================
 
-export function useQuestionEngine() {
+interface UseQuestionEngineOptions {
+    /** Use real SSE stream instead of simulation. Default: false */
+    useRealStream?: boolean;
+}
+
+export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
+    const { useRealStream = false } = options;
+
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -128,12 +136,32 @@ export function useQuestionEngine() {
     const setThoughtNodes = useSetRecoilState(store.thoughtNodesAtom);
     const setSession = useSetRecoilState(store.decisionSessionAtom);
 
+    // Initialize the real stream hook (only used when useRealStream is true)
+    const stream = useDecisionStream();
+
     /**
      * Generate initial inquiry nodes from a decision statement
      * Uses structured prompt to get 3 high-leverage questions
      */
     const generateInitialQuestions = useCallback(
         async (decisionStatement: string): Promise<ThoughtNodeData[]> => {
+            // Use real SSE stream if enabled
+            if (useRealStream) {
+                setIsProcessing(true);
+                setError(null);
+                try {
+                    const nodes = await stream.generateQuestions(decisionStatement);
+                    return nodes;
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Stream failed';
+                    setError(message);
+                    return [];
+                } finally {
+                    setIsProcessing(false);
+                }
+            }
+
+            // Fallback to simulation
             setIsProcessing(true);
             setError(null);
 
@@ -183,7 +211,7 @@ export function useQuestionEngine() {
                 setIsProcessing(false);
             }
         },
-        [anchorPosition, setThoughtNodes, setSession],
+        [anchorPosition, setThoughtNodes, setSession, useRealStream, stream],
     );
 
     /**
