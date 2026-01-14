@@ -127,7 +127,7 @@ interface UseQuestionEngineOptions {
 }
 
 export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
-    const { useRealStream = false } = options;
+    const { useRealStream = true } = options;
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
