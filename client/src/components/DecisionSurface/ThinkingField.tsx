@@ -10,7 +10,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
 import { cn } from '~/utils';
 import store from '~/store';
-import { useDecisionSession, useQuestionEngine } from '~/hooks/DecisionSurface';
+import { useDecisionSession, useQuestionEngine, useDecisionChat } from '~/hooks/DecisionSurface';
 import { FIELD, COMPOSER } from './nodeMotionConfig';
 import type { ThinkingFieldProps } from '~/common/DecisionSession.types';
 import DecisionComposer from './DecisionComposer';
@@ -48,6 +48,9 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
 
     // Question engine hook
     const { processAnswer, isProcessing } = useQuestionEngine();
+
+    // Chat integration hook for message persistence
+    const { storeAnswer } = useDecisionChat({ conversationId });
 
     // Get active node for answer input
     const activeNode = useMemo(
@@ -122,6 +125,9 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
             const node = thoughtNodes.find((n) => n.id === nodeId);
             if (!node) return;
 
+            // Store the answer as a LibreChat message
+            storeAnswer(nodeId, node.question, answer);
+
             // Process answer via question engine (extracts insights, signals)
             await processAnswer(nodeId, node.question, answer);
 
@@ -129,7 +135,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
             // Clear active node
             setActiveNodeId(null);
         },
-        [thoughtNodes, processAnswer, setActiveNodeId],
+        [thoughtNodes, storeAnswer, processAnswer, setActiveNodeId],
     );
 
     // Handle answer dismiss (deselect node without answering)
