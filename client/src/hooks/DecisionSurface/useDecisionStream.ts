@@ -10,6 +10,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useSetRecoilState, useRecoilValue } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
+import { useAuthContext } from '~/hooks/AuthContext';
 import { getSpawnPosition } from '~/components/DecisionSurface/nodeMotionConfig';
 import type {
     ThoughtNodeData,
@@ -77,6 +78,9 @@ export function useDecisionStream() {
     const [error, setError] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
+    // Auth context for JWT token
+    const { token } = useAuthContext();
+
     // Recoil state
     const anchorPosition = useRecoilValue(store.anchorPositionAtom);
     const setThoughtNodes = useSetRecoilState(store.thoughtNodesAtom);
@@ -136,6 +140,7 @@ export function useDecisionStream() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
                     },
                     body: JSON.stringify({ action, payload }),
                     signal: abortControllerRef.current.signal,
@@ -189,7 +194,7 @@ export function useDecisionStream() {
                 setIsStreaming(false);
             }
         },
-        [],
+        [token],
     );
 
     /**
