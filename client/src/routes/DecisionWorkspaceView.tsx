@@ -17,6 +17,7 @@ import {
     LeaningIndicator,
     SessionEndingCard,
     CommandMenu,
+    DecisionToolbar,
 } from '~/components/DecisionSurface';
 import Settings from '~/components/Nav/Settings';
 import { useDecisionSession } from '~/hooks/DecisionSurface';
