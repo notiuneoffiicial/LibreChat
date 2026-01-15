@@ -6,7 +6,7 @@
  * and triggers the field "breathe" effect.
  */
 
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import { TextareaAutosize } from '@librechat/client';
 import { Paperclip, Mic } from 'lucide-react';
@@ -28,20 +28,43 @@ function DecisionComposer({
     placeholder = 'What are you deciding?',
     isSubmitting,
     hasSubmitted,
+    animateIn = false,
 }: DecisionComposerProps) {
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const [value, setValue] = useState('');
     const [isFocused, setIsFocused] = useState(false);
+    const [hasAnimatedIn, setHasAnimatedIn] = useState(!animateIn);
 
     // Spring animation for position and scale
     const [springStyle, api] = useSpring(() => ({
         y: 0,
-        scale: 1,
+        scale: animateIn ? 0.95 : 1,
+        opacity: animateIn ? 0 : 1,
         config: {
             tension: 180,
             friction: 24,
         },
     }));
+
+    // Entrance animation effect
+    useEffect(() => {
+        if (animateIn && !hasAnimatedIn) {
+            // Delay slightly for smoother transition after button fades
+            const timer = setTimeout(() => {
+                api.start({
+                    scale: 1,
+                    opacity: 1,
+                    config: { tension: 200, friction: 20 },
+                    onRest: () => {
+                        setHasAnimatedIn(true);
+                        // Focus input after animation
+                        textAreaRef.current?.focus();
+                    },
+                });
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [animateIn, hasAnimatedIn, api]);
 
     // Handle submit with animation
     const handleSubmit = useCallback(
@@ -95,6 +118,7 @@ function DecisionComposer({
                 top: hasSubmitted ? 'calc(50% + 32px)' : 'calc(50% - 24px)',
                 y: springStyle.y,
                 scale: springStyle.scale,
+                opacity: springStyle.opacity,
                 transition: 'top 0.3s ease-out',
             }}
         >

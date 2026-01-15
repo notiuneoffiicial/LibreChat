@@ -41,6 +41,15 @@ export const decisionWorkspaceEnabledAtom = atom<boolean>({
     default: false,
 });
 
+/**
+ * Whether the composer should be visible (false until session started)
+ * Controls the empty-state UX - shows StartSessionButton when false
+ */
+export const composerVisibleAtom = atom<boolean>({
+    key: 'composerVisible',
+    default: false,
+});
+
 // ============================================================================
 // Node State
 // ============================================================================
@@ -287,4 +296,34 @@ export const hasUnansweredSatellitesSelector = selector<boolean>({
 export const latestSnapshotIdAtom = atom<string | null>({
     key: 'latestSnapshotId',
     default: null,
+});
+
+// ============================================================================
+// Toolbar & Context State
+// ============================================================================
+
+/**
+ * Whether the left toolbar is collapsed
+ */
+export const toolbarCollapsedAtom = atom<boolean>({
+    key: 'toolbarCollapsed',
+    default: true,
+});
+
+/**
+ * Context node data type
+ */
+export interface ContextNodeData {
+    id: string;
+    content: string;
+    position: Position;
+    createdAt: number;
+}
+
+/**
+ * Context nodes on the thinking surface
+ */
+export const contextNodesAtom = atom<ContextNodeData[]>({
+    key: 'contextNodes',
+    default: [],
 });

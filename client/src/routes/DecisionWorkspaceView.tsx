@@ -7,9 +7,10 @@
  */
 
 import { memo, useEffect, useCallback, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useOutletContext } from 'react-router-dom';
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { Spinner } from '@librechat/client';
+import type { ContextType } from '~/common';
 import {
     ThinkingField,
     TraceOverlay,
@@ -36,6 +37,12 @@ import { cn } from '~/utils';
 function DecisionWorkspaceView() {
     const { sessionId } = useParams<{ sessionId?: string }>();
     const { isAuthenticated, user } = useAuthContext();
+    const { setNavVisible } = useOutletContext<ContextType>();
+
+    // Hide sidebar when entering decision workspace
+    useEffect(() => {
+        setNavVisible(false);
+    }, [setNavVisible]);
 
     // State
     const [traceOpen, setTraceOpen] = useRecoilState(store.traceOverlayOpenAtom);
@@ -149,6 +156,22 @@ function DecisionWorkspaceView() {
             className="relative flex h-full w-full flex-col overflow-hidden"
             onClick={endingCardVisible ? handleEndingCardDismiss : undefined}
         >
+            {/* Left toolbar */}
+            <DecisionToolbar
+                onNewDecision={() => {
+                    console.log('[DecisionWorkspaceView] New decision requested');
+                    // TODO: Reset session
+                }}
+                onOpenFiles={() => {
+                    console.log('[DecisionWorkspaceView] Files panel requested');
+                    // TODO: Open files panel
+                }}
+                onOpenMemory={() => {
+                    console.log('[DecisionWorkspaceView] Memory viewer requested');
+                    // TODO: Open memory viewer
+                }}
+            />
+
             {/* Minimal header */}
             <header
                 className={cn(
@@ -157,6 +180,7 @@ function DecisionWorkspaceView() {
                     'pointer-events-none',
                 )}
             >
+
                 {/* Left: User greeting or session title */}
                 <div className="pointer-events-auto">
                     <h1 className="text-sm font-medium text-white/50">

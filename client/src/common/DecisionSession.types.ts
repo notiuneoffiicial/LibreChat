@@ -314,4 +314,6 @@ export interface DecisionComposerProps {
     placeholder?: string;
     isSubmitting: boolean;
     hasSubmitted: boolean;
+    /** Whether to animate in when first rendered */
+    animateIn?: boolean;
 }

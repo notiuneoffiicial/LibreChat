@@ -14,6 +14,9 @@ export { default as DecisionCore } from './DecisionCore';
 export { default as SessionEndingCard } from './SessionEndingCard';
 export { default as AnswerInput } from './AnswerInput';
 export { default as CommandMenu } from './CommandMenu';
+export { default as StartSessionButton } from './StartSessionButton';
+export { default as DecisionToolbar } from './DecisionToolbar';
+export { default as ContextNode } from './ContextNode';
 
 // Re-export config
 export * from './nodeMotionConfig';

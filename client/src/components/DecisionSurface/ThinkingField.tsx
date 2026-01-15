@@ -17,6 +17,8 @@ import DecisionComposer from './DecisionComposer';
 import ThoughtNode from './ThoughtNode';
 import SatelliteNode from './SatelliteNode';
 import AnswerInput from './AnswerInput';
+import ContextNode from './ContextNode';
+import StartSessionButton from './StartSessionButton';
 
 /**
  * ThinkingField - The living decision surface
@@ -42,6 +44,12 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const vignetteIntensity = useRecoilValue(store.vignetteIntensityAtom);
     const fieldSettling = useRecoilValue(store.fieldSettlingAtom);
     const setTraceOverlayOpen = useSetRecoilState(store.traceOverlayOpenAtom);
+
+    // Composer visibility - controls empty-state UX
+    const [composerVisible, setComposerVisible] = useRecoilState(store.composerVisibleAtom);
+
+    // Context nodes
+    const contextNodes = useRecoilValue(store.contextNodesAtom);
 
     // Session state machine hook
     const { submitDecision, selectNode } = useDecisionSession(conversationId);
@@ -280,16 +288,26 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         />
                     )),
                 )}
+
+                {/* Context nodes */}
+                {contextNodes.map((contextNode) => (
+                    <ContextNode key={contextNode.id} node={contextNode} />
+                ))}
             </div>
 
-            {/* Decision Composer (hidden when answering) */}
+            {/* Start Session Button or Decision Composer */}
             {!isAnswering && (
-                <DecisionComposer
-                    onSubmit={handleComposerSubmit}
-                    isSubmitting={sessionPhase === 'INTAKE'}
-                    hasSubmitted={composerSubmitted}
-                    placeholder="What are you deciding?"
-                />
+                composerVisible ? (
+                    <DecisionComposer
+                        onSubmit={handleComposerSubmit}
+                        isSubmitting={sessionPhase === 'INTAKE'}
+                        hasSubmitted={composerSubmitted}
+                        placeholder="What are you deciding?"
+                        animateIn={true}
+                    />
+                ) : (
+                    <StartSessionButton onStart={() => setComposerVisible(true)} />
+                )
             )}
 
             {/* Answer Input for main nodes */}

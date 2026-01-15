@@ -5,11 +5,12 @@
  * Manages the flow: IDLE → INTAKE → EXPLORATION → SYNTHESIS → CONVERGENCE
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
 import { getSpawnPosition } from '~/components/DecisionSurface/nodeMotionConfig';
+import { useQuestionEngine } from './useQuestionEngine';
 import type {
     DecisionSession,
     SessionPhase,
@@ -37,6 +38,9 @@ export function useDecisionSession(conversationId?: string) {
     const setComposerSubmitted = useSetRecoilState(store.composerSubmittedAtom);
     const setFieldSettling = useSetRecoilState(store.fieldSettlingAtom);
     const setSessionEndingState = useSetRecoilState(store.sessionEndingStateAtom);
+
+    // Question engine for real AI-powered question generation (uses SSE stream)
+    const { generateInitialQuestions } = useQuestionEngine();
 
     /**
      * Initialize a new session
@@ -157,10 +161,13 @@ export function useDecisionSession(conversationId?: string) {
 
     /**
      * Handle SUBMIT_DECISION event
+     * Now uses real AI-powered question generation via SSE stream
      */
     const submitDecision = useCallback(
-        (message: string) => {
+        async (message: string) => {
             if (phase !== 'IDLE') return;
+
+            console.log('[useDecisionSession] submitDecision called:', message);
 
             // Parse the message into a draft (simplified for now)
             const draft: DecisionSessionDraft = {
@@ -185,23 +192,37 @@ export function useDecisionSession(conversationId?: string) {
             setPhase('INTAKE');
             setComposerSubmitted(true);
 
-            // Generate initial nodes after a brief delay for animation
-            setTimeout(() => {
-                const newNodes = generateInitialNodes(draft);
-                setNodes(newNodes);
-                setPhase('EXPLORATION');
-                setSession((prev) =>
-                    prev
-                        ? {
-                            ...prev,
-                            phase: 'EXPLORATION',
-                            updatedAt: Date.now(),
-                        }
-                        : prev,
-                );
+            // Generate initial nodes using real AI via SSE stream
+            // (useQuestionEngine automatically updates Recoil state with nodes)
+            console.log('[useDecisionSession] Generating questions via SSE...');
+
+            setTimeout(async () => {
+                try {
+                    // Call the real AI question generation
+                    // generateInitialQuestions updates thoughtNodesAtom via useDecisionStream
+                    await generateInitialQuestions(message);
+
+                    setPhase('EXPLORATION');
+                    setSession((prev) =>
+                        prev
+                            ? {
+                                ...prev,
+                                phase: 'EXPLORATION',
+                                updatedAt: Date.now(),
+                            }
+                            : prev,
+                    );
+                    console.log('[useDecisionSession] Questions generated, entering EXPLORATION phase');
+                } catch (err) {
+                    console.error('[useDecisionSession] Failed to generate questions:', err);
+                    // Fallback to hardcoded questions if SSE fails
+                    const fallbackNodes = generateInitialNodes(draft);
+                    setNodes(fallbackNodes);
+                    setPhase('EXPLORATION');
+                }
             }, 600); // Wait for composer animation
         },
-        [phase, setSession, setPhase, setComposerSubmitted, generateInitialNodes, setNodes],
+        [phase, setSession, setPhase, setComposerSubmitted, generateInitialQuestions, generateInitialNodes, setNodes],
     );
 
     /**
