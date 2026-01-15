@@ -135,6 +135,9 @@ export function useDecisionStream() {
             }
             abortControllerRef.current = new AbortController();
 
+            // Debug: Log token availability
+            console.log('[useDecisionStream] Token available:', !!token, token ? `${token.substring(0, 20)}...` : 'undefined');
+
             try {
                 const response = await fetch('/api/decision/stream', {
                     method: 'POST',
