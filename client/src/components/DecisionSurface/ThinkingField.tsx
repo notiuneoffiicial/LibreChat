@@ -11,8 +11,8 @@ import { animated, useSpring } from '@react-spring/web';
 import { cn } from '~/utils';
 import store from '~/store';
 import { useDecisionSession, useQuestionEngine, useDecisionChat } from '~/hooks/DecisionSurface';
-import { FIELD, COMPOSER } from './nodeMotionConfig';
-import type { ThinkingFieldProps, SatelliteNodeData } from '~/common/DecisionSession.types';
+import { FIELD, COMPOSER, THROW } from './nodeMotionConfig';
+import type { ThinkingFieldProps, SatelliteNodeData, TopicKey } from '~/common/DecisionSession.types';
 import DecisionComposer from './DecisionComposer';
 import ThoughtNode from './ThoughtNode';
 import SatelliteNode from './SatelliteNode';
@@ -53,10 +53,10 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const contextNodes = useRecoilValue(store.contextNodesAtom);
 
     // Session state machine hook
-    const { submitDecision, selectNode } = useDecisionSession(conversationId);
+    const { submitDecision, selectNode, session } = useDecisionSession(conversationId);
 
     // Question engine hook
-    const { processAnswer, isProcessing } = useQuestionEngine();
+    const { processAnswer, isProcessing, regenerateQuestion } = useQuestionEngine();
 
     // Chat integration hook for message persistence
     const { storeAnswer } = useDecisionChat({ conversationId });
@@ -217,6 +217,31 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         setTraceOverlayOpen(true);
     }, [setTraceOverlayOpen]);
 
+    // Handle node throw-out for regeneration
+    const handleNodeThrowOut = useCallback(
+        async (nodeId: string, category: TopicKey) => {
+            console.log('[ThinkingField] Node thrown out:', nodeId, 'category:', category);
+
+            // 1. Mark node as exiting (triggers exit animation)
+            setThoughtNodes((prev) =>
+                prev.map((n) =>
+                    n.id === nodeId ? { ...n, state: 'EXITING' as const } : n,
+                ),
+            );
+
+            // 2. Wait for exit animation to complete
+            await new Promise((resolve) => setTimeout(resolve, THROW.EXIT_DURATION));
+
+            // 3. Remove the old node
+            setThoughtNodes((prev) => prev.filter((n) => n.id !== nodeId));
+
+            // 4. Regenerate a new question for the same category
+            const statement = session?.draft?.statement || '';
+            await regenerateQuestion(category, statement);
+        },
+        [setThoughtNodes, session, regenerateQuestion],
+    );
+
     // Check if any node is active
     const hasActiveNode = activeNodeId !== null;
     const hasActiveSatellite = activeSatellite !== null;
@@ -279,6 +304,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         isActive={node.id === activeNodeId}
                         anchorPosition={anchorPosition}
                         onSelect={handleNodeSelect}
+                        onThrowOut={handleNodeThrowOut}
                         otherNodeActive={hasActiveNode && node.id !== activeNodeId}
                         disableDrift={isMerging}
                     />

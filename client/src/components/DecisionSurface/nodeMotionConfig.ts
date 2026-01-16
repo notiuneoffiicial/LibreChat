@@ -223,6 +223,39 @@ export const ENDING = {
 } as const;
 
 // ============================================================================
+// Throw-to-Regenerate (drag and throw gesture)
+// ============================================================================
+
+export const THROW = {
+    /** Minimum velocity to trigger throw (px/s) */
+    VELOCITY_THRESHOLD: 500,
+
+    /** Distance past viewport edge to confirm throw (px) */
+    BOUNDARY_MARGIN: 100,
+
+    /** Duration for exit animation (ms) */
+    EXIT_DURATION: 300,
+
+    /** Delay before replacement node spawns (ms) */
+    SPAWN_DELAY: 400,
+
+    /** Scale when exiting */
+    EXIT_SCALE: 0.8,
+
+    /** Opacity when exiting */
+    EXIT_OPACITY: 0,
+
+    /** Spring config for throw animation */
+    SPRING_CONFIG: { tension: 280, friction: 24 },
+
+    /** Snap back spring config (when throw fails) */
+    SNAP_BACK_CONFIG: { tension: 400, friction: 28 },
+
+    /** Maximum drag opacity (slight fade during drag) */
+    DRAG_OPACITY: 0.9,
+} as const;
+
+// ============================================================================
 // Loading Ripples (anticipation animation during AI processing)
 // ============================================================================
 

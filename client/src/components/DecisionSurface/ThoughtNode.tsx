@@ -6,11 +6,12 @@
  * lightly labeled, not titled like a feature."
  */
 
-import { memo, useCallback } from 'react';
-import { animated } from '@react-spring/web';
+import { memo, useCallback, useRef } from 'react';
+import { animated, useSpring } from '@react-spring/web';
 import { cn } from '~/utils';
-import { useNodeMotion } from '~/hooks/DecisionSurface';
-import type { ThoughtNodeProps, NodeSignal } from '~/common/DecisionSession.types';
+import { useNodeMotion, useDragToThrow } from '~/hooks/DecisionSurface';
+import { THROW } from './nodeMotionConfig';
+import type { ThoughtNodeProps, NodeSignal, TopicKey } from '~/common/DecisionSession.types';
 import { SIGNAL_GLYPHS } from '~/common/DecisionSession.types';
 
 /**
@@ -36,6 +37,10 @@ interface ExtendedThoughtNodeProps extends ThoughtNodeProps {
     otherNodeActive?: boolean;
     /** Whether drift animation should be disabled (during merges) */
     disableDrift?: boolean;
+    /** Callback when node is thrown out for regeneration */
+    onThrowOut?: (nodeId: string, category: TopicKey) => void;
+    /** Whether drag-to-throw is enabled (default: true) */
+    enableDrag?: boolean;
 }
 
 /**
@@ -47,6 +52,7 @@ interface ExtendedThoughtNodeProps extends ThoughtNodeProps {
  * - Tiny glyph indicating topic type
  * - Subtle idle drift animation
  * - Engage/disengage motion on selection
+ * - Drag-to-throw gesture for regeneration
  */
 function ThoughtNode({
     node,
@@ -55,7 +61,11 @@ function ThoughtNode({
     onSelect,
     otherNodeActive = false,
     disableDrift = false,
+    onThrowOut,
+    enableDrag = true,
 }: ExtendedThoughtNodeProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
+
     // Use the motion hook for all animation
     const { animatedPosition, opacity, scale, borderAlpha } = useNodeMotion({
         basePosition: node.position,
@@ -66,32 +76,68 @@ function ThoughtNode({
         disableDrift,
     });
 
-    // Handle click
-    const handleClick = useCallback(() => {
-        if (node.state !== 'MERGED') {
+    // Drag-to-throw hook
+    const { dragHandlers, dragOffset, isDragging, isExiting } = useDragToThrow({
+        nodeId: node.id,
+        onThrowOut: (nodeId) => {
+            onThrowOut?.(nodeId, node.topicKey);
+        },
+        enabled: enableDrag && !isActive && node.state === 'DORMANT',
+    });
+
+    // Spring for drag offset animation
+    const [dragSpring] = useSpring(
+        () => ({
+            x: isExiting ? dragOffset.x : isDragging ? dragOffset.x : 0,
+            y: isExiting ? dragOffset.y : isDragging ? dragOffset.y : 0,
+            opacity: isExiting ? THROW.EXIT_OPACITY : isDragging ? THROW.DRAG_OPACITY : 1,
+            scale: isExiting ? THROW.EXIT_SCALE : 1,
+            config: isExiting ? THROW.SPRING_CONFIG : THROW.SNAP_BACK_CONFIG,
+        }),
+        [dragOffset, isDragging, isExiting],
+    );
+
+    // Handle click - only trigger if not dragging
+    const handleClick = useCallback((e: React.MouseEvent) => {
+        // Prevent click from firing after drag
+        if (isDragging) {
+            e.stopPropagation();
+            return;
+        }
+        if (node.state !== 'MERGED' && node.state !== 'EXITING') {
             onSelect(node.id);
         }
-    }, [node.id, node.state, onSelect]);
+    }, [node.id, node.state, onSelect, isDragging]);
 
-    // Don't render merged nodes
+    // Don't render merged or fully exited nodes
     if (node.state === 'MERGED') {
         return null;
     }
 
+    // Determine if drag is currently enabled for this node
+    const canDrag = enableDrag && !isActive && node.state === 'DORMANT';
+
     return (
         <animated.div
+            ref={containerRef}
             className={cn(
-                'absolute cursor-pointer',
+                'absolute',
                 'transform -translate-x-1/2 -translate-y-1/2',
                 'transition-shadow duration-200',
+                canDrag && !isDragging && 'cursor-grab',
+                isDragging && 'cursor-grabbing',
+                !canDrag && 'cursor-pointer',
             )}
             style={{
-                left: animatedPosition.x,
-                top: animatedPosition.y,
-                opacity: opacity,
-                scale: scale,
+                left: animatedPosition.x.to((x: number) => x + dragSpring.x.get()),
+                top: animatedPosition.y.to((y: number) => y + dragSpring.y.get()),
+                opacity: opacity.to((o: number) => o * dragSpring.opacity.get()),
+                scale: scale.to((s: number) => s * dragSpring.scale.get()),
+                zIndex: isDragging ? 100 : 1,
+                touchAction: 'none', // Prevent browser touch gestures
             }}
             onClick={handleClick}
+            {...(canDrag ? dragHandlers : {})}
         >
             {/* Node container */}
             <animated.div
@@ -100,12 +146,16 @@ function ThoughtNode({
                     'bg-white/5 backdrop-blur-md',
                     'border transition-all duration-200',
                     isActive && 'ring-1 ring-white/10',
+                    isDragging && 'ring-2 ring-white/20',
+                    'select-none', // Prevent text selection during drag
                 )}
                 style={{
                     borderColor: borderAlpha.to((a: number) => `rgba(255, 255, 255, ${a})`),
-                    boxShadow: isActive
-                        ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-                        : '0 4px 16px rgba(0, 0, 0, 0.2)',
+                    boxShadow: isDragging
+                        ? '0 16px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                        : isActive
+                            ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                            : '0 4px 16px rgba(0, 0, 0, 0.2)',
                 }}
             >
                 {/* Topic glyph with color */}
@@ -144,6 +194,15 @@ function ThoughtNode({
                         ))}
                     </div>
                 )}
+
+                {/* Drag hint - shows when node is draggable but not being dragged */}
+                {canDrag && !isDragging && (
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-white/30 whitespace-nowrap">
+                            Drag to regenerate
+                        </span>
+                    </div>
+                )}
             </animated.div>
         </animated.div>
     );
@@ -170,3 +229,4 @@ function SignalIndicator({ signal }: { signal: NodeSignal }) {
 }
 
 export default memo(ThoughtNode);
+

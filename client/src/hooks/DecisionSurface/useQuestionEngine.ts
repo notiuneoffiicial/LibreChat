@@ -216,6 +216,7 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
 
     /**
      * Process an answer to extract insights and determine follow-ups
+     * Uses real SSE stream when enabled, otherwise falls back to simulation
      */
     const processAnswer = useCallback(
         async (
@@ -223,11 +224,38 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
             question: string,
             answer: string,
         ): Promise<AnswerProcessingResult | null> => {
+            // Use real SSE stream if enabled
+            if (useRealStream) {
+                setIsProcessing(true);
+                setError(null);
+                try {
+                    // The stream.processAnswer updates node state internally via Recoil
+                    await stream.processAnswer(nodeId, answer);
+                    // Return a minimal result for compatibility
+                    return {
+                        constraints: [],
+                        assumptions: [],
+                        optionsDiscovered: [],
+                        needsFollowUp: false,
+                        signals: [],
+                        informationGain: 0.5,
+                    };
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Stream failed';
+                    setError(message);
+                    console.error('[useQuestionEngine] Error processing answer via stream:', err);
+                    return null;
+                } finally {
+                    setIsProcessing(false);
+                }
+            }
+
+            // Fallback to simulation
             setIsProcessing(true);
             setError(null);
 
             try {
-                // TODO: Integrate with actual chat completion API
+                // Use simulation when SSE stream is disabled
                 const result = await simulateAnswerProcessing(question, answer);
 
                 // Update the node with signals and potentially spawn satellite
@@ -304,11 +332,12 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
                 setIsProcessing(false);
             }
         },
-        [setThoughtNodes, setSession],
+        [setThoughtNodes, setSession, useRealStream, stream],
     );
 
     /**
      * Detect if two nodes should merge based on overlapping insights
+     * Uses real SSE stream when enabled, otherwise falls back to simulation
      */
     const detectMerge = useCallback(
         async (
@@ -317,11 +346,35 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
         ): Promise<MergeDetectionResult | null> => {
             if (!node1.answer || !node2.answer) return null;
 
+            // Use real SSE stream if enabled
+            if (useRealStream) {
+                setIsProcessing(true);
+                setError(null);
+                try {
+                    const result = await stream.detectMerge(node1.id, node2.id);
+                    if (result) {
+                        return {
+                            shouldMerge: result.shouldMerge,
+                            insightText: result.insightText || '',
+                            confidence: 0.8,
+                        };
+                    }
+                    return { shouldMerge: false, insightText: '', confidence: 0 };
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Stream failed';
+                    setError(message);
+                    console.error('[useQuestionEngine] Error detecting merge via stream:', err);
+                    return null;
+                } finally {
+                    setIsProcessing(false);
+                }
+            }
+
+            // Fallback to simulation
             setIsProcessing(true);
             setError(null);
 
             try {
-                // TODO: Integrate with actual chat completion API
                 const result = await simulateMergeDetection(node1, node2);
                 return result;
             } catch (err) {
@@ -333,7 +386,7 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
                 setIsProcessing(false);
             }
         },
-        [],
+        [useRealStream, stream],
     );
 
     /**
@@ -354,6 +407,58 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
         [],
     );
 
+    /**
+     * Regenerate a single question for a specific category
+     * Used when user throws out a question they're not satisfied with
+     */
+    const regenerateQuestion = useCallback(
+        async (category: TopicKey, statement: string): Promise<ThoughtNodeData | null> => {
+            setIsProcessing(true);
+            setError(null);
+
+            try {
+                console.log('[useQuestionEngine] Regenerating question for category:', category);
+
+                // Generate a new question for the specified category
+                const result = await simulateSingleQuestionRegeneration(category, statement);
+
+                if (!result) {
+                    throw new Error('Failed to generate replacement question');
+                }
+
+                // Find index for this category to get correct spawn position
+                const categoryIndex = category === 'reality' ? 0 : category === 'values' ? 1 : 2;
+
+                const newNode: ThoughtNodeData = {
+                    id: uuidv4(),
+                    state: 'DORMANT' as const,
+                    question: result.question,
+                    topicKey: category,
+                    category: getCategoryFromTopic(category),
+                    expectedInfoType: result.expectedType,
+                    position: getSpawnPosition(categoryIndex, anchorPosition.x, anchorPosition.y),
+                    satellites: [],
+                    signals: [],
+                    createdAt: Date.now(),
+                };
+
+                // Add the new node to the thought nodes
+                setThoughtNodes((prev) => [...prev, newNode]);
+
+                console.log('[useQuestionEngine] New question generated:', newNode.question);
+                return newNode;
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Failed to regenerate question';
+                setError(message);
+                console.error('[useQuestionEngine] Error regenerating question:', err);
+                return null;
+            } finally {
+                setIsProcessing(false);
+            }
+        },
+        [anchorPosition, setThoughtNodes],
+    );
+
     return {
         isProcessing,
         error,
@@ -361,6 +466,7 @@ export function useQuestionEngine(options: UseQuestionEngineOptions = {}) {
         processAnswer,
         detectMerge,
         getNextQuestion,
+        regenerateQuestion,
     };
 }
 
@@ -655,6 +761,63 @@ async function simulateMergeDetection(
             : '',
         confidence: Math.min(1, overlap.length / 5),
     };
+}
+
+/**
+ * Simulate regenerating a single question for a specific category
+ * Used when user "throws out" a question they're not satisfied with
+ */
+async function simulateSingleQuestionRegeneration(
+    category: TopicKey,
+    statement: string,
+): Promise<{ question: string; expectedType: ExpectedInfoType } | null> {
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const lower = statement.toLowerCase();
+
+    // Extract context for generating alternative questions
+    const hasTimeReference = /\b(soon|now|immediately|urgent|deadline|month|week|year)\b/i.test(statement);
+    const hasMoneyReference = /\b(cost|expensive|afford|budget|salary|price|\$\d+)\b/i.test(statement);
+    const hasPersonReference = /\b(partner|family|boss|friend|colleague|parent|child)\b/i.test(statement);
+    const isComparison = /\b(or|versus|vs|between|either|whether)\b/i.test(statement);
+
+    // Alternative questions by category - different from initial generation
+    const alternativeQuestions: Record<TopicKey, string[]> = {
+        reality: [
+            'What resources do you have that you might be underestimating?',
+            'What external factors are outside your control here?',
+            'What information would change this decision completely?',
+            'Who else has made a similar decision, and what happened?',
+            'What are the actual numbers, not the feelings about numbers?',
+        ],
+        values: [
+            'What would your ideal self do in this situation?',
+            'Which choice lets you sleep better at night?',
+            'What story do you want to tell about this decision in 5 years?',
+            'What are you afraid of losing that you might not actually need?',
+            'If no one was watching, what would you choose?',
+        ],
+        options: [
+            'What would you do if you had to decide today?',
+            'What partial step could you take to test this?',
+            'What would a completely different person do here?',
+            'What option have you dismissed too quickly?',
+            'What would making no decision cost you?',
+        ],
+    };
+
+    // Pick a random alternative question for the category
+    const questions = alternativeQuestions[category];
+    const randomIndex = Math.floor(Math.random() * questions.length);
+    const question = questions[randomIndex];
+
+    const expectedType: ExpectedInfoType =
+        category === 'reality' ? 'fact' :
+            category === 'values' ? 'value' :
+                'option';
+
+    return { question, expectedType };
 }
 
 export default useQuestionEngine;

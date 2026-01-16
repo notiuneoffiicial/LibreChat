@@ -24,7 +24,8 @@ export type NodeState =
     | 'DORMANT'  // Visible but not engaged
     | 'ACTIVE'   // Currently being explored
     | 'RESOLVED' // Question answered, may spawn satellites
-    | 'MERGED';  // Combined with another node into insight
+    | 'MERGED'   // Combined with another node into insight
+    | 'EXITING'; // Being thrown out, will be regenerated
 
 /**
  * Topic categories for inquiry paths
