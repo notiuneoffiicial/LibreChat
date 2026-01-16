@@ -105,17 +105,23 @@ function DecisionComposer({
     );
 
     // Calculate position based on anchor or fallback to center
-    const leftPosition = anchorPosition ? `${anchorPosition.x}px` : '50%';
-    const topPosition = hasSubmitted
-        ? (anchorPosition ? `${anchorPosition.y + 32}px` : 'calc(50% + 32px)')
-        : (anchorPosition ? `${anchorPosition.y - 24}px` : 'calc(50% - 24px)');
+    const positionStyle = anchorPosition
+        ? {
+            left: `${anchorPosition.x}px`,
+            top: hasSubmitted ? `${anchorPosition.y + 32}px` : `${anchorPosition.y - 24}px`,
+            transform: 'translate(-50%, 0)',
+        }
+        : {
+            left: '50%',
+            top: hasSubmitted ? 'calc(50% + 32px)' : 'calc(50% - 24px)',
+            transform: 'translate(-50%, 0)',
+        };
 
     return (
         <animated.div
-            className="absolute -translate-x-1/2"
+            className="absolute"
             style={{
-                left: leftPosition,
-                top: topPosition,
+                ...positionStyle,
                 y: springStyle.y,
                 scale: springStyle.scale,
                 opacity: springStyle.opacity,
