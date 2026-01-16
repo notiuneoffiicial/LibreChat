@@ -17,6 +17,7 @@ export { default as CommandMenu } from './CommandMenu';
 export { default as StartSessionButton } from './StartSessionButton';
 export { default as DecisionToolbar } from './DecisionToolbar';
 export { default as ContextNode } from './ContextNode';
+export { default as LoadingRipples } from './LoadingRipples';
 
 // Re-export config
 export * from './nodeMotionConfig';

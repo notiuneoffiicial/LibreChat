@@ -19,6 +19,7 @@ import SatelliteNode from './SatelliteNode';
 import AnswerInput from './AnswerInput';
 import ContextNode from './ContextNode';
 import StartSessionButton from './StartSessionButton';
+import LoadingRipples from './LoadingRipples';
 
 /**
  * ThinkingField - The living decision surface
@@ -261,6 +262,12 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                     background: `radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)`,
                     opacity: vignetteSpring.opacity,
                 }}
+            />
+
+            {/* Loading ripples - shown during INTAKE phase */}
+            <LoadingRipples
+                active={sessionPhase === 'INTAKE'}
+                anchorPosition={anchorPosition}
             />
 
             {/* Thought nodes */}

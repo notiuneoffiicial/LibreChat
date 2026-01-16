@@ -223,6 +223,36 @@ export const ENDING = {
 } as const;
 
 // ============================================================================
+// Loading Ripples (anticipation animation during AI processing)
+// ============================================================================
+
+export const LOADING_RIPPLES = {
+    /** Number of concentric ripples to show */
+    RIPPLE_COUNT: 3,
+
+    /** Maximum radius ripples expand to (px) */
+    MAX_RADIUS: 180,
+
+    /** Duration of one ripple cycle (ms) */
+    CYCLE_DURATION: 1200,
+
+    /** Delay between each ripple start (ms) */
+    STAGGER_DELAY: 300,
+
+    /** Opacity at ripple start */
+    START_OPACITY: 0.4,
+
+    /** Number of pulses per spawn direction */
+    PULSE_COUNT: 3,
+
+    /** How far directional pulses travel (px) */
+    PULSE_TRAVEL_DISTANCE: 180,
+
+    /** Duration of pulse travel (ms) */
+    PULSE_TRAVEL_DURATION: 800,
+} as const;
+
+// ============================================================================
 // Timing Helpers
 // ============================================================================
 
