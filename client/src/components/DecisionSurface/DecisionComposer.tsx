@@ -1,11 +1,3 @@
-/**
- * OptimismAI - Living Decision Surface
- * DecisionComposer - The centered input that "feels like thought"
- *
- * Minimal, centered input that glides down on submit
- * and triggers the field "breathe" effect.
- */
-
 import { memo, useCallback, useRef, useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import { TextareaAutosize } from '@librechat/client';
@@ -29,6 +21,7 @@ function DecisionComposer({
     isSubmitting,
     hasSubmitted,
     animateIn = false,
+    anchorPosition,
 }: DecisionComposerProps) {
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const [value, setValue] = useState('');
@@ -111,15 +104,22 @@ function DecisionComposer({
         [handleSubmit],
     );
 
+    // Calculate position based on anchor or fallback to center
+    const leftPosition = anchorPosition ? `${anchorPosition.x}px` : '50%';
+    const topPosition = hasSubmitted
+        ? (anchorPosition ? `${anchorPosition.y + 32}px` : 'calc(50% + 32px)')
+        : (anchorPosition ? `${anchorPosition.y - 24}px` : 'calc(50% - 24px)');
+
     return (
         <animated.div
-            className="absolute left-1/2 -translate-x-1/2"
+            className="absolute -translate-x-1/2"
             style={{
-                top: hasSubmitted ? 'calc(50% + 32px)' : 'calc(50% - 24px)',
+                left: leftPosition,
+                top: topPosition,
                 y: springStyle.y,
                 scale: springStyle.scale,
                 opacity: springStyle.opacity,
-                transition: 'top 0.3s ease-out',
+                transition: 'top 0.3s ease-out, left 0.3s ease-out',
             }}
         >
             <form onSubmit={handleSubmit}>

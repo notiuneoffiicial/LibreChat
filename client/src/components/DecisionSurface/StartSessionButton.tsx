@@ -13,6 +13,8 @@ import { cn } from '~/utils';
 interface StartSessionButtonProps {
     /** Called when the user clicks to start a session */
     onStart: () => void;
+    /** Anchor position for centering (from ThinkingField container) */
+    anchorPosition?: { x: number; y: number };
 }
 
 /**
@@ -23,7 +25,7 @@ interface StartSessionButtonProps {
  * - Minimal, calm aesthetic
  * - Micro-scale feedback on click, then fades out
  */
-function StartSessionButton({ onStart }: StartSessionButtonProps) {
+function StartSessionButton({ onStart, anchorPosition }: StartSessionButtonProps) {
     const [isPressed, setIsPressed] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
 
@@ -55,6 +57,19 @@ function StartSessionButton({ onStart }: StartSessionButtonProps) {
         }, 200);
     }, [onStart]);
 
+    // Calculate position based on anchor or fallback to center
+    const positionStyle = anchorPosition
+        ? {
+            left: `${anchorPosition.x}px`,
+            top: `${anchorPosition.y}px`,
+            transform: 'translate(-50%, -50%)',
+        }
+        : {
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+        };
+
     return (
         <animated.button
             type="button"
@@ -63,7 +78,7 @@ function StartSessionButton({ onStart }: StartSessionButtonProps) {
             onMouseUp={() => setIsPressed(false)}
             onMouseLeave={() => setIsPressed(false)}
             className={cn(
-                'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                'absolute',
                 'flex items-center gap-3 px-6 py-4',
                 'rounded-full border',
                 'bg-white/5 backdrop-blur-md',
@@ -74,6 +89,7 @@ function StartSessionButton({ onStart }: StartSessionButtonProps) {
                 'focus:outline-none focus:ring-2 focus:ring-white/20',
             )}
             style={{
+                ...positionStyle,
                 scale: springStyle.scale,
                 opacity: springStyle.opacity,
             }}
@@ -87,3 +103,4 @@ function StartSessionButton({ onStart }: StartSessionButtonProps) {
 }
 
 export default memo(StartSessionButton);
+

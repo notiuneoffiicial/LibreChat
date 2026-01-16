@@ -316,4 +316,6 @@ export interface DecisionComposerProps {
     hasSubmitted: boolean;
     /** Whether to animate in when first rendered */
     animateIn?: boolean;
+    /** Anchor position for centering (from ThinkingField container) */
+    anchorPosition?: Position;
 }

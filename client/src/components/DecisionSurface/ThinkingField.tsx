@@ -304,9 +304,10 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         hasSubmitted={composerSubmitted}
                         placeholder="What are you deciding?"
                         animateIn={true}
+                        anchorPosition={anchorPosition}
                     />
                 ) : (
-                    <StartSessionButton onStart={() => setComposerVisible(true)} />
+                    <StartSessionButton onStart={() => setComposerVisible(true)} anchorPosition={anchorPosition} />
                 )
             )}
 
