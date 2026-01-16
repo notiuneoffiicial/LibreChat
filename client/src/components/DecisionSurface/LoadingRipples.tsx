@@ -19,6 +19,8 @@ import type { Position } from '~/common/DecisionSession.types';
 interface LoadingRipplesProps {
     /** Whether ripples should be animating */
     active: boolean;
+    /** Whether to fade out (when nodes start appearing) */
+    fadeOut?: boolean;
     /** Center point from which ripples emanate */
     anchorPosition: Position;
 }
@@ -184,19 +186,42 @@ function DirectionalPulse({ active, anchorPosition, angleDeg, delay }: Direction
 // Main Component
 // ============================================================================
 
-function LoadingRipples({ active, anchorPosition }: LoadingRipplesProps) {
+function LoadingRipples({ active, fadeOut = false, anchorPosition }: LoadingRipplesProps) {
+    // Container fade spring - fades out smoothly when nodes appear
+    const [containerSpring, containerApi] = useSpring(() => ({
+        opacity: 1,
+        config: { duration: 400 },
+    }));
+
+    // Handle fadeOut transition
+    useEffect(() => {
+        if (fadeOut) {
+            containerApi.start({ opacity: 0 });
+        } else if (active) {
+            containerApi.start({ opacity: 1 });
+        }
+    }, [fadeOut, active, containerApi]);
+
     // Don't render if anchor position isn't set yet
     if (anchorPosition.x === 0 && anchorPosition.y === 0) {
         return null;
     }
 
+    // Don't render if fully faded out
+    if (!active && !fadeOut) {
+        return null;
+    }
+
     return (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <animated.div
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+            style={{ opacity: containerSpring.opacity }}
+        >
             {/* Concentric ripples from center */}
             {Array.from({ length: RIPPLE_CONFIG.RIPPLE_COUNT }).map((_, i) => (
                 <RippleRing
                     key={`ripple-${i}`}
-                    active={active}
+                    active={active && !fadeOut}
                     delay={i * RIPPLE_CONFIG.STAGGER_DELAY}
                     anchorPosition={anchorPosition}
                 />
@@ -207,7 +232,7 @@ function LoadingRipples({ active, anchorPosition }: LoadingRipplesProps) {
                 Array.from({ length: DIRECTIONAL_PULSE_CONFIG.PULSE_COUNT }).map((_, pulseIndex) => (
                     <DirectionalPulse
                         key={`pulse-${angleIndex}-${pulseIndex}`}
-                        active={active}
+                        active={active && !fadeOut}
                         anchorPosition={anchorPosition}
                         angleDeg={angle}
                         delay={
@@ -220,8 +245,8 @@ function LoadingRipples({ active, anchorPosition }: LoadingRipplesProps) {
             )}
 
             {/* Central glow that pulses while loading */}
-            <CentralGlow active={active} anchorPosition={anchorPosition} />
-        </div>
+            <CentralGlow active={active && !fadeOut} anchorPosition={anchorPosition} />
+        </animated.div>
     );
 }
 

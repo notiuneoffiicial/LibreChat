@@ -289,9 +289,10 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 }}
             />
 
-            {/* Loading ripples - shown during INTAKE phase */}
+            {/* Loading ripples - shown during INTAKE phase, fades out when nodes appear */}
             <LoadingRipples
                 active={sessionPhase === 'INTAKE'}
+                fadeOut={thoughtNodes.length > 0}
                 anchorPosition={anchorPosition}
             />
 
