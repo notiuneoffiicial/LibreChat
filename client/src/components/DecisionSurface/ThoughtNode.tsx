@@ -74,6 +74,7 @@ function ThoughtNode({
         anchorPosition,
         otherNodeActive,
         disableDrift,
+        createdAt: node.createdAt,
     });
 
     // Drag-to-throw hook

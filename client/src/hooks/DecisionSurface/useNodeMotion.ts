@@ -37,6 +37,8 @@ interface UseNodeMotionOptions {
     otherNodeActive: boolean;
     /** Whether drift should be disabled (during merges, etc) */
     disableDrift?: boolean;
+    /** Node creation timestamp for stagger */
+    createdAt?: number;
 }
 
 interface NodeMotionResult {
@@ -60,10 +62,38 @@ export function useNodeMotion({
     anchorPosition,
     otherNodeActive,
     disableDrift = false,
+    createdAt = 0,
 }: UseNodeMotionOptions): NodeMotionResult {
     // Session state for slowdown
     const sessionPhase = useRecoilValue(store.sessionPhaseAtom);
     const fieldSettling = useRecoilValue(store.fieldSettlingAtom);
+
+    // Track spawn state
+    const [hasSpawned, setHasSpawned] = useState(false);
+
+    // Trigger spawn animation on mount
+    useEffect(() => {
+        const now = Date.now();
+
+        // If created long ago (restored session), show immediately
+        // (Use 2000ms threshold to distinguish "just now" from "stored")
+        if (createdAt < now - 2000) {
+            setHasSpawned(true);
+            return;
+        }
+
+        // Calculate delay:
+        // 1. If createdAt is in future (staggered batch), wait until then
+        // 2. If createdAt is now/past (streaming), show almost immediately
+        const timeUntilSpawn = createdAt - now;
+        const delay = Math.max(0, timeUntilSpawn) + 50; // Small buffer for render
+
+        const timer = setTimeout(() => {
+            setHasSpawned(true);
+        }, delay);
+
+        return () => clearTimeout(timer);
+    }, [createdAt]);
 
     // Calculate slowdown factor based on session state
     const slowdownFactor = useMemo(() => {
@@ -132,7 +162,7 @@ export function useNodeMotion({
 
     // Idle drift animation loop with slowdown support
     useEffect(() => {
-        if (disableDrift || isActive || state === 'MERGED') {
+        if (disableDrift || isActive || state === 'MERGED' || !hasSpawned) {
             setDriftOffset({ x: 0, y: 0 });
             return;
         }
@@ -167,7 +197,7 @@ export function useNodeMotion({
                 cancelAnimationFrame(animationFrameRef.current);
             }
         };
-    }, [disableDrift, isActive, state, driftParams, slowdownFactor]);
+    }, [disableDrift, isActive, state, driftParams, slowdownFactor, hasSpawned]);
 
     // Spring for position
     const [positionSpring] = useSpring(
@@ -185,23 +215,31 @@ export function useNodeMotion({
     // Spring for visual properties with settling support
     const [visualSpring] = useSpring(
         () => ({
-            opacity: state === 'MERGED'
+            opacity: !hasSpawned
                 ? 0
-                : fieldSettling
-                    ? 0.85
-                    : isActive
-                        ? ENGAGE.ACTIVE_OPACITY
-                        : otherNodeActive
-                            ? DISENGAGE.DIMMED_OPACITY
-                            : 1,
-            scale: state === 'MERGED' ? 0.96 : fieldSettling ? 0.98 : 1,
+                : state === 'MERGED'
+                    ? 0
+                    : fieldSettling
+                        ? 0.85
+                        : isActive
+                            ? ENGAGE.ACTIVE_OPACITY
+                            : otherNodeActive
+                                ? DISENGAGE.DIMMED_OPACITY
+                                : 1,
+            scale: !hasSpawned
+                ? SPAWN.INITIAL_SCALE * 0.9 // Start slightly smaller
+                : state === 'MERGED'
+                    ? 0.96
+                    : fieldSettling
+                        ? 0.98
+                        : 1,
             borderAlpha: isActive ? ENGAGE.ACTIVE_BORDER_ALPHA : ENGAGE.DORMANT_BORDER_ALPHA,
             config: {
-                tension: fieldSettling ? 80 : ENGAGE.SPRING_CONFIG.tension, // Slower when settling
-                friction: fieldSettling ? 30 : ENGAGE.SPRING_CONFIG.friction,
+                tension: !hasSpawned ? 120 : fieldSettling ? 80 : ENGAGE.SPRING_CONFIG.tension,
+                friction: !hasSpawned ? 20 : fieldSettling ? 30 : ENGAGE.SPRING_CONFIG.friction,
             },
         }),
-        [state, isActive, otherNodeActive, fieldSettling],
+        [state, isActive, otherNodeActive, fieldSettling, hasSpawned],
     );
 
     return {
