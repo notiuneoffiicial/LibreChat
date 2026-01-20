@@ -11,6 +11,11 @@ import type {
     Milestone,
     LeaningVector,
     Position,
+    FieldState,
+    OpenLoop,
+    ConceptCluster,
+    BehaviorSignal,
+    SoftConfirmation,
 } from '~/common/DecisionSession.types';
 
 // ============================================================================
@@ -106,12 +111,149 @@ export const nodeByIdSelector = selectorFamily<ThoughtNodeData | null, string>({
 
 /**
  * Get all dormant nodes (not active, not merged)
+ * @deprecated Use latentNodesSelector for tension model
  */
 export const dormantNodesSelector = selector<ThoughtNodeData[]>({
     key: 'dormantNodes',
     get: ({ get }) => {
         const nodes = get(thoughtNodesAtom);
-        return nodes.filter((n) => n.state === 'DORMANT');
+        return nodes.filter((n) => n.state === 'DORMANT' || n.state === 'LATENT');
+    },
+});
+
+// ============================================================================
+// Tension Field State (New Model)
+// ============================================================================
+
+/**
+ * Field state for tension model (optional, works alongside decisionSessionAtom)
+ */
+export const fieldStateAtom = atom<FieldState | null>({
+    key: 'fieldState',
+    default: null,
+});
+
+/**
+ * Open loops that block silence
+ */
+export const openLoopsAtom = atom<OpenLoop[]>({
+    key: 'openLoops',
+    default: [],
+});
+
+/**
+ * Detected concept clusters
+ */
+export const clustersAtom = atom<ConceptCluster[]>({
+    key: 'conceptClusters',
+    default: [],
+});
+
+/**
+ * Behavior signals for clarity/confusion detection
+ */
+export const behaviorSignalsAtom = atom<BehaviorSignal[]>({
+    key: 'behaviorSignals',
+    default: [],
+});
+
+/**
+ * Soft confirmation state
+ */
+export const softConfirmationAtom = atom<SoftConfirmation | null>({
+    key: 'softConfirmation',
+    default: null,
+});
+
+/**
+ * Total tension in field (computed)
+ */
+export const totalTensionSelector = selector<number>({
+    key: 'totalTension',
+    get: ({ get }) => {
+        const nodes = get(thoughtNodesAtom);
+        return nodes.reduce((sum, n) => sum + (n.intensity ?? 0.5), 0);
+    },
+});
+
+/**
+ * Get the currently probing node (the one asking a question)
+ */
+export const probingNodeSelector = selector<ThoughtNodeData | null>({
+    key: 'probingNode',
+    get: ({ get }) => {
+        const nodes = get(thoughtNodesAtom);
+        return nodes.find((n) => n.state === 'PROBING') ?? null;
+    },
+});
+
+/**
+ * Get all latent nodes (have tension but not currently probing)
+ */
+export const latentNodesSelector = selector<ThoughtNodeData[]>({
+    key: 'latentNodes',
+    get: ({ get }) => {
+        const nodes = get(thoughtNodesAtom);
+        return nodes.filter((n) => n.state === 'LATENT' || n.state === 'DORMANT');
+    },
+});
+
+/**
+ * Get the highest-intensity latent node (next probe candidate)
+ */
+export const nextProbeCandidateSelector = selector<ThoughtNodeData | null>({
+    key: 'nextProbeCandidate',
+    get: ({ get }) => {
+        const latent = get(latentNodesSelector);
+        if (latent.length === 0) return null;
+        return latent.reduce((best, node) =>
+            (node.intensity ?? 0.5) > (best.intensity ?? 0.5) ? node : best
+        );
+    },
+});
+
+/**
+ * Whether the field can enter silence (all conditions met)
+ */
+export const canEnterSilenceSelector = selector<boolean>({
+    key: 'canEnterSilence',
+    get: ({ get }) => {
+        const openLoops = get(openLoopsAtom);
+        const clusters = get(clustersAtom);
+        const nodes = get(thoughtNodesAtom);
+        const behaviorSignals = get(behaviorSignalsAtom);
+
+        // Must have no open loops
+        const hasOpenLoops = openLoops.some(l => l.status === 'open');
+        if (hasOpenLoops) return false;
+
+        // Must have a dominant stable cluster
+        const dominantCluster = clusters.find(c => c.dominance > 0.5 && c.stable);
+        if (!dominantCluster) return false;
+
+        // Must not have recent confusion signals
+        const recentSignals = behaviorSignals.filter(
+            s => Date.now() - s.timestamp < 60000 // Last minute
+        );
+        const confusionCount = recentSignals.filter(s => s.indicates === 'confusion').length;
+        if (confusionCount > 2) return false;
+
+        // Must have at least some resolved nodes
+        const resolvedCount = nodes.filter(n => n.state === 'RESOLVED').length;
+        if (resolvedCount < 2) return false;
+
+        return true;
+    },
+});
+
+/**
+ * Get the dominant cluster (if any)
+ */
+export const dominantClusterSelector = selector<ConceptCluster | null>({
+    key: 'dominantCluster',
+    get: ({ get }) => {
+        const clusters = get(clustersAtom);
+        return clusters.find(c => c.dominance > 0.5) ?? null;
     },
 });
 

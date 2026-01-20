@@ -2,7 +2,7 @@
  * OptimismAI - Living Decision Surface
  * useDecisionSession - State machine for decision session lifecycle
  *
- * Manages the flow: IDLE → INTAKE → EXPLORATION → SYNTHESIS → CONVERGENCE
+ * Manages the flow: IDLE → INTAKE → EXPLORING → SETTLING → SILENT
  */
 
 import { useCallback, useMemo, useRef } from 'react';
@@ -202,23 +202,23 @@ export function useDecisionSession(conversationId?: string) {
                     // generateInitialQuestions updates thoughtNodesAtom via useDecisionStream
                     await generateInitialQuestions(message);
 
-                    setPhase('EXPLORATION');
+                    setPhase('EXPLORING');
                     setSession((prev) =>
                         prev
                             ? {
                                 ...prev,
-                                phase: 'EXPLORATION',
+                                phase: 'EXPLORING',
                                 updatedAt: Date.now(),
                             }
                             : prev,
                     );
-                    console.log('[useDecisionSession] Questions generated, entering EXPLORATION phase');
+                    console.log('[useDecisionSession] Questions generated, entering EXPLORING phase');
                 } catch (err) {
                     console.error('[useDecisionSession] Failed to generate questions:', err);
                     // Fallback to hardcoded questions if SSE fails
                     const fallbackNodes = generateInitialNodes(draft);
                     setNodes(fallbackNodes);
-                    setPhase('EXPLORATION');
+                    setPhase('EXPLORING');
                 }
             }, 600); // Wait for composer animation
         },
@@ -366,17 +366,17 @@ export function useDecisionSession(conversationId?: string) {
             // Add milestone
             addMilestone('nodes_merged', insightText);
 
-            // Check if we should transition to SYNTHESIS
+            // Check if we should transition to SETTLING
             const resolvedCount = nodes.filter(
                 (n) => n.state === 'RESOLVED' || n.state === 'MERGED',
             ).length;
             if (resolvedCount >= 2) {
-                setPhase('SYNTHESIS');
+                setPhase('SETTLING');
                 setSession((prev) =>
                     prev
                         ? {
                             ...prev,
-                            phase: 'SYNTHESIS',
+                            phase: 'SETTLING',
                             updatedAt: Date.now(),
                         }
                         : prev,
@@ -415,7 +415,7 @@ export function useDecisionSession(conversationId?: string) {
      */
     const endSession = useCallback(
         (endingState: 'clarity' | 'conditional_clarity' | 'rest') => {
-            setPhase('CONVERGENCE');
+            setPhase('SILENT');
             setFieldSettling(true);
             setSessionEndingState(endingState);
 
@@ -423,7 +423,7 @@ export function useDecisionSession(conversationId?: string) {
                 prev
                     ? {
                         ...prev,
-                        phase: 'CONVERGENCE',
+                        phase: 'SILENT',
                         endingState,
                         updatedAt: Date.now(),
                     }

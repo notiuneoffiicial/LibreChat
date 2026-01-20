@@ -247,7 +247,7 @@ function DecisionWorkspaceView() {
             {/* Leaning indicator */}
             <LeaningIndicator
                 leaning={leaning ?? undefined}
-                visible={phase === 'SYNTHESIS' || phase === 'CONVERGENCE'}
+                visible={phase === 'SETTLING' || phase === 'SILENT'}
             />
 
             {/* Trace overlay */}

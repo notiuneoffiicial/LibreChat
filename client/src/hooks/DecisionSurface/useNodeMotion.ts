@@ -97,7 +97,7 @@ export function useNodeMotion({
 
     // Calculate slowdown factor based on session state
     const slowdownFactor = useMemo(() => {
-        if (fieldSettling || sessionPhase === 'CONVERGENCE') {
+        if (fieldSettling || sessionPhase === 'SILENT') {
             return ENDING.FINAL_DRIFT_AMPLITUDE / DRIFT.AMPLITUDE_MAX; // ~0.1
         }
         return 1;

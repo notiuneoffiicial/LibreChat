@@ -8,24 +8,32 @@
 // ============================================================================
 
 /**
- * The phase of a decision session, following a natural thinking flow
+ * The phase of a decision session, following tension release flow
  */
 export type SessionPhase =
     | 'IDLE'        // Calm field, waiting for first input
-    | 'INTAKE'      // Processing first message, generating nodes
-    | 'EXPLORATION' // Active engagement with nodes
-    | 'SYNTHESIS'   // Paths converging, insights forming
-    | 'CONVERGENCE'; // Decision core emerging
+    | 'INTAKE'      // Processing first message, generating tension points
+    | 'EXPLORING'   // Active probing - tension being released
+    | 'SETTLING'    // Field stabilizing, motion slowing
+    | 'SILENT';     // Clarity reached, earned silence
+
+/** @deprecated Use SessionPhase - kept for backward compatibility */
+export type FieldPhase = SessionPhase;
 
 /**
- * State of an individual thought node
+ * State of an individual thought/tension node
  */
 export type NodeState =
-    | 'DORMANT'  // Visible but not engaged
-    | 'ACTIVE'   // Currently being explored
-    | 'RESOLVED' // Question answered, may spawn satellites
-    | 'MERGED'   // Combined with another node into insight
-    | 'EXITING'; // Being thrown out, will be regenerated
+    | 'LATENT'   // Visible but not being probed (has tension, no active question)
+    | 'PROBING'  // This is the active question being asked
+    | 'RESOLVED' // Question answered, tension reduced
+    | 'FADING'   // Low relevance, fading out
+    | 'DISSOLVED' // Completely faded, will be removed
+    // Legacy states (deprecated)
+    | 'DORMANT'  // @deprecated Use LATENT
+    | 'ACTIVE'   // @deprecated Use PROBING
+    | 'MERGED'   // @deprecated No longer used
+    | 'EXITING'; // @deprecated Use FADING
 
 /**
  * Topic categories for inquiry paths
@@ -122,11 +130,114 @@ export interface ThoughtNodeData {
     expectedInfoType: ExpectedInfoType;
     position: Position;
     answer?: string;
+    /** @deprecated Satellites removed in tension model */
     satellites: SatelliteNodeData[];
     signals: NodeSignal[];
     createdAt: number;
     resolvedAt?: number;
+    /** @deprecated Merging removed in tension model */
     mergedIntoId?: string;
+
+    // ===== Tension Model Properties =====
+
+    /** Concept label (e.g., "money", "timeline", "partner") */
+    concept?: string;
+    /** Cognitive tension intensity 0-1 */
+    intensity?: number;
+    /** Affinity strengths to other nodes (for clustering) */
+    affinities?: Map<string, number>;
+    /** How this node was created */
+    source?: 'initial' | 'discovered' | 'user_added';
+}
+
+// ============================================================================
+// Tension Field Types (new model)
+// ============================================================================
+
+/**
+ * Tracks an unresolved concern that blocks silence
+ */
+export interface OpenLoop {
+    id: string;
+    /** What needs to be addressed */
+    description: string;
+    /** Which tension point raised this */
+    tensionPointId: string;
+    raisedAt: number;
+    resolvedAt?: number;
+    status: 'open' | 'resolved';
+}
+
+/**
+ * Emergent grouping of related tension points
+ */
+export interface ConceptCluster {
+    id: string;
+    tensionPointIds: string[];
+    centroid: Position;
+    /** How tightly bound (0-1) */
+    coherence: number;
+    /** How much of total signal this cluster holds (0-1) */
+    dominance: number;
+    /** Has the cluster stopped shifting? */
+    stable: boolean;
+    stableSince?: number;
+}
+
+/**
+ * User behavior indicator for clarity/confusion detection
+ */
+export interface BehaviorSignal {
+    type: 'response_time' | 'response_length' | 'hedging' | 'contradiction';
+    /** Normalized value 0-1 */
+    value: number;
+    timestamp: number;
+    indicates: 'clarity' | 'confusion';
+}
+
+/**
+ * Soft confirmation shown before entering silence
+ */
+export interface SoftConfirmation {
+    statement: string;
+    shownAt: number;
+    userResponse?: string;
+}
+
+/**
+ * Overall field state for tension model
+ */
+export interface FieldState {
+    id: string;
+    /** Original decision statement */
+    statement: string;
+
+    /** Current phase */
+    phase: SessionPhase;
+
+    /** All tension points on the field */
+    tensionPoints: ThoughtNodeData[];
+
+    /** Tracked open loops */
+    openLoops: OpenLoop[];
+
+    /** Detected clusters */
+    clusters: ConceptCluster[];
+
+    /** Behavior signals from user */
+    behaviorSignals: BehaviorSignal[];
+
+    /** Total tension in field (sum of intensities) */
+    totalTension: number;
+
+    /** How long the field has been stable */
+    stabilityDuration: number;
+
+    /** Soft confirmation if shown */
+    softConfirmation?: SoftConfirmation;
+
+    createdAt: number;
+    updatedAt: number;
 }
 
 // ============================================================================
@@ -139,7 +250,12 @@ export type MilestoneType =
     | 'assumption_resolved'
     | 'insight_formed'
     | 'nodes_merged'
-    | 'leaning_shifted';
+    | 'leaning_shifted'
+    // Tension model milestones
+    | 'session_ended'
+    | 'tension_resolved'
+    | 'loop_closed'
+    | 'cluster_formed';
 
 export interface Milestone {
     id: string;
@@ -222,7 +338,7 @@ export interface DecisionSession {
     /** Formed insights */
     insights: string[];
 
-    /** Decision core (emerges in SYNTHESIS/CONVERGENCE) */
+    /** Decision core (emerges in SETTLING/SILENT) */
     decisionCore?: DecisionCore;
 
     /** Milestones for trace overlay */
