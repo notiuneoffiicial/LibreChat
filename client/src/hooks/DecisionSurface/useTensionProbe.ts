@@ -291,6 +291,9 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     await regenerateQuestion('reality', answer); // Approximate category
                 }
 
+                // Clear active node immediately to fix selection persistence bug
+                setActiveNodeId(null);
+
                 // Auto-select next probe after short delay
                 setTimeout(() => {
                     selectNextProbe();
@@ -301,12 +304,13 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                 const message = err instanceof Error ? err.message : 'Failed to process answer';
                 setError(message);
                 console.error('[useTensionProbe] Error processing answer:', err);
+                setActiveNodeId(null); // Clear even on error
                 return null;
             } finally {
                 setIsProcessing(false);
             }
         },
-        [setThoughtNodes, selectNextProbe, regenerateQuestion],
+        [setThoughtNodes, selectNextProbe, regenerateQuestion, setActiveNodeId],
     );
 
     return {

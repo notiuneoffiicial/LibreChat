@@ -137,6 +137,9 @@ export function useMagneticField() {
         let forceX = 0;
         let forceY = 0;
 
+        // RESOLVED nodes should drift away from clusters, not attract
+        const isResolved = node.state === 'RESOLVED';
+
         for (const other of allNodes) {
             if (other.id === node.id) continue;
             if (other.state === 'DISSOLVED' || other.state === 'FADING') continue;
@@ -145,9 +148,8 @@ export function useMagneticField() {
             const dy = other.position.y - node.position.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            // Skip if too close or too far
+            // Repulsion when too close - always applies
             if (dist < CLUSTERING.MIN_DISTANCE) {
-                // Repulsion when too close
                 const repulsion = CLUSTERING.REPULSION_CONSTANT * (1 - dist / CLUSTERING.REPULSION_DISTANCE);
                 forceX -= (dx / dist) * repulsion;
                 forceY -= (dy / dist) * repulsion;
@@ -156,7 +158,18 @@ export function useMagneticField() {
 
             if (dist > CLUSTERING.MAX_DISTANCE) continue;
 
-            // Calculate attraction based on affinity
+            // RESOLVED nodes repel from everything (drift outward from clusters)
+            if (isResolved) {
+                const repulsion = (CLUSTERING.REPULSION_CONSTANT * 0.5) / Math.max(dist, 1);
+                forceX -= (dx / dist) * repulsion;
+                forceY -= (dy / dist) * repulsion;
+                continue;
+            }
+
+            // Skip attraction if other node is resolved (don't get pulled toward resolved nodes)
+            if (other.state === 'RESOLVED') continue;
+
+            // Calculate attraction based on affinity (only for non-resolved nodes)
             const affinity = calculateAffinity(node, other);
             if (affinity <= 0) continue;
 
