@@ -11,12 +11,11 @@ import { animated, useSpring } from '@react-spring/web';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
-import { useDecisionSession, useQuestionEngine, useDecisionChat } from '~/hooks/DecisionSurface';
+import { useDecisionSession, useTensionProbe, useDecisionChat, useMagneticField } from '~/hooks/DecisionSurface';
 import { FIELD, COMPOSER, THROW } from './nodeMotionConfig';
-import type { ThinkingFieldProps, SatelliteNodeData, TopicKey } from '~/common/DecisionSession.types';
+import type { ThinkingFieldProps, TopicKey } from '~/common/DecisionSession.types';
 import DecisionComposer from './DecisionComposer';
 import ThoughtNode from './ThoughtNode';
-import SatelliteNode from './SatelliteNode';
 import AnswerInput from './AnswerInput';
 import ContextNode from './ContextNode';
 import StartSessionButton from './StartSessionButton';
@@ -57,11 +56,16 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     // Context nodes
     const contextNodes = useRecoilValue(store.contextNodesAtom);
 
+    const [softConfirmation, setSoftConfirmation] = useRecoilState(store.softConfirmationAtom);
+
     // Session state machine hook
-    const { submitDecision, selectNode, session } = useDecisionSession(conversationId);
+    const { submitDecision, selectNode, session, endSession } = useDecisionSession(conversationId);
 
     // Question engine hook
-    const { processAnswer, isProcessing, regenerateQuestion } = useQuestionEngine();
+    const { processAnswer, isProcessing, regenerateQuestion, selectNextProbe } = useTensionProbe();
+
+    // Field dynamics hook
+    const { isActive: isFieldActive } = useMagneticField();
 
     // Chat integration hook for message persistence
     const { storeAnswer } = useDecisionChat({ conversationId });
@@ -71,23 +75,6 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         () => thoughtNodes.find((n) => n.id === activeNodeId) || null,
         [thoughtNodes, activeNodeId],
     );
-
-    // Build a fake ThoughtNode-like object for satellite answer input
-    const activeSatelliteAsNode = useMemo(() => {
-        if (!activeSatellite) return null;
-        return {
-            id: activeSatellite.satellite.id,
-            question: activeSatellite.satellite.question,
-            topicKey: 'reality' as const, // Satellites are follow-ups, default to reality
-            state: 'ACTIVE' as const,
-            position: activeSatellite.satellite.position,
-            satellites: [],
-            signals: [],
-            category: 'grounding' as const,
-            expectedInfoType: 'fact' as const,
-            createdAt: activeSatellite.satellite.createdAt,
-        };
-    }, [activeSatellite]);
 
     // Vignette "breathe" animation
     const [vignetteSpring, vignetteApi] = useSpring(() => ({
@@ -131,7 +118,6 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     // Handle node selection via state machine
     const handleNodeSelect = useCallback(
         (nodeId: string) => {
-            setActiveSatellite(null); // Clear any active satellite
             selectNode(nodeId);
         },
         [selectNode],
@@ -165,57 +151,10 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         [thoughtNodes, storeAnswer, processAnswer, setActiveNodeId],
     );
 
-    // Handle satellite answer submission
-    const handleSatelliteAnswerSubmit = useCallback(
-        async (satelliteId: string, answer: string) => {
-            console.log('[ThinkingField] Satellite answer submitted:', satelliteId);
-
-            if (!activeSatellite) return;
-
-            // Store the answer
-            storeAnswer(satelliteId, activeSatellite.satellite.question, answer);
-
-            // Mark satellite as answered
-            setThoughtNodes((prev) =>
-                prev.map((node) => {
-                    if (node.id !== activeSatellite.parentId) return node;
-                    return {
-                        ...node,
-                        satellites: node.satellites.map((sat) =>
-                            sat.id === satelliteId ? { ...sat, answered: true, answer } : sat,
-                        ),
-                    };
-                }),
-            );
-
-            setActiveSatellite(null);
-        },
-        [activeSatellite, storeAnswer, setThoughtNodes],
-    );
-
     // Handle answer dismiss
     const handleAnswerDismiss = useCallback(() => {
         setActiveNodeId(null);
-        setActiveSatellite(null);
     }, [setActiveNodeId]);
-
-    // Handle satellite click - find the satellite and open answer input
-    const handleSatelliteClick = useCallback(
-        (satelliteId: string) => {
-            console.log('[ThinkingField] Satellite clicked:', satelliteId);
-
-            // Find the satellite
-            for (const node of thoughtNodes) {
-                const satellite = node.satellites.find((s) => s.id === satelliteId);
-                if (satellite && !satellite.answered) {
-                    setActiveNodeId(null); // Deselect main node
-                    setActiveSatellite({ satellite, parentId: node.id });
-                    return;
-                }
-            }
-        },
-        [thoughtNodes, setActiveNodeId],
-    );
 
     // Open trace overlay
     const handleOpenTrace = useCallback(() => {
@@ -249,8 +188,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
 
     // Check if any node is active
     const hasActiveNode = activeNodeId !== null;
-    const hasActiveSatellite = activeSatellite !== null;
-    const isAnswering = hasActiveNode || hasActiveSatellite;
+    const isAnswering = hasActiveNode;
 
     return (
         <div
@@ -278,27 +216,31 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 }}
             />
 
-            {/* Soft grid */}
-            <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                    backgroundImage: `
-            linear-gradient(rgba(255,255,255,${FIELD.GRID_OPACITY}) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,${FIELD.GRID_OPACITY}) 1px, transparent 1px)
-          `,
-                    backgroundSize: '64px 64px',
-                    backgroundPosition: 'center center',
-                }}
-            />
+            {/* Soft grid - only show in dark mode */}
+            {isCurrentlyDark && (
+                <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        backgroundImage: `
+                linear-gradient(rgba(255,255,255,${FIELD.GRID_OPACITY}) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,${FIELD.GRID_OPACITY}) 1px, transparent 1px)
+              `,
+                        backgroundSize: '64px 64px',
+                        backgroundPosition: 'center center',
+                    }}
+                />
+            )}
 
-            {/* Vignette */}
-            <animated.div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                    background: `radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)`,
-                    opacity: vignetteSpring.opacity,
-                }}
-            />
+            {/* Vignette - only show in dark mode */}
+            {isCurrentlyDark && (
+                <animated.div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        background: `radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)`,
+                        opacity: vignetteSpring.opacity,
+                    }}
+                />
+            )}
 
             {/* Loading ripples - shown during INTAKE phase, fades out when nodes appear */}
             <LoadingRipples
@@ -321,18 +263,6 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         disableDrift={isMerging}
                     />
                 ))}
-
-                {/* Satellite nodes */}
-                {thoughtNodes.map((node) =>
-                    node.satellites.map((satellite) => (
-                        <SatelliteNode
-                            key={satellite.id}
-                            satellite={satellite}
-                            parentPosition={node.position}
-                            onAnswer={handleSatelliteClick}
-                        />
-                    )),
-                )}
 
                 {/* Context nodes */}
                 {contextNodes.map((contextNode) => (
@@ -364,22 +294,16 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 isProcessing={isProcessing}
             />
 
-            {/* Answer Input for satellites */}
-            <AnswerInput
-                node={activeSatelliteAsNode}
-                onSubmit={handleSatelliteAnswerSubmit}
-                onDismiss={handleAnswerDismiss}
-                isProcessing={false}
-            />
-
             {/* Trace overlay affordance */}
             {sessionPhase !== 'IDLE' && !isAnswering && (
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 transform">
                     <button
                         className={cn(
-                            'text-xs text-white/30 transition-colors duration-200',
-                            'hover:text-white/50',
-                            'focus:outline-none focus:ring-1 focus:ring-white/20',
+                            'text-xs transition-colors duration-200',
+                            isCurrentlyDark
+                                ? 'text-white/30 hover:text-white/50 focus:ring-white/20'
+                                : 'text-black/30 hover:text-black/50 focus:ring-black/20',
+                            'focus:outline-none focus:ring-1',
                         )}
                         onClick={handleOpenTrace}
                     >
@@ -388,10 +312,48 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 </div>
             )}
 
+            {/* Soft Confirmation Overlay */}
+            {softConfirmation && (
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 transform z-50">
+                    <div className={cn(
+                        "px-6 py-4 rounded-xl shadow-lg border backdrop-blur-md transition-all duration-300",
+                        isCurrentlyDark
+                            ? "bg-black/40 border-white/10 text-white"
+                            : "bg-white/60 border-black/5 text-slate-800"
+                    )}>
+                        <p className="text-sm font-medium mb-3">{softConfirmation.statement}</p>
+                        <div className="flex gap-2 justify-center">
+                            <button
+                                onClick={() => endSession('clarity')}
+                                className={cn(
+                                    "px-3 py-1.5 text-xs rounded-md transition-colors",
+                                    isCurrentlyDark
+                                        ? "bg-white/10 hover:bg-white/20"
+                                        : "bg-black/5 hover:bg-black/10"
+                                )}
+                            >
+                                Yes, summarize
+                            </button>
+                            <button
+                                onClick={() => setSoftConfirmation(null)}
+                                className="px-3 py-1.5 text-xs opacity-50 hover:opacity-100 transition-opacity"
+                            >
+                                Not yet
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Debug indicator */}
             {process.env.NODE_ENV === 'development' && (
                 <div className="absolute top-4 left-4 z-50">
-                    <span className="rounded bg-white/10 px-2 py-1 text-[10px] text-white/40">
+                    <span className={cn(
+                        'rounded px-2 py-1 text-[10px]',
+                        isCurrentlyDark
+                            ? 'bg-white/10 text-white/40'
+                            : 'bg-black/10 text-black/40',
+                    )}>
                         {sessionPhase} | Nodes: {thoughtNodes.length} |
                         Satellites: {thoughtNodes.reduce((acc, n) => acc + n.satellites.length, 0)}
                     </span>

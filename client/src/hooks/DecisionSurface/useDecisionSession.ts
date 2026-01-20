@@ -10,7 +10,7 @@ import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
 import { getSpawnPosition } from '~/components/DecisionSurface/nodeMotionConfig';
-import { useQuestionEngine } from './useQuestionEngine';
+import { useTensionProbe } from './useTensionProbe';
 import type {
     DecisionSession,
     SessionPhase,
@@ -38,9 +38,11 @@ export function useDecisionSession(conversationId?: string) {
     const setComposerSubmitted = useSetRecoilState(store.composerSubmittedAtom);
     const setFieldSettling = useSetRecoilState(store.fieldSettlingAtom);
     const setSessionEndingState = useSetRecoilState(store.sessionEndingStateAtom);
+    const [openLoops, setOpenLoops] = useRecoilState(store.openLoopsAtom);
+    const [softConfirmation, setSoftConfirmation] = useRecoilState(store.softConfirmationAtom);
 
     // Question engine for real AI-powered question generation (uses SSE stream)
-    const { generateInitialQuestions } = useQuestionEngine();
+    const { generateInitialTensionPoints } = useTensionProbe();
 
     /**
      * Initialize a new session
@@ -143,12 +145,13 @@ export function useDecisionSession(conversationId?: string) {
             const now = Date.now();
             const newNodes: ThoughtNodeData[] = questions.map((q, index) => ({
                 id: uuidv4(),
-                state: 'DORMANT',
+                state: 'LATENT', // Changed from DORMANT
                 question: q.question,
                 topicKey: q.topicKey,
                 category: q.category,
                 expectedInfoType: q.expectedInfoType,
                 position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y),
+                intensity: 0.6, // Default intensity
                 satellites: [],
                 signals: [],
                 createdAt: now + index * 70, // Stagger for animation
@@ -193,14 +196,13 @@ export function useDecisionSession(conversationId?: string) {
             setComposerSubmitted(true);
 
             // Generate initial nodes using real AI via SSE stream
-            // (useQuestionEngine automatically updates Recoil state with nodes)
-            console.log('[useDecisionSession] Generating questions via SSE...');
+            // (useTensionProbe automatically updates Recoil state with nodes)
+            console.log('[useDecisionSession] Generating questions via useTensionProbe...');
 
             setTimeout(async () => {
                 try {
                     // Call the real AI question generation
-                    // generateInitialQuestions updates thoughtNodesAtom via useDecisionStream
-                    await generateInitialQuestions(message);
+                    await generateInitialTensionPoints(message);
 
                     setPhase('EXPLORING');
                     setSession((prev) =>
@@ -222,7 +224,7 @@ export function useDecisionSession(conversationId?: string) {
                 }
             }, 600); // Wait for composer animation
         },
-        [phase, setSession, setPhase, setComposerSubmitted, generateInitialQuestions, generateInitialNodes, setNodes],
+        [phase, setSession, setPhase, setComposerSubmitted, generateInitialTensionPoints, generateInitialNodes, setNodes],
     );
 
     /**
@@ -231,13 +233,13 @@ export function useDecisionSession(conversationId?: string) {
     const selectNode = useCallback(
         (nodeId: string) => {
             const node = nodes.find((n) => n.id === nodeId);
-            if (!node || node.state === 'MERGED') return;
+            if (!node || node.state === 'MERGED' || node.state === 'DISSOLVED') return;
 
-            // Update node state to ACTIVE
+            // Update node state to PROBING
             setNodes((prev) =>
                 prev.map((n) => ({
                     ...n,
-                    state: n.id === nodeId ? 'ACTIVE' : n.state === 'ACTIVE' ? 'DORMANT' : n.state,
+                    state: n.id === nodeId ? 'PROBING' : (n.state === 'PROBING' ? 'LATENT' : n.state),
                 })),
             );
 
@@ -287,50 +289,38 @@ export function useDecisionSession(conversationId?: string) {
     );
 
     /**
-     * Check if session should converge and trigger ending
+     * Check if session should converge and trigger soft confirmation
      */
     const checkAndTriggerConvergence = useCallback(() => {
-        // Get current nodes state
+        // We need to check open loops and node states
+        // Since we are inside a callback, we might not have the freshest atom state if we don't use the functional setter or refs
+        // But here we rely on the component re-render cycle for 'openLoops' from the top of the hook
+
+        if (openLoops.some(l => l.status === 'open')) return;
+
         setNodes((currentNodes) => {
             const resolvedNodes = currentNodes.filter((n) => n.state === 'RESOLVED');
-            const merged = currentNodes.filter((n) => n.state === 'MERGED');
-            const dormant = currentNodes.filter((n) => n.state === 'DORMANT');
+            const dormant = currentNodes.filter((n) => n.state === 'LATENT' || n.state === 'DORMANT'); // Update to check LATENT
 
-            // All primary nodes resolved?
-            if (dormant.length === 0 && resolvedNodes.length + merged.length >= 3) {
+            // All primary nodes resolved? (or at least significant progress)
+            // Tension model: Maybe we don't need *all* latent nodes gone, but high resolved count
+            if (resolvedNodes.length >= 3 && dormant.length <= 1) {
                 // Check session state for ending type
                 const hasUnresolvedAssumptions = session?.assumptions?.some((a) => !a.resolved);
-                const hasInsights = (session?.insights?.length || 0) > 0;
 
-                let endingType: 'clarity' | 'conditional_clarity' | 'rest' = 'clarity';
-
-                if (hasUnresolvedAssumptions) {
-                    endingType = 'conditional_clarity';
-                } else if (!hasInsights) {
-                    endingType = 'rest';
+                // Trigger Soft Confirmation instead of immediate ending
+                if (!softConfirmation) {
+                    setSoftConfirmation({
+                        statement: "It seems like you've explored the core aspects of this decision. Ready to summarize?",
+                        shownAt: Date.now()
+                    });
+                    console.log('[useDecisionSession] Triggering Soft Confirmation');
                 }
-
-                // Trigger session ending
-                setPhase('CONVERGENCE');
-                setFieldSettling(true);
-                setSessionEndingState(endingType);
-                setSession((prev) =>
-                    prev
-                        ? {
-                            ...prev,
-                            phase: 'CONVERGENCE',
-                            endingState: endingType,
-                            updatedAt: Date.now(),
-                        }
-                        : prev,
-                );
-
-                addMilestone('session_ended', `Reached ${endingType}`);
             }
 
             return currentNodes; // No change, just reading
         });
-    }, [session, setNodes, setPhase, setFieldSettling, setSessionEndingState, setSession, addMilestone]);
+    }, [session, setNodes, openLoops, softConfirmation, setSoftConfirmation]);
 
     /**
      * Handle TRIGGER_MERGE event

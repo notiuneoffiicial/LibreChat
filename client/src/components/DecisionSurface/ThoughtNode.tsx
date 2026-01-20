@@ -6,11 +6,11 @@
  * lightly labeled, not titled like a feature."
  */
 
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useRef, useMemo } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import { cn } from '~/utils';
 import { useNodeMotion, useDragToThrow } from '~/hooks/DecisionSurface';
-import { THROW } from './nodeMotionConfig';
+import { THROW, TENSION } from './nodeMotionConfig';
 import type { ThoughtNodeProps, NodeSignal, TopicKey } from '~/common/DecisionSession.types';
 import { SIGNAL_GLYPHS } from '~/common/DecisionSession.types';
 
@@ -75,6 +75,7 @@ function ThoughtNode({
         otherNodeActive,
         disableDrift,
         createdAt: node.createdAt,
+        intensity: node.intensity,
     });
 
     // Drag-to-throw hook
@@ -111,7 +112,7 @@ function ThoughtNode({
     }, [node.id, node.state, onSelect, isDragging]);
 
     // Don't render merged or fully exited nodes
-    if (node.state === 'MERGED') {
+    if (node.state === 'MERGED' || node.state === 'DISSOLVED') {
         return null;
     }
 
@@ -167,7 +168,7 @@ function ThoughtNode({
                     {TOPIC_GLYPHS[node.topicKey]}
                 </span>
 
-                {/* Question text */}
+                {/* Question text or Concept */}
                 <span
                     className={cn(
                         'text-sm leading-relaxed',
@@ -175,7 +176,9 @@ function ThoughtNode({
                         'transition-colors duration-200',
                     )}
                 >
-                    {node.question}
+                    {(isActive || node.state === 'PROBING')
+                        ? (node.question || node.text)
+                        : (node.concept || node.processing?.topic || 'Tension Point')}
                 </span>
 
                 {/* Answer indicator (if resolved) */}

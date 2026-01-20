@@ -79,6 +79,9 @@ function DecisionWorkspaceView() {
     const { isAuthenticated, user } = useAuthContext();
     const { setNavVisible } = useOutletContext<ContextType>();
 
+    // Theme context
+    const { theme } = useContext(ThemeContext);
+
     // Hide sidebar when entering decision workspace
     useEffect(() => {
         setNavVisible(false);
@@ -223,7 +226,10 @@ function DecisionWorkspaceView() {
 
                 {/* Left: User greeting or session title */}
                 <div className="pointer-events-auto">
-                    <h1 className="text-sm font-medium text-white/50">
+                    <h1 className={cn(
+                        'text-sm font-medium',
+                        isDark(theme) ? 'text-white/50' : 'text-black/50',
+                    )}>
                         {user?.name ? `${user.name}'s decision space` : 'Decision space'}
                     </h1>
                 </div>

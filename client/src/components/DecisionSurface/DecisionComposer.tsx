@@ -1,6 +1,6 @@
-import { memo, useCallback, useRef, useState, useEffect } from 'react';
+import { memo, useCallback, useRef, useState, useEffect, useContext } from 'react';
 import { animated, useSpring } from '@react-spring/web';
-import { TextareaAutosize } from '@librechat/client';
+import { TextareaAutosize, ThemeContext, isDark } from '@librechat/client';
 import { Paperclip, Mic } from 'lucide-react';
 import { cn, removeFocusRings } from '~/utils';
 import { COMPOSER } from './nodeMotionConfig';
@@ -27,6 +27,10 @@ function DecisionComposer({
     const [value, setValue] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [hasAnimatedIn, setHasAnimatedIn] = useState(!animateIn);
+
+    // Theme context for dark/light mode
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Spring animation for position and scale
     const [springStyle, api] = useSpring(() => ({
@@ -133,22 +137,30 @@ function DecisionComposer({
                     className={cn(
                         'relative flex items-center gap-2',
                         'rounded-full border px-4 py-3',
-                        'bg-white/5 backdrop-blur-md',
+                        'backdrop-blur-md',
                         'transition-all duration-200',
+                        isCurrentlyDark
+                            ? 'bg-white/5 border-white/10'
+                            : 'bg-white/80 border-black/10',
                         isFocused
-                            ? 'border-white/20 shadow-lg shadow-white/5'
-                            : 'border-white/10 shadow-md shadow-white/2',
+                            ? isCurrentlyDark
+                                ? 'border-white/20 shadow-lg shadow-white/5'
+                                : 'border-black/20 shadow-lg shadow-black/5'
+                            : isCurrentlyDark
+                                ? 'shadow-md shadow-white/2'
+                                : 'shadow-md shadow-black/5',
                         'min-w-[320px] max-w-[480px]',
                     )}
                 >
-                    {/* Attach icon (muted) */}
                     <button
                         type="button"
                         className={cn(
                             'flex-shrink-0 p-1.5 rounded-full',
-                            'text-white/30 hover:text-white/50',
                             'transition-colors duration-150',
-                            'focus:outline-none focus:ring-1 focus:ring-white/20',
+                            isCurrentlyDark
+                                ? 'text-white/30 hover:text-white/50 focus:ring-white/20'
+                                : 'text-black/30 hover:text-black/50 focus:ring-black/20',
+                            'focus:outline-none focus:ring-1',
                         )}
                         tabIndex={-1}
                     >
@@ -169,7 +181,9 @@ function DecisionComposer({
                         maxRows={4}
                         className={cn(
                             'flex-1 resize-none bg-transparent',
-                            'text-white/90 placeholder-white/40',
+                            isCurrentlyDark
+                                ? 'text-white/90 placeholder-white/40'
+                                : 'text-black/90 placeholder-black/40',
                             'text-sm leading-relaxed',
                             removeFocusRings,
                             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -177,27 +191,27 @@ function DecisionComposer({
                         style={{ minHeight: '24px' }}
                     />
 
-                    {/* Mic icon (muted) */}
                     <button
                         type="button"
                         className={cn(
                             'flex-shrink-0 p-1.5 rounded-full',
-                            'text-white/30 hover:text-white/50',
                             'transition-colors duration-150',
-                            'focus:outline-none focus:ring-1 focus:ring-white/20',
+                            isCurrentlyDark
+                                ? 'text-white/30 hover:text-white/50 focus:ring-white/20'
+                                : 'text-black/30 hover:text-black/50 focus:ring-black/20',
+                            'focus:outline-none focus:ring-1',
                         )}
                         tabIndex={-1}
                     >
                         <Mic className="h-4 w-4" />
                     </button>
 
-                    {/* Submit indicator (subtle) */}
                     {value.trim() && !isSubmitting && (
                         <div
                             className={cn(
                                 'absolute -right-1 -top-1',
                                 'h-2 w-2 rounded-full',
-                                'bg-white/30',
+                                isCurrentlyDark ? 'bg-white/30' : 'bg-black/30',
                                 'animate-pulse',
                             )}
                         />

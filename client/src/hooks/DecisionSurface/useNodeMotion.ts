@@ -19,6 +19,8 @@ import {
     DISENGAGE,
     SPAWN,
     ENDING,
+    TENSION, // Added
+    FADING,  // Added
     getRandomDriftAmplitude,
     getRandomDriftPeriod,
 } from '~/components/DecisionSurface/nodeMotionConfig';
@@ -39,6 +41,8 @@ interface UseNodeMotionOptions {
     disableDrift?: boolean;
     /** Node creation timestamp for stagger */
     createdAt?: number;
+    /** Node tension intensity (0-1) */
+    intensity?: number;
 }
 
 interface NodeMotionResult {
@@ -63,6 +67,7 @@ export function useNodeMotion({
     otherNodeActive,
     disableDrift = false,
     createdAt = 0,
+    intensity = 0.5,
 }: UseNodeMotionOptions): NodeMotionResult {
     // Session state for slowdown
     const sessionPhase = useRecoilValue(store.sessionPhaseAtom);
@@ -123,11 +128,11 @@ export function useNodeMotion({
 
     // Calculate target position based on state
     const targetPosition = useMemo(() => {
-        if (state === 'MERGED') {
+        if (state === 'MERGED' || state === 'DISSOLVED') {
             return basePosition; // Will be hidden anyway
         }
 
-        if (isActive) {
+        if (state === 'PROBING' || isActive) {
             // Move toward anchor by ENGAGE.TOWARD_ANCHOR_DISTANCE
             const dx = anchorPosition.x - basePosition.x;
             const dy = anchorPosition.y - basePosition.y;
@@ -142,7 +147,7 @@ export function useNodeMotion({
             };
         }
 
-        if (otherNodeActive && state === 'DORMANT') {
+        if (otherNodeActive && (state === 'DORMANT' || state === 'LATENT')) {
             // Move away from anchor by DISENGAGE.AWAY_FROM_ANCHOR_DISTANCE
             const dx = basePosition.x - anchorPosition.x;
             const dy = basePosition.y - anchorPosition.y;
@@ -162,7 +167,7 @@ export function useNodeMotion({
 
     // Idle drift animation loop with slowdown support
     useEffect(() => {
-        if (disableDrift || isActive || state === 'MERGED' || !hasSpawned) {
+        if (disableDrift || isActive || state === 'PROBING' || state === 'MERGED' || !hasSpawned) {
             setDriftOffset({ x: 0, y: 0 });
             return;
         }
@@ -202,44 +207,62 @@ export function useNodeMotion({
     // Spring for position
     const [positionSpring] = useSpring(
         () => ({
-            x: targetPosition.x + (disableDrift || isActive ? 0 : driftOffset.x),
-            y: targetPosition.y + (disableDrift || isActive ? 0 : driftOffset.y),
+            x: targetPosition.x + (disableDrift || isActive || state === 'PROBING' ? 0 : driftOffset.x),
+            y: targetPosition.y + (disableDrift || isActive || state === 'PROBING' ? 0 : driftOffset.y),
             config: {
                 tension: ENGAGE.SPRING_CONFIG.tension,
                 friction: ENGAGE.SPRING_CONFIG.friction,
             },
         }),
-        [targetPosition, driftOffset, disableDrift, isActive],
+        [targetPosition, driftOffset, disableDrift, isActive, state],
     );
 
     // Spring for visual properties with settling support
     const [visualSpring] = useSpring(
-        () => ({
-            opacity: !hasSpawned
-                ? 0
-                : state === 'MERGED'
-                    ? 0
-                    : fieldSettling
-                        ? 0.85
-                        : isActive
-                            ? ENGAGE.ACTIVE_OPACITY
-                            : otherNodeActive
-                                ? DISENGAGE.DIMMED_OPACITY
-                                : 1,
-            scale: !hasSpawned
-                ? SPAWN.INITIAL_SCALE * 0.9 // Start slightly smaller
-                : state === 'MERGED'
-                    ? 0.96
-                    : fieldSettling
-                        ? 0.98
-                        : 1,
-            borderAlpha: isActive ? ENGAGE.ACTIVE_BORDER_ALPHA : ENGAGE.DORMANT_BORDER_ALPHA,
-            config: {
-                tension: !hasSpawned ? 120 : fieldSettling ? 80 : ENGAGE.SPRING_CONFIG.tension,
-                friction: !hasSpawned ? 20 : fieldSettling ? 30 : ENGAGE.SPRING_CONFIG.friction,
-            },
-        }),
-        [state, isActive, otherNodeActive, fieldSettling, hasSpawned],
+        () => {
+            // Calculate opacity
+            let targetOpacity = 0;
+            if (!hasSpawned) targetOpacity = 0;
+            else if (state === 'MERGED' || state === 'DISSOLVED') targetOpacity = 0;
+            else if (state === 'FADING') targetOpacity = 0;
+            else if (isActive || state === 'PROBING') targetOpacity = TENSION.PROBING_OPACITY;
+            else if (otherNodeActive) targetOpacity = DISENGAGE.DIMMED_OPACITY;
+            else if (fieldSettling) targetOpacity = 0.85;
+            else {
+                // Tension-based opacity
+                targetOpacity = TENSION.MIN_OPACITY + (intensity * (TENSION.MAX_OPACITY - TENSION.MIN_OPACITY));
+            }
+
+            // Calculate scale
+            let targetScale = 1;
+            if (!hasSpawned) targetScale = SPAWN.INITIAL_SCALE * 0.9;
+            else if (state === 'MERGED' || state === 'DISSOLVED') targetScale = 0.96;
+            else if (state === 'FADING') targetScale = 0.85;
+            else if (isActive || state === 'PROBING') targetScale = TENSION.PROBING_SCALE_BOOST;
+            else if (fieldSettling) targetScale = 0.98;
+            else {
+                // Tension-based scale
+                targetScale = TENSION.MIN_SCALE + (intensity * (TENSION.MAX_SCALE - TENSION.MIN_SCALE));
+            }
+
+            // Calculate border (glow)
+            let targetBorderAlpha = 0;
+            if (isActive || state === 'PROBING') targetBorderAlpha = TENSION.MAX_BORDER_ALPHA;
+            else {
+                targetBorderAlpha = TENSION.MIN_BORDER_ALPHA + (intensity * (TENSION.MAX_BORDER_ALPHA - TENSION.MIN_BORDER_ALPHA));
+            }
+
+            return {
+                opacity: targetOpacity,
+                scale: targetScale,
+                borderAlpha: targetBorderAlpha,
+                config: {
+                    tension: !hasSpawned ? 120 : fieldSettling ? 80 : ENGAGE.SPRING_CONFIG.tension,
+                    friction: !hasSpawned ? 20 : fieldSettling ? 30 : ENGAGE.SPRING_CONFIG.friction,
+                },
+            };
+        },
+        [state, isActive, otherNodeActive, fieldSettling, hasSpawned, intensity],
     );
 
     return {

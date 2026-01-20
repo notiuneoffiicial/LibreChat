@@ -259,6 +259,120 @@ export const THROW = {
 } as const;
 
 // ============================================================================
+// Tension Field Dynamics - Clustering
+// ============================================================================
+
+export const CLUSTERING = {
+    /** Base attraction force constant */
+    ATTRACTION_CONSTANT: 50,
+
+    /** Minimum distance before attraction kicks in (px) */
+    MIN_DISTANCE: 60,
+
+    /** Maximum distance for attraction effect (px) */
+    MAX_DISTANCE: 400,
+
+    /** Damping factor for position updates (0-1) */
+    DAMPING: 0.15,
+
+    /** Distance threshold to consider points clustered (px) */
+    CLUSTER_DISTANCE_THRESHOLD: 120,
+
+    /** Update interval for field dynamics (ms) */
+    UPDATE_INTERVAL: 50,
+
+    /** Repulsion constant for very close points (prevents overlap) */
+    REPULSION_CONSTANT: 20,
+
+    /** Distance at which repulsion activates (px) */
+    REPULSION_DISTANCE: 80,
+
+    /** Spring config for cluster animations */
+    SPRING_CONFIG: { tension: 80, friction: 20 },
+} as const;
+
+// ============================================================================
+// Tension Field Dynamics - Fading (noise dissolution)
+// ============================================================================
+
+export const FADING = {
+    /** Intensity threshold below which points start fading */
+    INTENSITY_THRESHOLD: 0.2,
+
+    /** Fade rate per cycle (multiplier, < 1) */
+    FADE_RATE: 0.92,
+
+    /** Intensity at which point enters FADING state */
+    FADING_THRESHOLD: 0.1,
+
+    /** Intensity at which point is dissolved/removed */
+    DISSOLVE_THRESHOLD: 0.02,
+
+    /** Duration of fade-out animation (ms) */
+    FADE_DURATION: 800,
+
+    /** Minimum time before fading can start (ms) */
+    GRACE_PERIOD: 5000,
+
+    /** Signal threshold (points above this are protected) */
+    SIGNAL_THRESHOLD: 0.5,
+
+    /** Minimum affinities to be considered signal */
+    MIN_CONNECTIONS: 2,
+} as const;
+
+// ============================================================================
+// Tension Field Dynamics - Stability Detection
+// ============================================================================
+
+export const STABILITY = {
+    /** Duration before cluster is considered stable (ms) */
+    STABLE_DURATION: 3000,
+
+    /** Maximum movement per cycle to be considered stable (px) */
+    MOVEMENT_THRESHOLD: 5,
+
+    /** Dominance threshold for a cluster (0-1) */
+    DOMINANCE_THRESHOLD: 0.5,
+
+    /** Check interval for stability (ms) */
+    CHECK_INTERVAL: 500,
+} as const;
+
+// ============================================================================
+// Tension Intensity Visualization
+// ============================================================================
+
+export const TENSION = {
+    /** Minimum opacity for low-tension points */
+    MIN_OPACITY: 0.4,
+
+    /** Maximum opacity for high-tension points */
+    MAX_OPACITY: 1.0,
+
+    /** Minimum scale for low-tension points */
+    MIN_SCALE: 0.85,
+
+    /** Maximum scale for high-tension points */
+    MAX_SCALE: 1.05,
+
+    /** Glow intensity at max tension (0-1) */
+    MAX_GLOW: 0.5,
+
+    /** Border alpha at max tension */
+    MAX_BORDER_ALPHA: 0.25,
+
+    /** Border alpha at min tension */
+    MIN_BORDER_ALPHA: 0.05,
+
+    /** Probing node scale boost */
+    PROBING_SCALE_BOOST: 1.08,
+
+    /** Probing node opacity */
+    PROBING_OPACITY: 1.0,
+} as const;
+
+// ============================================================================
 // Loading Ripples (anticipation animation during AI processing)
 // ============================================================================
 
