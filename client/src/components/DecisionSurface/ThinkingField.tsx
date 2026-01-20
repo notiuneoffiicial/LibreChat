@@ -32,12 +32,6 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const { theme } = useContext(ThemeContext);
     const isCurrentlyDark = isDark(theme);
 
-    // Local state for active satellite
-    const [activeSatellite, setActiveSatellite] = useState<{
-        satellite: SatelliteNodeData;
-        parentId: string;
-    } | null>(null);
-
     // State from store
     const [composerSubmitted, setComposerSubmitted] = useRecoilState(store.composerSubmittedAtom);
     const [anchorPosition, setAnchorPosition] = useRecoilState(store.anchorPositionAtom);
@@ -59,7 +53,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const [softConfirmation, setSoftConfirmation] = useRecoilState(store.softConfirmationAtom);
 
     // Session state machine hook
-    const { submitDecision, selectNode, session, endSession } = useDecisionSession(conversationId);
+    const { submitDecision, selectNode, session, endSession, reopenSession } = useDecisionSession(conversationId);
 
     // Question engine hook
     const { processAnswer, isProcessing, regenerateQuestion, selectNextProbe } = useTensionProbe();
@@ -342,6 +336,21 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Escape Hatch (only in SILENT phase) */}
+            {sessionPhase === 'SILENT' && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 transform z-40 animate-in fade-in duration-1000">
+                    <button
+                        onClick={() => reopenSession()}
+                        className={cn(
+                            "text-xs transition-colors duration-300",
+                            isCurrentlyDark ? "text-white/20 hover:text-white/40" : "text-black/20 hover:text-black/40"
+                        )}
+                    >
+                        I have more to say...
+                    </button>
                 </div>
             )}
 

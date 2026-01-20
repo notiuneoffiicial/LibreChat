@@ -340,6 +340,39 @@ export const STABILITY = {
 } as const;
 
 // ============================================================================
+// Convergence Thresholds (for earned silence)
+// ============================================================================
+
+export const CONVERGENCE = {
+    /** Intensity below which a tension point is considered resolved */
+    RESOLUTION_THRESHOLD: 0.2,
+
+    /** Minimum resolved nodes before silence can be considered */
+    MIN_RESOLVED_NODES: 3,
+
+    /** Maximum active latent nodes allowed for silence */
+    MAX_ACTIVE_LATENT: 1,
+
+    /** Time window for confusion signals to block silence (ms) */
+    CONFUSION_WINDOW: 30000,
+
+    /** Dominance threshold for cluster stability check (0-1) */
+    CLUSTER_DOMINANCE_THRESHOLD: 0.5,
+
+    /** Tension release per 100 characters of answer (capped at 0.8) */
+    TENSION_RELEASE_RATE: 0.01,
+
+    /** Maximum tension release from a single answer */
+    MAX_TENSION_RELEASE: 0.8,
+
+    /** Delay before auto-selecting next probe after answer (ms) */
+    AUTO_PROBE_DELAY: 1500,
+
+    /** Delay before checking convergence after answer (ms) */
+    CONVERGENCE_CHECK_DELAY: 500,
+} as const;
+
+// ============================================================================
 // Tension Intensity Visualization
 // ============================================================================
 

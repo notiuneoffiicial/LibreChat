@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
 import { useSetRecoilState, useRecoilValue, useRecoilState } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
-import { getSpawnPosition, TENSION } from '~/components/DecisionSurface/nodeMotionConfig';
+import { getSpawnPosition, TENSION, CONVERGENCE } from '~/components/DecisionSurface/nodeMotionConfig';
 import { useDecisionStream } from './useDecisionStream';
 import { useBehaviorSignals } from './useBehaviorSignals';
 import type {
@@ -226,11 +226,16 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
             setError(null);
 
             try {
-                // Determine tension reduction (simulated for now)
-                // Longer/better answers reduce tension more
-                const tensionRelease = Math.min(0.8, answer.length / 100);
+                // Determine tension reduction based on answer length
+                const tensionRelease = Math.min(
+                    CONVERGENCE.MAX_TENSION_RELEASE,
+                    answer.length * CONVERGENCE.TENSION_RELEASE_RATE
+                );
 
                 const result = await simulateAnswerProcessing(question, answer);
+
+                // Track if this answer resolves the node (for loop handling below)
+                let nodeWasResolved = false;
 
                 setThoughtNodes((prev) =>
                     prev.map((node) => {
@@ -239,14 +244,15 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                         const currentIntensity = node.intensity || 0.5;
                         const newIntensity = Math.max(0, currentIntensity - tensionRelease);
 
-                        // If intensity is very low, mark resolved, otherwise back to latent
-                        const isResolved = newIntensity < 0.2;
+                        // If intensity is very low, mark resolved
+                        const isResolved = newIntensity < CONVERGENCE.RESOLUTION_THRESHOLD;
+                        nodeWasResolved = isResolved; // Capture for outer scope
 
                         return {
                             ...node,
                             answer,
                             intensity: newIntensity,
-                            state: (isResolved ? 'RESOLVED' : 'LATENT') as any, // Cast for safety
+                            state: isResolved ? 'RESOLVED' : 'LATENT' as NodeState,
                             resolvedAt: isResolved ? Date.now() : undefined,
                             signals: [...node.signals, ...result.signals],
                         };
@@ -271,7 +277,7 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                             status: 'open',
                         }
                     ]);
-                } else if ((newIntensity < 0.2)) {
+                } else if (nodeWasResolved) {
                     // Resolve loops if node is resolved
                     setOpenLoops(prev => prev.map(loop =>
                         loop.tensionPointId === nodeId && loop.status === 'open'
@@ -288,7 +294,7 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                 // Auto-select next probe after short delay
                 setTimeout(() => {
                     selectNextProbe();
-                }, 1500);
+                }, CONVERGENCE.AUTO_PROBE_DELAY);
 
                 return result;
             } catch (err) {

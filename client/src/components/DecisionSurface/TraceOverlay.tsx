@@ -7,7 +7,7 @@
 
 import { memo, useCallback } from 'react';
 import { animated, useSpring, useTransition } from '@react-spring/web';
-import { X, Clock, Lightbulb, Ban, CheckCircle, GitMerge, TrendingUp } from 'lucide-react';
+import { X, Clock, Lightbulb, Ban, CheckCircle, GitMerge, TrendingUp, Target, Link2, Layers, Power } from 'lucide-react';
 import { cn } from '~/utils';
 import type { TraceOverlayProps, MilestoneType } from '~/common/DecisionSession.types';
 
@@ -21,6 +21,11 @@ const MILESTONE_ICONS: Record<MilestoneType, typeof Clock> = {
     insight_formed: Lightbulb,
     nodes_merged: GitMerge,
     leaning_shifted: TrendingUp,
+    // Tension model milestones
+    session_ended: Power,
+    tension_resolved: Target,
+    loop_closed: Link2,
+    cluster_formed: Layers,
 };
 
 /**
@@ -33,6 +38,11 @@ const MILESTONE_LABELS: Record<MilestoneType, string> = {
     insight_formed: 'Insight formed',
     nodes_merged: 'Paths merged',
     leaning_shifted: 'Leaning shifted',
+    // Tension model milestones
+    session_ended: 'Session completed',
+    tension_resolved: 'Tension resolved',
+    loop_closed: 'Open loop closed',
+    cluster_formed: 'Cluster emerged',
 };
 
 /**

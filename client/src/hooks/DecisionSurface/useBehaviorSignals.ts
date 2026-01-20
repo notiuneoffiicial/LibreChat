@@ -1,10 +1,10 @@
 import { useCallback, useRef } from 'react';
-import { useRecoilState } from 'recoil';
+import { useSetRecoilState } from 'recoil';
 import store from '~/store';
 import type { BehaviorSignal } from '~/common/DecisionSession.types';
 
 export function useBehaviorSignals() {
-    const [signals, setSignals] = useRecoilState(store.behaviorSignalsAtom);
+    const setSignals = useSetRecoilState(store.behaviorSignalsAtom);
     const startTimeRef = useRef<number | null>(null);
 
     const startTracking = useCallback(() => {

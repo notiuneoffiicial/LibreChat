@@ -9,8 +9,10 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
-import { getSpawnPosition } from '~/components/DecisionSurface/nodeMotionConfig';
+import { getSpawnPosition, CONVERGENCE } from '~/components/DecisionSurface/nodeMotionConfig';
 import { useTensionProbe } from './useTensionProbe';
+import { useConvergence } from './useConvergence';
+import { useBehaviorSignals } from './useBehaviorSignals';
 import type {
     DecisionSession,
     SessionPhase,
@@ -43,6 +45,8 @@ export function useDecisionSession(conversationId?: string) {
 
     // Question engine for real AI-powered question generation (uses SSE stream)
     const { generateInitialTensionPoints } = useTensionProbe();
+    const { checkConvergence, generateConfirmationStatement } = useConvergence();
+    const { startTracking } = useBehaviorSignals();
 
     /**
      * Initialize a new session
@@ -71,6 +75,8 @@ export function useDecisionSession(conversationId?: string) {
             setComposerSubmitted(false);
             setFieldSettling(false);
             setSessionEndingState(null);
+            setOpenLoops([]); // Reset open loops for new session
+            setSoftConfirmation(null); // Reset soft confirmation
             return newSession;
         },
         [
@@ -83,6 +89,8 @@ export function useDecisionSession(conversationId?: string) {
             setComposerSubmitted,
             setFieldSettling,
             setSessionEndingState,
+            setOpenLoops,
+            setSoftConfirmation,
         ],
     );
 
@@ -244,8 +252,9 @@ export function useDecisionSession(conversationId?: string) {
             );
 
             setActiveNodeId(nodeId);
+            startTracking(); // Start tracking response behavior for this probe
         },
-        [nodes, setNodes, setActiveNodeId],
+        [nodes, setNodes, setActiveNodeId, startTracking],
     );
 
     /**
@@ -283,7 +292,7 @@ export function useDecisionSession(conversationId?: string) {
             // Check for convergence after a delay (let state update)
             setTimeout(() => {
                 checkAndTriggerConvergence();
-            }, 500);
+            }, CONVERGENCE.CONVERGENCE_CHECK_DELAY);
         },
         [nodes, setNodes, setActiveNodeId, addMilestone],
     );
@@ -292,35 +301,18 @@ export function useDecisionSession(conversationId?: string) {
      * Check if session should converge and trigger soft confirmation
      */
     const checkAndTriggerConvergence = useCallback(() => {
-        // We need to check open loops and node states
-        // Since we are inside a callback, we might not have the freshest atom state if we don't use the functional setter or refs
-        // But here we rely on the component re-render cycle for 'openLoops' from the top of the hook
+        // Use external convergence logic which checks loops, resolved nodes, and behavior
+        const canConverge = checkConvergence();
 
-        if (openLoops.some(l => l.status === 'open')) return;
-
-        setNodes((currentNodes) => {
-            const resolvedNodes = currentNodes.filter((n) => n.state === 'RESOLVED');
-            const dormant = currentNodes.filter((n) => n.state === 'LATENT' || n.state === 'DORMANT'); // Update to check LATENT
-
-            // All primary nodes resolved? (or at least significant progress)
-            // Tension model: Maybe we don't need *all* latent nodes gone, but high resolved count
-            if (resolvedNodes.length >= 3 && dormant.length <= 1) {
-                // Check session state for ending type
-                const hasUnresolvedAssumptions = session?.assumptions?.some((a) => !a.resolved);
-
-                // Trigger Soft Confirmation instead of immediate ending
-                if (!softConfirmation) {
-                    setSoftConfirmation({
-                        statement: "It seems like you've explored the core aspects of this decision. Ready to summarize?",
-                        shownAt: Date.now()
-                    });
-                    console.log('[useDecisionSession] Triggering Soft Confirmation');
-                }
-            }
-
-            return currentNodes; // No change, just reading
-        });
-    }, [session, setNodes, openLoops, softConfirmation, setSoftConfirmation]);
+        if (canConverge && !softConfirmation) {
+            const statement = generateConfirmationStatement();
+            setSoftConfirmation({
+                statement,
+                shownAt: Date.now()
+            });
+            console.log('[useDecisionSession] Triggering Soft Confirmation');
+        }
+    }, [checkConvergence, generateConfirmationStatement, softConfirmation, setSoftConfirmation]);
 
     /**
      * Handle TRIGGER_MERGE event
@@ -473,6 +465,7 @@ export function useDecisionSession(conversationId?: string) {
         updateLeaning,
         endSession,
         addMilestone,
+        reopenSession: () => setPhase('EXPLORING'),
     };
 }
 
