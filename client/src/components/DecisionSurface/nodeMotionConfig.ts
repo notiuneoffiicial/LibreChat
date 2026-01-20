@@ -191,8 +191,11 @@ export const COMPOSER = {
 // ============================================================================
 
 export const FIELD = {
-    /** Background color (dark, subtle) */
-    BACKGROUND_COLOR: 'hsl(220, 15%, 8%)',
+    /** Background color - dark mode (dark, subtle) */
+    BACKGROUND_COLOR_DARK: 'hsl(220, 15%, 8%)',
+
+    /** Background color - light mode (base for animated gradient) */
+    BACKGROUND_COLOR_LIGHT: '#fafafa',
 
     /** Grain opacity */
     GRAIN_OPACITY: 0.03,

@@ -6,10 +6,11 @@
  * Minimal wrapper — no sidebars, no header by default.
  */
 
-import { memo, useEffect, useCallback, useState } from 'react';
+import { memo, useEffect, useCallback, useState, useContext } from 'react';
 import { useParams, useOutletContext } from 'react-router-dom';
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
-import { Spinner } from '@librechat/client';
+import { Spinner, ThemeContext, isDark } from '@librechat/client';
+import { Sun, Moon } from 'lucide-react';
 import type { ContextType } from '~/common';
 import {
     ThinkingField,
@@ -24,6 +25,44 @@ import { useDecisionSession } from '~/hooks/DecisionSurface';
 import { useAuthContext } from '~/hooks';
 import store from '~/store';
 import { cn } from '~/utils';
+
+/**
+ * Theme Toggle Button - switches between dark and light mode
+ * Positioned in the bottom right corner of the decision workspace
+ */
+function ThemeToggleButton() {
+    const { theme, setTheme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
+
+    const toggleTheme = useCallback(() => {
+        setTheme(isCurrentlyDark ? 'light' : 'dark');
+    }, [isCurrentlyDark, setTheme]);
+
+    return (
+        <button
+            onClick={toggleTheme}
+            className={cn(
+                'absolute bottom-4 right-4 z-50',
+                'flex h-10 w-10 items-center justify-center',
+                'rounded-full transition-all duration-300',
+                'backdrop-blur-md',
+                isCurrentlyDark
+                    ? 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    : 'bg-black/10 text-black/70 hover:bg-black/20 hover:text-black',
+                'shadow-lg',
+                'focus:outline-none focus:ring-2 focus:ring-offset-2',
+                isCurrentlyDark ? 'focus:ring-white/30' : 'focus:ring-black/30',
+            )}
+            aria-label={isCurrentlyDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+            {isCurrentlyDark ? (
+                <Sun className="h-5 w-5" />
+            ) : (
+                <Moon className="h-5 w-5" />
+            )}
+        </button>
+    );
+}
 
 /**
  * DecisionWorkspaceView - The living decision surface route
@@ -232,12 +271,15 @@ function DecisionWorkspaceView() {
 
             {/* Phase indicator (dev mode) */}
             {process.env.NODE_ENV === 'development' && (
-                <div className="absolute bottom-4 right-4 z-50">
+                <div className="absolute bottom-14 right-4 z-50">
                     <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-white/40">
                         Phase: {phase}
                     </span>
                 </div>
             )}
+
+            {/* Dark/Light Mode Toggle */}
+            <ThemeToggleButton />
 
             {/* Settings modal */}
             <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />

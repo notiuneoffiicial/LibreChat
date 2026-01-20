@@ -5,9 +5,10 @@
  * "A calm, almost empty field... the system responds to me, not the other way around"
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useContext } from 'react';
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
+import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
 import { useDecisionSession, useQuestionEngine, useDecisionChat } from '~/hooks/DecisionSurface';
@@ -27,6 +28,10 @@ import LoadingRipples from './LoadingRipples';
 function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+    // Theme context for dark/light mode
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Local state for active satellite
     const [activeSatellite, setActiveSatellite] = useState<{
@@ -254,8 +259,14 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 'relative h-full w-full overflow-hidden',
                 'transition-all duration-500',
                 fieldSettling && 'opacity-95',
+                // Apply animated gradient class for light mode
+                !isCurrentlyDark && 'optimism-animated-gradient',
             )}
-            style={{ backgroundColor: FIELD.BACKGROUND_COLOR }}
+            style={{
+                backgroundColor: isCurrentlyDark
+                    ? FIELD.BACKGROUND_COLOR_DARK
+                    : FIELD.BACKGROUND_COLOR_LIGHT,
+            }}
         >
             {/* Grain texture */}
             <div
