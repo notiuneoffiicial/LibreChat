@@ -11,11 +11,14 @@
 // ============================================================================
 
 export const SPAWN = {
-    /** Radius from anchor point for initial 3 nodes (px) */
+    /** Radius from anchor point for initial nodes (px) */
     RADIUS: 220,
 
-    /** Angles for the 3 primary nodes (degrees) */
-    ANGLES: [-20, 110, 230] as const,
+    /** Use dynamic 360° distribution instead of fixed angles */
+    USE_FULL_CIRCLE: true,
+
+    /** Fallback angles for 3 primary nodes if not using full circle (degrees) */
+    ANGLES: [90, 210, 330] as const, // Balanced: top, bottom-left, bottom-right
 
     /** Random jitter range per axis (±px) */
     JITTER_RANGE: 18,
@@ -28,6 +31,12 @@ export const SPAWN = {
 
     /** Final scale after spawn animation */
     FINAL_SCALE: 1.0,
+
+    /** Left toolbar width to avoid (px) */
+    TOOLBAR_AVOID_WIDTH: 80,
+
+    /** Minimum padding from any edge (px) */
+    EDGE_PADDING: 60,
 } as const;
 
 // ============================================================================
@@ -477,18 +486,46 @@ export function getJitteredPosition(
 
 /**
  * Calculate spawn position for a node at given index
+ * Uses 360° distribution with avoidance for left toolbar area
  */
 export function getSpawnPosition(
     index: number,
     anchorX: number,
-    anchorY: number
+    anchorY: number,
+    nodeCount: number = 3
 ): { x: number; y: number } {
-    const angleIndex = index % SPAWN.ANGLES.length;
-    const angleDeg = SPAWN.ANGLES[angleIndex];
+    let angleDeg: number;
+
+    if (SPAWN.USE_FULL_CIRCLE) {
+        // Distribute evenly around 360°, offset by 90° so first node is at top
+        const baseAngle = 90; // Start from top (90° in standard coords)
+        angleDeg = baseAngle + (360 / Math.max(nodeCount, 1)) * index;
+
+        // Add slight random offset to prevent perfect symmetry
+        angleDeg += (Math.random() - 0.5) * 20;
+    } else {
+        // Fallback to predefined angles
+        const angleIndex = index % SPAWN.ANGLES.length;
+        angleDeg = SPAWN.ANGLES[angleIndex];
+    }
+
     const angleRad = (angleDeg * Math.PI) / 180;
 
-    const baseX = anchorX + SPAWN.RADIUS * Math.cos(angleRad);
-    const baseY = anchorY + SPAWN.RADIUS * Math.sin(angleRad);
+    let baseX = anchorX + SPAWN.RADIUS * Math.cos(angleRad);
+    let baseY = anchorY + SPAWN.RADIUS * Math.sin(angleRad);
+
+    // Toolbar avoidance: if too far left, push right
+    if (baseX < SPAWN.TOOLBAR_AVOID_WIDTH + SPAWN.EDGE_PADDING) {
+        baseX = SPAWN.TOOLBAR_AVOID_WIDTH + SPAWN.EDGE_PADDING + Math.random() * 40;
+    }
+
+    // Edge avoidance: keep nodes within reasonable bounds
+    // Assume viewport is roughly 1200x800 as fallback
+    const maxX = (typeof window !== 'undefined' ? window.innerWidth : 1200) - SPAWN.EDGE_PADDING;
+    const maxY = (typeof window !== 'undefined' ? window.innerHeight : 800) - SPAWN.EDGE_PADDING;
+
+    baseX = Math.max(SPAWN.TOOLBAR_AVOID_WIDTH + SPAWN.EDGE_PADDING, Math.min(baseX, maxX));
+    baseY = Math.max(SPAWN.EDGE_PADDING, Math.min(baseY, maxY));
 
     return getJitteredPosition(baseX, baseY);
 }

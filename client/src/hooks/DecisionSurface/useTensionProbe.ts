@@ -100,7 +100,7 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     intensity: 0.4 + (Math.random() * 0.4), // Random intensity 0.4-0.8 for start
                     category: getCategoryFromTopic(q.category),
                     expectedInfoType: q.expectedType,
-                    position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y),
+                    position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y, result.questions.length),
                     satellites: [],
                     signals: [],
                     affinities: new Map(),

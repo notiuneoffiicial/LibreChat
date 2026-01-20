@@ -158,7 +158,7 @@ export function useDecisionSession(conversationId?: string) {
                 topicKey: q.topicKey,
                 category: q.category,
                 expectedInfoType: q.expectedInfoType,
-                position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y),
+                position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y, questions.length),
                 intensity: 0.6, // Default intensity
                 satellites: [],
                 signals: [],
