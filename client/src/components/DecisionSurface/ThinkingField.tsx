@@ -145,10 +145,16 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         [thoughtNodes, storeAnswer, processAnswer, setActiveNodeId],
     );
 
-    // Handle answer dismiss
+    // Handle answer dismiss - reset node state and clear selection
     const handleAnswerDismiss = useCallback(() => {
+        // Reset any PROBING node back to LATENT
+        setThoughtNodes((prev) =>
+            prev.map((n) =>
+                n.state === 'PROBING' ? { ...n, state: 'LATENT' as const } : n
+            )
+        );
         setActiveNodeId(null);
-    }, [setActiveNodeId]);
+    }, [setThoughtNodes, setActiveNodeId]);
 
     // Open trace overlay
     const handleOpenTrace = useCallback(() => {

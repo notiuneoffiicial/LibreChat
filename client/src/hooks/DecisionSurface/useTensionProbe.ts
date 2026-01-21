@@ -157,15 +157,20 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
             );
 
             // If we found one, update its state to PROBING
+            // Also reset any other PROBING nodes to LATENT
             if (nextProbe) {
                 console.log('[useTensionProbe] Selected next probe:', nextProbe.id);
                 setActiveNodeId(nextProbe.id);
                 startTracking(); // Start tracking response behavior
-                return currentNodes.map(n =>
-                    n.id === nextProbe.id
-                        ? { ...n, state: 'PROBING' as const }
-                        : n
-                );
+                return currentNodes.map(n => {
+                    if (n.id === nextProbe.id) {
+                        return { ...n, state: 'PROBING' as const };
+                    } else if (n.state === 'PROBING') {
+                        // Reset any other PROBING node back to LATENT
+                        return { ...n, state: 'LATENT' as const };
+                    }
+                    return n;
+                });
             }
 
             return currentNodes;
