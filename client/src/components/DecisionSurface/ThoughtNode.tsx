@@ -214,7 +214,7 @@ function ThoughtNode({
                 {node.signals.length > 0 && (
                     <div className="absolute -right-1 -top-1 flex gap-0.5">
                         {node.signals.map((signal, idx) => (
-                            <SignalIndicator key={idx} signal={signal} />
+                            <SignalIndicator key={idx} signal={signal} isCurrentlyDark={isCurrentlyDark} />
                         ))}
                     </div>
                 )}
@@ -238,14 +238,16 @@ function ThoughtNode({
  * SignalIndicator - Tiny ambient signal glyph
  * Shows on hover with tooltip
  */
-function SignalIndicator({ signal }: { signal: NodeSignal }) {
+function SignalIndicator({ signal, isCurrentlyDark = true }: { signal: NodeSignal; isCurrentlyDark?: boolean }) {
     return (
         <span
             className={cn(
                 'inline-flex items-center justify-center',
                 'h-4 w-4 rounded-full',
-                'bg-white/10 text-[10px] text-white/50',
-                'cursor-help',
+                'text-[10px] cursor-help',
+                isCurrentlyDark
+                    ? 'bg-white/10 text-white/50'
+                    : 'bg-black/5 text-slate-500',
             )}
             title={signal.description}
         >

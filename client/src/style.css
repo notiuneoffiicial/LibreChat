@@ -679,11 +679,11 @@ p>small {
 }
 
 .optimism-animated-gradient {
-  /* Subtle corner accents instead of full background shift */
+  /* Subtle corner accents with OptimismAI brand colors */
   background:
-    radial-gradient(ellipse at top left, rgba(138, 67, 225, 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, rgba(239, 123, 22, 0.03) 0%, transparent 50%);
-  /* No animation - static subtle accents for performance */
+    radial-gradient(ellipse at top left, rgba(138, 67, 225, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(239, 123, 22, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at top right, rgba(213, 17, 253, 0.05) 0%, transparent 40%);
 }
 
 blockquote,

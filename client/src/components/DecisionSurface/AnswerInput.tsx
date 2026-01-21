@@ -6,10 +6,10 @@
  * Enables focused, one-at-a-time answering.
  */
 
-import { memo, useCallback, useRef, useState, useEffect } from 'react';
+import { memo, useCallback, useRef, useState, useEffect, useContext } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import { Send, X } from 'lucide-react';
-import { TextareaAutosize } from '@librechat/client';
+import { TextareaAutosize, ThemeContext, isDark } from '@librechat/client';
 import { cn, removeFocusRings } from '~/utils';
 import type { ThoughtNodeData } from '~/common/DecisionSession.types';
 
@@ -50,6 +50,10 @@ function AnswerInput({
 }: AnswerInputProps) {
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const [value, setValue] = useState('');
+
+    // Theme context
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Reset value when node changes
     useEffect(() => {
@@ -100,14 +104,16 @@ function AnswerInput({
                 transform: spring.y.to((y) => `translateY(${y}%)`),
             }}
         >
-            {/* Panel */}
             <div
                 className={cn(
                     'mx-auto max-w-2xl',
                     'rounded-t-2xl px-6 py-5',
-                    'bg-surface-primary/95 backdrop-blur-xl',
-                    'border border-white/10 border-b-0',
+                    'backdrop-blur-xl',
+                    'border border-b-0',
                     'shadow-2xl',
+                    isCurrentlyDark
+                        ? 'bg-surface-primary/95 border-white/10'
+                        : 'bg-white/95 border-black/10',
                 )}
             >
                 {/* Header with question */}
@@ -116,26 +122,31 @@ function AnswerInput({
                         {/* Topic badge */}
                         <span
                             className={cn(
-                                'inline-block rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider',
-                                'bg-white/10 text-white/60 mb-2',
+                                'inline-block rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider mb-2',
+                                isCurrentlyDark
+                                    ? 'bg-white/10 text-white/60'
+                                    : 'bg-black/5 text-slate-500',
                             )}
                         >
                             {node.topicKey}
                         </span>
                         {/* Question */}
-                        <p className="text-sm font-medium text-white/90 leading-relaxed">
+                        <p className={cn(
+                            'text-sm font-medium leading-relaxed',
+                            isCurrentlyDark ? 'text-white/90' : 'text-slate-800',
+                        )}>
                             {node.question}
                         </p>
                     </div>
 
-                    {/* Dismiss button */}
                     <button
                         onClick={onDismiss}
                         className={cn(
                             'flex-shrink-0 p-1.5 rounded-full',
-                            'text-white/40 hover:text-white/60',
-                            'hover:bg-white/10',
                             'transition-colors duration-150',
+                            isCurrentlyDark
+                                ? 'text-white/40 hover:text-white/60 hover:bg-white/10'
+                                : 'text-slate-400 hover:text-slate-600 hover:bg-black/10',
                         )}
                     >
                         <X className="h-4 w-4" />
@@ -147,9 +158,10 @@ function AnswerInput({
                     className={cn(
                         'relative flex items-end gap-3',
                         'rounded-xl border px-4 py-3',
-                        'bg-white/5',
-                        'border-white/10 focus-within:border-white/20',
                         'transition-colors duration-200',
+                        isCurrentlyDark
+                            ? 'bg-white/5 border-white/10 focus-within:border-white/20'
+                            : 'bg-black/5 border-black/10 focus-within:border-black/20',
                     )}
                 >
                     <TextareaAutosize
@@ -163,10 +175,12 @@ function AnswerInput({
                         maxRows={6}
                         className={cn(
                             'flex-1 resize-none bg-transparent',
-                            'text-white/90 placeholder-white/40',
                             'text-sm leading-relaxed',
                             removeFocusRings,
                             'disabled:cursor-not-allowed disabled:opacity-50',
+                            isCurrentlyDark
+                                ? 'text-white/90 placeholder-white/40'
+                                : 'text-slate-800 placeholder-slate-400',
                         )}
                     />
 
@@ -178,24 +192,36 @@ function AnswerInput({
                             'flex-shrink-0 p-2 rounded-lg',
                             'transition-all duration-150',
                             value.trim() && !isProcessing
-                                ? 'bg-white/20 text-white hover:bg-white/30'
-                                : 'bg-white/5 text-white/30 cursor-not-allowed',
+                                ? isCurrentlyDark
+                                    ? 'bg-white/20 text-white hover:bg-white/30'
+                                    : 'bg-black/10 text-slate-700 hover:bg-black/20'
+                                : isCurrentlyDark
+                                    ? 'bg-white/5 text-white/30 cursor-not-allowed'
+                                    : 'bg-black/5 text-slate-300 cursor-not-allowed',
                         )}
                     >
                         <Send className="h-4 w-4" />
                     </button>
                 </div>
 
-                {/* Processing indicator */}
                 {isProcessing && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-white/50">
-                        <div className="h-2 w-2 rounded-full bg-white/40 animate-pulse" />
+                    <div className={cn(
+                        'mt-3 flex items-center gap-2 text-xs',
+                        isCurrentlyDark ? 'text-white/50' : 'text-slate-500',
+                    )}>
+                        <div className={cn(
+                            'h-2 w-2 rounded-full animate-pulse',
+                            isCurrentlyDark ? 'bg-white/40' : 'bg-slate-400',
+                        )} />
                         Processing your response...
                     </div>
                 )}
 
                 {/* Hint */}
-                <p className="mt-3 text-[10px] text-white/30">
+                <p className={cn(
+                    'mt-3 text-[10px]',
+                    isCurrentlyDark ? 'text-white/30' : 'text-slate-400',
+                )}>
                     Press Enter to submit • Shift+Enter for new line • Esc to dismiss
                 </p>
             </div>
