@@ -6,8 +6,9 @@
  * lightly labeled, not titled like a feature."
  */
 
-import { memo, useCallback, useRef, useMemo } from 'react';
+import { memo, useCallback, useRef, useMemo, useContext } from 'react';
 import { animated, useSpring } from '@react-spring/web';
+import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import { useNodeMotion, useDragToThrow } from '~/hooks/DecisionSurface';
 import { THROW, TENSION } from './nodeMotionConfig';
@@ -65,6 +66,10 @@ function ThoughtNode({
     enableDrag = true,
 }: ExtendedThoughtNodeProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Theme context
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Use the motion hook for all animation
     const { animatedPosition, opacity, scale, borderAlpha } = useNodeMotion({
@@ -141,23 +146,31 @@ function ThoughtNode({
             onClick={handleClick}
             {...(canDrag ? dragHandlers : {})}
         >
-            {/* Node container */}
             <animated.div
                 className={cn(
                     'relative px-4 py-3 rounded-2xl',
-                    'bg-white/5 backdrop-blur-md',
+                    'backdrop-blur-md',
                     'border transition-all duration-200',
-                    isActive && 'ring-1 ring-white/10',
-                    isDragging && 'ring-2 ring-white/20',
-                    'select-none', // Prevent text selection during drag
+                    isCurrentlyDark ? 'bg-white/5' : 'bg-white/80',
+                    isActive && (isCurrentlyDark ? 'ring-1 ring-white/10' : 'ring-1 ring-black/10'),
+                    isDragging && (isCurrentlyDark ? 'ring-2 ring-white/20' : 'ring-2 ring-black/20'),
+                    'select-none',
                 )}
                 style={{
-                    borderColor: borderAlpha.to((a: number) => `rgba(255, 255, 255, ${a})`),
+                    borderColor: borderAlpha.to((a: number) =>
+                        isCurrentlyDark ? `rgba(255, 255, 255, ${a})` : `rgba(0, 0, 0, ${a * 0.3})`
+                    ),
                     boxShadow: isDragging
-                        ? '0 16px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                        ? isCurrentlyDark
+                            ? '0 16px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                            : '0 16px 48px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05)'
                         : isActive
-                            ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-                            : '0 4px 16px rgba(0, 0, 0, 0.2)',
+                            ? isCurrentlyDark
+                                ? '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                                : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.03)'
+                            : isCurrentlyDark
+                                ? '0 4px 16px rgba(0, 0, 0, 0.2)'
+                                : '0 4px 16px rgba(0, 0, 0, 0.08)',
                 }}
             >
                 {/* Topic glyph with color */}
@@ -172,7 +185,9 @@ function ThoughtNode({
                 <span
                     className={cn(
                         'text-sm leading-relaxed',
-                        isActive ? 'text-white/95' : 'text-white/80',
+                        isCurrentlyDark
+                            ? (isActive ? 'text-white/95' : 'text-white/80')
+                            : (isActive ? 'text-slate-900' : 'text-slate-700'),
                         'transition-colors duration-200',
                     )}
                 >
@@ -181,10 +196,15 @@ function ThoughtNode({
                         : (node.concept || node.processing?.topic || 'Tension Point')}
                 </span>
 
-                {/* Answer indicator (if resolved) */}
                 {node.state === 'RESOLVED' && node.answer && (
-                    <div className="mt-2 pt-2 border-t border-white/10">
-                        <span className="text-xs text-white/50 line-clamp-2">
+                    <div className={cn(
+                        'mt-2 pt-2 border-t',
+                        isCurrentlyDark ? 'border-white/10' : 'border-black/10'
+                    )}>
+                        <span className={cn(
+                            'text-xs line-clamp-2',
+                            isCurrentlyDark ? 'text-white/50' : 'text-slate-500'
+                        )}>
                             {node.answer}
                         </span>
                     </div>
@@ -199,10 +219,12 @@ function ThoughtNode({
                     </div>
                 )}
 
-                {/* Drag hint - shows when node is draggable but not being dragged */}
                 {canDrag && !isDragging && (
                     <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-[10px] text-white/30 whitespace-nowrap">
+                        <span className={cn(
+                            'text-[10px] whitespace-nowrap',
+                            isCurrentlyDark ? 'text-white/30' : 'text-black/30'
+                        )}>
                             Drag to regenerate
                         </span>
                     </div>

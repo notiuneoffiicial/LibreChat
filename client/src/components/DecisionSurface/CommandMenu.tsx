@@ -5,7 +5,7 @@
  * Provides quick access to essential actions without sidebars.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -17,6 +17,7 @@ import {
     Clock,
     X,
 } from 'lucide-react';
+import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 
 export interface CommandMenuProps {
@@ -53,6 +54,10 @@ function CommandMenu({
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+
+    // Theme context
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -145,16 +150,16 @@ function CommandMenu({
 
     return (
         <div ref={menuRef} className={cn('relative', className)}>
-            {/* Trigger Button */}
             <motion.button
                 onClick={toggleMenu}
                 className={cn(
                     'p-2 rounded-full',
-                    'text-white/40 hover:text-white/70',
-                    'hover:bg-white/10',
                     'transition-colors duration-150',
-                    'focus:outline-none focus:ring-2 focus:ring-white/20',
-                    isOpen && 'bg-white/10 text-white/70',
+                    isCurrentlyDark
+                        ? 'text-white/40 hover:text-white/70 hover:bg-white/10 focus:ring-white/20'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-black/10 focus:ring-black/20',
+                    'focus:outline-none focus:ring-2',
+                    isOpen && (isCurrentlyDark ? 'bg-white/10 text-white/70' : 'bg-black/10 text-slate-700'),
                 )}
                 whileTap={{ scale: 0.95 }}
                 aria-label="Open menu"
@@ -213,11 +218,13 @@ function CommandMenu({
                             'absolute right-0 top-full mt-2',
                             'min-w-[180px]',
                             'rounded-xl',
-                            'bg-black/80 backdrop-blur-xl',
-                            'border border-white/10',
-                            'shadow-2xl shadow-black/50',
+                            'backdrop-blur-xl',
+                            'shadow-2xl',
                             'overflow-hidden',
                             'z-50',
+                            isCurrentlyDark
+                                ? 'bg-black/80 border border-white/10 shadow-black/50'
+                                : 'bg-white/95 border border-black/10 shadow-black/20',
                         )}
                     >
                         <div className="py-2">
@@ -237,10 +244,12 @@ function CommandMenu({
                                         'text-sm text-left',
                                         'transition-colors duration-100',
                                         item.variant === 'accent'
-                                            ? 'text-emerald-400 hover:bg-emerald-500/20'
+                                            ? 'text-emerald-500 hover:bg-emerald-500/20'
                                             : item.variant === 'danger'
-                                                ? 'text-red-400 hover:bg-red-500/20'
-                                                : 'text-white/70 hover:text-white hover:bg-white/10',
+                                                ? 'text-red-500 hover:bg-red-500/20'
+                                                : isCurrentlyDark
+                                                    ? 'text-white/70 hover:text-white hover:bg-white/10'
+                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-black/5',
                                     )}
                                 >
                                     <span

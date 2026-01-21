@@ -3,9 +3,10 @@
  * A minimalist collapsible icon menu for quick access to configuration tools
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useContext } from 'react';
 import { useRecoilState, useSetRecoilState, useRecoilValue } from 'recoil';
 import { ChevronRight, Files, Brain, Plus, FileText } from 'lucide-react';
+import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -20,20 +21,20 @@ interface ToolbarIconProps {
     label: string;
     onClick: () => void;
     collapsed: boolean;
+    isCurrentlyDark: boolean;
 }
 
-/**
- * Individual toolbar icon button
- */
-function ToolbarIcon({ icon: Icon, label, onClick, collapsed }: ToolbarIconProps) {
+function ToolbarIcon({ icon: Icon, label, onClick, collapsed, isCurrentlyDark }: ToolbarIconProps) {
     return (
         <button
             onClick={onClick}
             className={cn(
                 'flex items-center gap-3 w-full px-3 py-2.5 rounded-lg',
-                'text-white/40 hover:text-white/70 hover:bg-white/5',
                 'transition-all duration-200 ease-out',
-                'focus:outline-none focus:ring-1 focus:ring-white/20',
+                isCurrentlyDark
+                    ? 'text-white/40 hover:text-white/70 hover:bg-white/5 focus:ring-white/20'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-black/5 focus:ring-black/20',
+                'focus:outline-none focus:ring-1',
                 collapsed ? 'justify-center' : 'justify-start',
             )}
             title={collapsed ? label : undefined}
@@ -48,13 +49,14 @@ function ToolbarIcon({ icon: Icon, label, onClick, collapsed }: ToolbarIconProps
     );
 }
 
-/**
- * DecisionToolbar - Collapsible left sidebar with tool icons
- */
 function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionToolbarProps) {
     const [collapsed, setCollapsed] = useRecoilState<boolean>(store.toolbarCollapsedAtom);
     const setContextNodes = useSetRecoilState(store.contextNodesAtom);
     const anchorPosition = useRecoilValue(store.anchorPositionAtom);
+
+    // Theme context
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Toggle collapsed state
     const handleToggle = useCallback(() => {
@@ -98,8 +100,10 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
             className={cn(
                 'absolute left-0 top-0 bottom-0 z-40',
                 'flex flex-col',
-                'bg-gradient-to-r from-black/40 to-transparent',
                 'transition-all duration-200 ease-out',
+                isCurrentlyDark
+                    ? 'bg-gradient-to-r from-black/40 to-transparent'
+                    : 'bg-gradient-to-r from-white/60 to-transparent',
                 collapsed ? 'w-14' : 'w-44',
             )}
         >
@@ -109,9 +113,11 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
                     onClick={handleToggle}
                     className={cn(
                         'p-1.5 rounded-md',
-                        'text-white/30 hover:text-white/60 hover:bg-white/5',
                         'transition-all duration-200 ease-out',
-                        'focus:outline-none focus:ring-1 focus:ring-white/20',
+                        isCurrentlyDark
+                            ? 'text-white/30 hover:text-white/60 hover:bg-white/5 focus:ring-white/20'
+                            : 'text-slate-400 hover:text-slate-600 hover:bg-black/5 focus:ring-black/20',
+                        'focus:outline-none focus:ring-1',
                     )}
                     aria-label={collapsed ? 'Expand toolbar' : 'Collapse toolbar'}
                 >
@@ -125,31 +131,34 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
                 </button>
             </div>
 
-            {/* Icon rail */}
             <nav className="flex-1 flex flex-col gap-1 px-2 py-2">
                 <ToolbarIcon
                     icon={Files}
                     label="Files"
                     onClick={handleOpenFiles}
                     collapsed={collapsed}
+                    isCurrentlyDark={isCurrentlyDark}
                 />
                 <ToolbarIcon
                     icon={Brain}
                     label="Memory"
                     onClick={handleOpenMemory}
                     collapsed={collapsed}
+                    isCurrentlyDark={isCurrentlyDark}
                 />
                 <ToolbarIcon
                     icon={Plus}
                     label="New Decision"
                     onClick={handleNewDecision}
                     collapsed={collapsed}
+                    isCurrentlyDark={isCurrentlyDark}
                 />
                 <ToolbarIcon
                     icon={FileText}
                     label="Context"
                     onClick={handleAddContext}
                     collapsed={collapsed}
+                    isCurrentlyDark={isCurrentlyDark}
                 />
             </nav>
         </div>

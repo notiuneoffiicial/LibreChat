@@ -679,14 +679,11 @@ p>small {
 }
 
 .optimism-animated-gradient {
-  background: linear-gradient(-45deg,
-      rgba(255, 47, 47, 0.06),
-      rgba(239, 123, 22, 0.05),
-      rgba(138, 67, 225, 0.06),
-      rgba(213, 17, 253, 0.05),
-      rgba(255, 47, 47, 0.06));
-  background-size: 400% 400%;
-  animation: optimism-gradient-shift 15s ease infinite;
+  /* Subtle corner accents instead of full background shift */
+  background:
+    radial-gradient(ellipse at top left, rgba(138, 67, 225, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(239, 123, 22, 0.03) 0%, transparent 50%);
+  /* No animation - static subtle accents for performance */
 }
 
 blockquote,

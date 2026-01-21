@@ -5,9 +5,10 @@
  * "A gentle invitation to begin thinking..."
  */
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useContext } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import { Plus } from 'lucide-react';
+import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 
 interface StartSessionButtonProps {
@@ -28,6 +29,10 @@ interface StartSessionButtonProps {
 function StartSessionButton({ onStart, anchorPosition }: StartSessionButtonProps) {
     const [isPressed, setIsPressed] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
+
+    // Theme context
+    const { theme } = useContext(ThemeContext);
+    const isCurrentlyDark = isDark(theme);
 
     // Spring animation for press feedback and exit
     const [springStyle] = useSpring(
@@ -81,12 +86,13 @@ function StartSessionButton({ onStart, anchorPosition }: StartSessionButtonProps
                 'absolute',
                 'flex items-center gap-3 px-6 py-4',
                 'rounded-full border',
-                'bg-white/5 backdrop-blur-md',
-                'border-white/10 hover:border-white/20',
-                'text-white/60 hover:text-white/80',
+                'backdrop-blur-md',
                 'transition-colors duration-200',
                 'cursor-pointer',
-                'focus:outline-none focus:ring-2 focus:ring-white/20',
+                isCurrentlyDark
+                    ? 'bg-white/5 border-white/10 hover:border-white/20 text-white/60 hover:text-white/80 focus:ring-white/20'
+                    : 'bg-white/80 border-black/10 hover:border-black/20 text-slate-600 hover:text-slate-800 focus:ring-black/20',
+                'focus:outline-none focus:ring-2',
             )}
             style={{
                 ...positionStyle,
