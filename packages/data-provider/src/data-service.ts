@@ -985,3 +985,62 @@ export function getGraphApiToken(params: q.GraphTokenParams): Promise<q.GraphTok
 export function getDomainServerBaseUrl(): string {
   return `${endpoints.apiBaseUrl()}/api`;
 }
+
+/* Decision Sessions */
+
+export interface DecisionSessionSummary {
+  sessionId: string;
+  title: string;
+  statement?: string;
+  phase: string;
+  endingState?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DecisionSessionListResponse {
+  sessions: DecisionSessionSummary[];
+  nextCursor: string | null;
+}
+
+export interface DecisionSessionData {
+  sessionId: string;
+  title?: string;
+  statement?: string;
+  phase?: string;
+  endingState?: string;
+  nodes?: unknown[];
+  milestones?: unknown[];
+  leaning?: { direction: string; confidence: number } | null;
+  constraints?: string[];
+  assumptions?: unknown[];
+  options?: unknown[];
+  insights?: string[];
+}
+
+export function getDecisionSessions(params?: {
+  cursor?: string;
+  limit?: number;
+  order?: string;
+}): Promise<DecisionSessionListResponse> {
+  return request.get(endpoints.decisionSessions(params));
+}
+
+export function getDecisionSessionById(sessionId: string): Promise<DecisionSessionData> {
+  return request.get(endpoints.decisionSessionById(sessionId));
+}
+
+export function createDecisionSession(data: DecisionSessionData): Promise<DecisionSessionData> {
+  return request.post(endpoints.decisionSessionsRoot, data);
+}
+
+export function updateDecisionSession(
+  sessionId: string,
+  data: Partial<DecisionSessionData>,
+): Promise<DecisionSessionData> {
+  return request.put(endpoints.decisionSessionById(sessionId), data);
+}
+
+export function deleteDecisionSession(sessionId: string): Promise<{ message: string }> {
+  return request.delete(endpoints.decisionSessionById(sessionId));
+}

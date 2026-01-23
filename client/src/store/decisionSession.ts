@@ -469,3 +469,111 @@ export const contextNodesAtom = atom<ContextNodeData[]>({
     key: 'contextNodes',
     default: [],
 });
+
+// ============================================================================
+// Session History State (Multi-Session Support)
+// ============================================================================
+
+/**
+ * Session summary for history display
+ */
+export interface SessionSummary {
+    sessionId: string;
+    title: string;
+    statement?: string;
+    phase: SessionPhase;
+    endingState?: 'clarity' | 'conditional_clarity' | 'rest';
+    createdAt: string;
+    updatedAt: string;
+}
+
+/**
+ * List of all saved session summaries
+ */
+export const sessionHistoryAtom = atom<SessionSummary[]>({
+    key: 'sessionHistory',
+    default: [],
+});
+
+/**
+ * Currently active session ID
+ */
+export const activeSessionIdAtom = atom<string | null>({
+    key: 'activeSessionId',
+    default: null,
+});
+
+/**
+ * Whether session history panel is open
+ */
+export const sessionHistoryOpenAtom = atom<boolean>({
+    key: 'sessionHistoryOpen',
+    default: false,
+});
+
+/**
+ * Session save status (for UI feedback)
+ */
+export const sessionSaveStatusAtom = atom<'idle' | 'saving' | 'saved' | 'error'>({
+    key: 'sessionSaveStatus',
+    default: 'idle',
+});
+
+// ============================================================================
+// Memory & File Nodes
+// ============================================================================
+
+/**
+ * Memory node data type - references a stored memory
+ */
+export interface MemoryNodeData {
+    id: string;
+    memoryKey: string;      // Reference to memory key
+    memoryValue: string;    // Cached value for display
+    position: Position;
+    createdAt: number;
+}
+
+/**
+ * File node data type - references an uploaded file
+ */
+export interface FileNodeData {
+    id: string;
+    fileId: string;         // Reference to file_id
+    fileName: string;
+    fileType: string;
+    position: Position;
+    createdAt: number;
+}
+
+/**
+ * Memory nodes on the thinking surface
+ */
+export const memoryNodesAtom = atom<MemoryNodeData[]>({
+    key: 'memoryNodes',
+    default: [],
+});
+
+/**
+ * File nodes on the thinking surface
+ */
+export const fileNodesAtom = atom<FileNodeData[]>({
+    key: 'fileNodes',
+    default: [],
+});
+
+/**
+ * Resource connection - links a resource node to a question node
+ */
+export interface ResourceConnection {
+    resourceNodeId: string;
+    questionNodeId: string;
+}
+
+/**
+ * Visual connections between resource nodes and question nodes
+ */
+export const resourceConnectionsAtom = atom<ResourceConnection[]>({
+    key: 'resourceConnections',
+    default: [],
+});

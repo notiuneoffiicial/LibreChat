@@ -19,9 +19,10 @@ import {
     SessionEndingCard,
     CommandMenu,
     DecisionToolbar,
+    SessionHistoryPanel,
 } from '~/components/DecisionSurface';
 import Settings from '~/components/Nav/Settings';
-import { useDecisionSession } from '~/hooks/DecisionSurface';
+import { useDecisionSession, useSessionPersistence } from '~/hooks/DecisionSurface';
 import { useAuthContext } from '~/hooks';
 import store from '~/store';
 import { cn } from '~/utils';
@@ -97,6 +98,19 @@ function DecisionWorkspaceView() {
     // Session hook
     const { session, phase, milestones, leaning, initSession, endSession } = useDecisionSession();
 
+    // Session persistence hook (multi-session support)
+    const {
+        sessionHistory,
+        activeSessionId,
+        isLoadingHistory,
+        startNewSession,
+        loadSession,
+        deleteSession,
+    } = useSessionPersistence();
+
+    // Session history panel state
+    const [historyOpen, setHistoryOpen] = useRecoilState(store.sessionHistoryOpenAtom);
+
     // Local state for ending card dismissal
     const [endingCardVisible, setEndingCardVisible] = useState(false);
 
@@ -146,6 +160,11 @@ function DecisionWorkspaceView() {
         setSessionEndingState(null);
         setFieldSettling(false);
     }, [setSessionEndingState, setFieldSettling]);
+
+    // Handle history panel toggle
+    const handleHistoryToggle = useCallback(() => {
+        setHistoryOpen((prev) => !prev);
+    }, [setHistoryOpen]);
 
     // Generate ending message based on state
     const getEndingMessage = () => {
@@ -201,18 +220,8 @@ function DecisionWorkspaceView() {
         >
             {/* Left toolbar */}
             <DecisionToolbar
-                onNewDecision={() => {
-                    console.log('[DecisionWorkspaceView] New decision requested');
-                    // TODO: Reset session
-                }}
-                onOpenFiles={() => {
-                    console.log('[DecisionWorkspaceView] Files panel requested');
-                    // TODO: Open files panel
-                }}
-                onOpenMemory={() => {
-                    console.log('[DecisionWorkspaceView] Memory viewer requested');
-                    // TODO: Open memory viewer
-                }}
+                onNewDecision={startNewSession}
+                onOpenHistory={handleHistoryToggle}
             />
 
             {/* Minimal header */}
@@ -289,6 +298,18 @@ function DecisionWorkspaceView() {
 
             {/* Settings modal */}
             <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+            {/* Session History Panel */}
+            <SessionHistoryPanel
+                isOpen={historyOpen}
+                sessions={sessionHistory}
+                activeSessionId={activeSessionId}
+                isLoading={isLoadingHistory}
+                onClose={() => setHistoryOpen(false)}
+                onSelectSession={loadSession}
+                onDeleteSession={deleteSession}
+                onNewSession={startNewSession}
+            />
         </div>
     );
 }

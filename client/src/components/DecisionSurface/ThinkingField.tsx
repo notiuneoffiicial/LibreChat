@@ -20,6 +20,9 @@ import AnswerInput from './AnswerInput';
 import ContextNode from './ContextNode';
 import StartSessionButton from './StartSessionButton';
 import LoadingRipples from './LoadingRipples';
+import MemoryNode from './MemoryNode';
+import FileNode from './FileNode';
+import ResourceConnections from './ResourceConnections';
 
 /**
  * ThinkingField - The living decision surface
@@ -49,6 +52,10 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
 
     // Context nodes
     const contextNodes = useRecoilValue(store.contextNodesAtom);
+
+    // Memory and File nodes
+    const memoryNodes = useRecoilValue(store.memoryNodesAtom);
+    const fileNodes = useRecoilValue(store.fileNodesAtom);
 
     const [softConfirmation, setSoftConfirmation] = useRecoilState(store.softConfirmationAtom);
 
@@ -268,7 +275,23 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 {contextNodes.map((contextNode) => (
                     <ContextNode key={contextNode.id} node={contextNode} />
                 ))}
+
+                {/* Memory nodes */}
+                {memoryNodes.map((memNode) => (
+                    <MemoryNode key={memNode.id} node={memNode} />
+                ))}
+
+                {/* File nodes */}
+                {fileNodes.map((fileNode) => (
+                    <FileNode key={fileNode.id} node={fileNode} />
+                ))}
             </div>
+
+            {/* Resource connections overlay */}
+            <ResourceConnections
+                containerWidth={dimensions.width}
+                containerHeight={dimensions.height}
+            />
 
             {/* Start Session Button or Decision Composer */}
             {!isAnswering && (

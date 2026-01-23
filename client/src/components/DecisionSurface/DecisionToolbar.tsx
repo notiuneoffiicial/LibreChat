@@ -3,17 +3,18 @@
  * A minimalist collapsible icon menu for quick access to configuration tools
  */
 
-import { memo, useCallback, useContext } from 'react';
+import { memo, useCallback, useContext, useState } from 'react';
 import { useRecoilState, useSetRecoilState, useRecoilValue } from 'recoil';
-import { ChevronRight, Files, Brain, Plus, FileText } from 'lucide-react';
+import { ChevronRight, Files, Brain, Plus, FileText, History } from 'lucide-react';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
+import MemoryPickerPopover from './MemoryPickerPopover';
+import FilesPickerPopover from './FilesPickerPopover';
 
 interface DecisionToolbarProps {
     onNewDecision?: () => void;
-    onOpenFiles?: () => void;
-    onOpenMemory?: () => void;
+    onOpenHistory?: () => void;
 }
 
 interface ToolbarIconProps {
@@ -22,9 +23,10 @@ interface ToolbarIconProps {
     onClick: () => void;
     collapsed: boolean;
     isCurrentlyDark: boolean;
+    isActive?: boolean;
 }
 
-function ToolbarIcon({ icon: Icon, label, onClick, collapsed, isCurrentlyDark }: ToolbarIconProps) {
+function ToolbarIcon({ icon: Icon, label, onClick, collapsed, isCurrentlyDark, isActive }: ToolbarIconProps) {
     return (
         <button
             onClick={onClick}
@@ -36,6 +38,7 @@ function ToolbarIcon({ icon: Icon, label, onClick, collapsed, isCurrentlyDark }:
                     : 'text-slate-500 hover:text-slate-700 hover:bg-black/5 focus:ring-black/20',
                 'focus:outline-none focus:ring-1',
                 collapsed ? 'justify-center' : 'justify-start',
+                isActive && (isCurrentlyDark ? 'bg-white/10 text-white/70' : 'bg-black/10 text-slate-700'),
             )}
             title={collapsed ? label : undefined}
         >
@@ -49,10 +52,13 @@ function ToolbarIcon({ icon: Icon, label, onClick, collapsed, isCurrentlyDark }:
     );
 }
 
-function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionToolbarProps) {
+function DecisionToolbar({ onNewDecision, onOpenHistory }: DecisionToolbarProps) {
     const [collapsed, setCollapsed] = useRecoilState<boolean>(store.toolbarCollapsedAtom);
     const setContextNodes = useSetRecoilState(store.contextNodesAtom);
     const anchorPosition = useRecoilValue(store.anchorPositionAtom);
+
+    // Picker state
+    const [activePicker, setActivePicker] = useState<'memory' | 'files' | null>(null);
 
     // Theme context
     const { theme } = useContext(ThemeContext);
@@ -83,17 +89,26 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
         onNewDecision?.();
     }, [onNewDecision]);
 
-    // Handle open files
+    // Handle open files picker
     const handleOpenFiles = useCallback(() => {
-        console.log('[DecisionToolbar] Files panel requested');
-        onOpenFiles?.();
-    }, [onOpenFiles]);
+        setActivePicker((prev) => prev === 'files' ? null : 'files');
+    }, []);
 
-    // Handle open memory
+    // Handle open memory picker
     const handleOpenMemory = useCallback(() => {
-        console.log('[DecisionToolbar] Memory viewer requested');
-        onOpenMemory?.();
-    }, [onOpenMemory]);
+        setActivePicker((prev) => prev === 'memory' ? null : 'memory');
+    }, []);
+
+    // Handle open history
+    const handleOpenHistory = useCallback(() => {
+        console.log('[DecisionToolbar] History panel requested');
+        onOpenHistory?.();
+    }, [onOpenHistory]);
+
+    // Close picker
+    const handleClosePicker = useCallback(() => {
+        setActivePicker(null);
+    }, []);
 
     return (
         <div
@@ -138,6 +153,7 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
                     onClick={handleOpenFiles}
                     collapsed={collapsed}
                     isCurrentlyDark={isCurrentlyDark}
+                    isActive={activePicker === 'files'}
                 />
                 <ToolbarIcon
                     icon={Brain}
@@ -145,6 +161,7 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
                     onClick={handleOpenMemory}
                     collapsed={collapsed}
                     isCurrentlyDark={isCurrentlyDark}
+                    isActive={activePicker === 'memory'}
                 />
                 <ToolbarIcon
                     icon={Plus}
@@ -160,7 +177,28 @@ function DecisionToolbar({ onNewDecision, onOpenFiles, onOpenMemory }: DecisionT
                     collapsed={collapsed}
                     isCurrentlyDark={isCurrentlyDark}
                 />
+                <ToolbarIcon
+                    icon={History}
+                    label="History"
+                    onClick={handleOpenHistory}
+                    collapsed={collapsed}
+                    isCurrentlyDark={isCurrentlyDark}
+                />
             </nav>
+
+            {/* Memory Picker Popover */}
+            <MemoryPickerPopover
+                isOpen={activePicker === 'memory'}
+                onClose={handleClosePicker}
+                anchorPosition={anchorPosition}
+            />
+
+            {/* Files Picker Popover */}
+            <FilesPickerPopover
+                isOpen={activePicker === 'files'}
+                onClose={handleClosePicker}
+                anchorPosition={anchorPosition}
+            />
         </div>
     );
 }

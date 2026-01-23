@@ -77,8 +77,7 @@ export const getSharedLinks = (
   search?: string,
   cursor?: string,
 ) =>
-  `${shareRoot}?pageSize=${pageSize}&isPublic=${isPublic}&sortBy=${sortBy}&sortDirection=${sortDirection}${
-    search ? `&search=${search}` : ''
+  `${shareRoot}?pageSize=${pageSize}&isPublic=${isPublic}&sortBy=${sortBy}&sortDirection=${sortDirection}${search ? `&search=${search}` : ''
   }${cursor ? `&cursor=${cursor}` : ''}`;
 export const createSharedLink = (conversationId: string) => `${shareRoot}/${conversationId}`;
 export const updateSharedLink = (shareId: string) => `${shareRoot}/${shareId}`;
@@ -325,8 +324,7 @@ export const conversationTags = (tag?: string) =>
   `${BASE_URL}/api/tags${tag != null && tag ? `/${encodeURIComponent(tag)}` : ''}`;
 
 export const conversationTagsList = (pageNumber: string, sort?: string, order?: string) =>
-  `${conversationTags()}/list?pageNumber=${pageNumber}${sort ? `&sort=${sort}` : ''}${
-    order ? `&order=${order}` : ''
+  `${conversationTags()}/list?pageNumber=${pageNumber}${sort ? `&sort=${sort}` : ''}${order ? `&order=${order}` : ''
   }`;
 
 export const addTagToConversation = (conversationId: string) =>
@@ -388,3 +386,11 @@ export const getEffectivePermissions = (resourceType: ResourceType, resourceId: 
 // SharePoint Graph API Token
 export const graphToken = (scopes: string) =>
   `${BASE_URL}/api/auth/graph-token?scopes=${encodeURIComponent(scopes)}`;
+
+/* Decision Sessions */
+export const decisionSessionsRoot = `${BASE_URL}/api/decision/sessions`;
+
+export const decisionSessions = (params?: { cursor?: string; limit?: number; order?: string }) =>
+  `${decisionSessionsRoot}${params ? buildQuery(params) : ''}`;
+
+export const decisionSessionById = (sessionId: string) => `${decisionSessionsRoot}/${sessionId}`;

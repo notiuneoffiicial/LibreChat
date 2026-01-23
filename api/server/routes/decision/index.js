@@ -6,11 +6,15 @@
 const express = require('express');
 const { requireJwtAuth } = require('~/server/middleware');
 const { streamController } = require('~/server/controllers/decision');
+const sessionsRouter = require('./sessions');
 
 const router = express.Router();
 
 // Require authentication for decision endpoints
 router.use(requireJwtAuth);
+
+// Mount sessions sub-router
+router.use('/sessions', sessionsRouter);
 
 /**
  * POST /api/decision/stream
@@ -29,3 +33,4 @@ router.use(requireJwtAuth);
 router.post('/stream', streamController);
 
 module.exports = router;
+

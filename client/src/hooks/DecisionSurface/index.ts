@@ -12,3 +12,4 @@ export { default as useDragToThrow } from './useDragToThrow';
 export { useMagneticField } from './useMagneticField';
 export { useBehaviorSignals } from './useBehaviorSignals';
 export { useConvergence } from './useConvergence';
+export { useSessionPersistence } from './useSessionPersistence';

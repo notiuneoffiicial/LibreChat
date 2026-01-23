@@ -17,6 +17,12 @@ export { default as StartSessionButton } from './StartSessionButton';
 export { default as DecisionToolbar } from './DecisionToolbar';
 export { default as ContextNode } from './ContextNode';
 export { default as LoadingRipples } from './LoadingRipples';
+export { default as SessionHistoryPanel } from './SessionHistoryPanel';
+export { default as MemoryNode } from './MemoryNode';
+export { default as FileNode } from './FileNode';
+export { default as MemoryPickerPopover } from './MemoryPickerPopover';
+export { default as FilesPickerPopover } from './FilesPickerPopover';
+export { default as ResourceConnections } from './ResourceConnections';
 
 // Re-export config
 export * from './nodeMotionConfig';
