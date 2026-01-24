@@ -218,11 +218,16 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     intensity: 0.6,
                     category: getCategoryFromTopic(category),
                     expectedInfoType: result.expectedType,
-                    // Spawn near center or random?
-                    position: getSpawnPosition(0, anchorPosition.x, anchorPosition.y),
+                    // Spawn at random angle to avoid overlap
+                    position: getSpawnPosition(
+                        Math.floor(Math.random() * 6), // Random index 0-5 for varied angle
+                        anchorPosition.x,
+                        anchorPosition.y,
+                        6 // 6 positions around circle
+                    ),
                     satellites: [],
                     signals: [],
-                    source: 'user_added',
+                    source: 'followup',
                     createdAt: Date.now(),
                 };
 
@@ -367,7 +372,9 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     ));
                 }
 
+                // Spawn follow-up node if answer was short or uncertain
                 if (result.needsFollowUp && result.followUpQuestion) {
+                    console.log('[useTensionProbe] Spawning follow-up node for:', result.followUpQuestion);
                     await regenerateQuestion('reality', answer);
                 }
 
@@ -564,14 +571,38 @@ async function simulateAnswerProcessing(question: string, answer: string): Promi
         signals.push({ type: 'uncertainty', description: 'Uncertainty expressed in this area' });
     }
 
-    const needsFollowUp = answer.length < 50 || signals.length > 0;
+    // More aggressive follow-up triggering:
+    // - Short answers (<80 chars) likely need more probing
+    // - Signals indicate uncertainty worth exploring
+    // - Random chance (30%) to spawn variety
+    const needsFollowUp = answer.length < 80 || signals.length > 0 || Math.random() < 0.3;
+
+    // Varied follow-up questions based on what was detected
+    let followUpQuestion: string | undefined;
+    if (needsFollowUp) {
+        if (signals.some(s => s.type === 'assumption')) {
+            followUpQuestion = 'What would you need to know to be more certain about that?';
+        } else if (signals.some(s => s.type === 'uncertainty')) {
+            followUpQuestion = 'What makes this feel uncertain for you?';
+        } else if (answer.length < 50) {
+            followUpQuestion = 'Can you say more about what you mean?';
+        } else {
+            // Random probing questions
+            const probes = [
+                'What else comes to mind about this?',
+                'How does this connect to other parts of the decision?',
+                'What might you be overlooking here?',
+            ];
+            followUpQuestion = probes[Math.floor(Math.random() * probes.length)];
+        }
+    }
 
     return {
         constraints,
         assumptions,
         optionsDiscovered: [],
         needsFollowUp,
-        followUpQuestion: needsFollowUp ? 'Can you tell me more about what makes this uncertain?' : undefined,
+        followUpQuestion,
         signals,
         informationGain: Math.min(1, answer.length / 200),
     };
