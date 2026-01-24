@@ -3,10 +3,10 @@
  * A draggable file reference node on the thinking surface
  */
 
-import { memo, useState, useCallback, useContext } from 'react';
+import { memo, useState, useCallback, useContext, useEffect } from 'react';
 import { useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
-import { X, FileText, Image, FileCode, File, Download } from 'lucide-react';
+import { X, FileText, Image, FileCode, File } from 'lucide-react';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -72,6 +72,7 @@ function FileNode({ node }: FileNodeProps) {
     // Drag handling
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(true);
         setDragOffset({
             x: e.clientX - position.x,
@@ -79,36 +80,37 @@ function FileNode({ node }: FileNodeProps) {
         });
     }, [position]);
 
-    const handleMouseMove = useCallback((e: MouseEvent) => {
+    // Attach global mouse events for dragging using useEffect
+    useEffect(() => {
         if (!isDragging) return;
-        const newPos = {
-            x: e.clientX - dragOffset.x,
-            y: e.clientY - dragOffset.y,
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const newPos = {
+                x: e.clientX - dragOffset.x,
+                y: e.clientY - dragOffset.y,
+            };
+            setPosition(newPos);
+            setFileNodes((prev) =>
+                prev.map((n) => (n.id === node.id ? { ...n, position: newPos } : n))
+            );
         };
-        setPosition(newPos);
-        setFileNodes((prev) =>
-            prev.map((n) => (n.id === node.id ? { ...n, position: newPos } : n))
-        );
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
     }, [isDragging, dragOffset, node.id, setFileNodes]);
 
-    const handleMouseUp = useCallback(() => {
-        setIsDragging(false);
-    }, []);
-
-    // Attach global mouse events for dragging
-    useState(() => {
-        if (isDragging) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-            return () => {
-                window.removeEventListener('mousemove', handleMouseMove);
-                window.removeEventListener('mouseup', handleMouseUp);
-            };
-        }
-    });
-
     // Delete from canvas
-    const handleDelete = useCallback(() => {
+    const handleDelete = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
         setFileNodes((prev) => prev.filter((n) => n.id !== node.id));
     }, [node.id, setFileNodes]);
 
@@ -129,6 +131,7 @@ function FileNode({ node }: FileNodeProps) {
                 top: position.y,
                 transform: 'translate(-50%, -50%)',
                 cursor: isDragging ? 'grabbing' : 'grab',
+                zIndex: isDragging ? 100 : 10,
             }}
             onMouseDown={handleMouseDown}
             className={cn(
@@ -137,6 +140,7 @@ function FileNode({ node }: FileNodeProps) {
                 'backdrop-blur-md',
                 'border',
                 'transition-all duration-200',
+                'select-none',
                 isCurrentlyDark
                     ? 'bg-emerald-500/10 border-emerald-400/20'
                     : 'bg-emerald-100/50 border-emerald-300/30',

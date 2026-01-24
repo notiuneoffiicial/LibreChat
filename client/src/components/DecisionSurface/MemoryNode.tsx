@@ -3,10 +3,10 @@
  * A draggable memory reference node on the thinking surface
  */
 
-import { memo, useState, useCallback, useContext } from 'react';
+import { memo, useState, useCallback, useContext, useEffect } from 'react';
 import { useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
-import { X, Brain, Pencil, Check } from 'lucide-react';
+import { X, Brain, Pencil, Check, Loader2 } from 'lucide-react';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -33,6 +33,7 @@ function MemoryNode({ node }: MemoryNodeProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [position, setPosition] = useState(node.position);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [isSaving, setIsSaving] = useState(false);
 
     // Theme
     const { theme } = useContext(ThemeContext);
@@ -52,6 +53,7 @@ function MemoryNode({ node }: MemoryNodeProps) {
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (isEditing) return;
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(true);
         setDragOffset({
             x: e.clientX - position.x,
@@ -59,41 +61,45 @@ function MemoryNode({ node }: MemoryNodeProps) {
         });
     }, [position, isEditing]);
 
-    const handleMouseMove = useCallback((e: MouseEvent) => {
+    // Attach global mouse events for dragging using useEffect
+    useEffect(() => {
         if (!isDragging) return;
-        const newPos = {
-            x: e.clientX - dragOffset.x,
-            y: e.clientY - dragOffset.y,
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const newPos = {
+                x: e.clientX - dragOffset.x,
+                y: e.clientY - dragOffset.y,
+            };
+            setPosition(newPos);
+            setMemoryNodes((prev) =>
+                prev.map((n) => (n.id === node.id ? { ...n, position: newPos } : n))
+            );
         };
-        setPosition(newPos);
-        setMemoryNodes((prev) =>
-            prev.map((n) => (n.id === node.id ? { ...n, position: newPos } : n))
-        );
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
     }, [isDragging, dragOffset, node.id, setMemoryNodes]);
 
-    const handleMouseUp = useCallback(() => {
-        setIsDragging(false);
-    }, []);
-
-    // Attach global mouse events for dragging
-    useState(() => {
-        if (isDragging) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-            return () => {
-                window.removeEventListener('mousemove', handleMouseMove);
-                window.removeEventListener('mouseup', handleMouseUp);
-            };
-        }
-    });
-
     // Delete from canvas
-    const handleDelete = useCallback(() => {
+    const handleDelete = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
         setMemoryNodes((prev) => prev.filter((n) => n.id !== node.id));
     }, [node.id, setMemoryNodes]);
 
     // Save edit
-    const handleSaveEdit = useCallback(() => {
+    const handleSaveEdit = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsSaving(true);
+
         updateMemory.mutate(
             { key: node.memoryKey, value: editValue },
             {
@@ -104,10 +110,27 @@ function MemoryNode({ node }: MemoryNodeProps) {
                         )
                     );
                     setIsEditing(false);
+                    setIsSaving(false);
+                },
+                onError: () => {
+                    setIsSaving(false);
+                    // Still update locally even if backend fails
+                    setMemoryNodes((prev) =>
+                        prev.map((n) =>
+                            n.id === node.id ? { ...n, memoryValue: editValue } : n
+                        )
+                    );
+                    setIsEditing(false);
                 },
             }
         );
     }, [node.id, node.memoryKey, editValue, updateMemory, setMemoryNodes]);
+
+    // Handle edit button click
+    const handleEditClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsEditing(true);
+    }, []);
 
     // Truncate display value
     const displayValue = node.memoryValue.length > 100
@@ -122,7 +145,8 @@ function MemoryNode({ node }: MemoryNodeProps) {
                 left: position.x,
                 top: position.y,
                 transform: 'translate(-50%, -50%)',
-                cursor: isDragging ? 'grabbing' : 'grab',
+                cursor: isDragging ? 'grabbing' : (isEditing ? 'default' : 'grab'),
+                zIndex: isDragging ? 100 : 10,
             }}
             onMouseDown={handleMouseDown}
             className={cn(
@@ -131,6 +155,7 @@ function MemoryNode({ node }: MemoryNodeProps) {
                 'backdrop-blur-md',
                 'border',
                 'transition-all duration-200',
+                'select-none',
                 isCurrentlyDark
                     ? 'bg-indigo-500/10 border-indigo-400/20'
                     : 'bg-indigo-100/50 border-indigo-300/30',
@@ -155,7 +180,7 @@ function MemoryNode({ node }: MemoryNodeProps) {
                 <div className="flex items-center gap-1">
                     {!isEditing && (
                         <button
-                            onClick={() => setIsEditing(true)}
+                            onClick={handleEditClick}
                             className={cn(
                                 'p-1 rounded',
                                 isCurrentlyDark
@@ -171,14 +196,20 @@ function MemoryNode({ node }: MemoryNodeProps) {
                     {isEditing && (
                         <button
                             onClick={handleSaveEdit}
+                            disabled={isSaving}
                             className={cn(
                                 'p-1 rounded',
                                 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20',
                                 'transition-colors duration-150',
+                                'disabled:opacity-50',
                             )}
                             aria-label="Save memory"
                         >
-                            <Check size={12} />
+                            {isSaving ? (
+                                <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                                <Check size={12} />
+                            )}
                         </button>
                     )}
                     <button

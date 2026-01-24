@@ -54,7 +54,7 @@ function FilesPickerPopover({ isOpen, onClose, anchorPosition }: FilesPickerPopo
         return matchSorter(files, searchQuery, { keys: ['filename'] });
     }, [files, searchQuery]);
 
-    // Spawn file node on canvas
+    // Spawn file node on canvas - spawn to the right side to avoid center clutter
     const handleSelectFile = useCallback((file: TFile) => {
         const newNode = {
             id: `file-${Date.now()}`,
@@ -62,8 +62,8 @@ function FilesPickerPopover({ isOpen, onClose, anchorPosition }: FilesPickerPopo
             fileName: file.filename,
             fileType: file.type || 'unknown',
             position: {
-                x: anchorPosition.x + 150 + Math.random() * 100,
-                y: anchorPosition.y + Math.random() * 100 - 50,
+                x: anchorPosition.x + 300 + Math.random() * 150,
+                y: anchorPosition.y - 100 + Math.random() * 200,
             },
             createdAt: Date.now(),
         };
@@ -82,15 +82,15 @@ function FilesPickerPopover({ isOpen, onClose, anchorPosition }: FilesPickerPopo
 
         uploadFile.mutate(formData, {
             onSuccess: (data) => {
-                // Add to canvas
+                // Add to canvas - spawn to the right side
                 const newNode = {
                     id: `file-${Date.now()}`,
                     fileId: data.file_id,
                     fileName: data.filename,
                     fileType: data.type || 'unknown',
                     position: {
-                        x: anchorPosition.x + 150 + Math.random() * 100,
-                        y: anchorPosition.y + Math.random() * 100 - 50,
+                        x: anchorPosition.x + 300 + Math.random() * 150,
+                        y: anchorPosition.y - 100 + Math.random() * 200,
                     },
                     createdAt: Date.now(),
                 };

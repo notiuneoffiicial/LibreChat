@@ -48,15 +48,15 @@ function MemoryPickerPopover({ isOpen, onClose, anchorPosition }: MemoryPickerPo
         return matchSorter(memories, searchQuery, { keys: ['key', 'value'] });
     }, [memories, searchQuery]);
 
-    // Spawn memory node on canvas
+    // Spawn memory node on canvas - spawn to the right side to avoid center clutter
     const handleSelectMemory = useCallback((memory: TUserMemory) => {
         const newNode = {
             id: `memory-${Date.now()}`,
             memoryKey: memory.key,
             memoryValue: memory.value,
             position: {
-                x: anchorPosition.x + 150 + Math.random() * 100,
-                y: anchorPosition.y + Math.random() * 100 - 50,
+                x: anchorPosition.x + 300 + Math.random() * 150,
+                y: anchorPosition.y - 100 + Math.random() * 200,
             },
             createdAt: Date.now(),
         };
@@ -71,14 +71,14 @@ function MemoryPickerPopover({ isOpen, onClose, anchorPosition }: MemoryPickerPo
             { key: newKey.trim(), value: newValue.trim() },
             {
                 onSuccess: (data) => {
-                    // Also add to canvas
+                    // Also add to canvas - spawn to the right side
                     const newNode = {
                         id: `memory-${Date.now()}`,
                         memoryKey: data.memory.key,
                         memoryValue: data.memory.value,
                         position: {
-                            x: anchorPosition.x + 150 + Math.random() * 100,
-                            y: anchorPosition.y + Math.random() * 100 - 50,
+                            x: anchorPosition.x + 300 + Math.random() * 150,
+                            y: anchorPosition.y - 100 + Math.random() * 200,
                         },
                         createdAt: Date.now(),
                     };
@@ -219,7 +219,7 @@ function MemoryPickerPopover({ isOpen, onClose, anchorPosition }: MemoryPickerPo
                                     type="text"
                                     value={newKey}
                                     onChange={(e) => setNewKey(e.target.value)}
-                                    placeholder="Memory key..."
+                                    placeholder="Title (e.g., My preferences)"
                                     className={cn(
                                         'w-full px-2 py-1.5 rounded text-sm',
                                         isCurrentlyDark
@@ -231,7 +231,7 @@ function MemoryPickerPopover({ isOpen, onClose, anchorPosition }: MemoryPickerPo
                                 <textarea
                                     value={newValue}
                                     onChange={(e) => setNewValue(e.target.value)}
-                                    placeholder="Memory value..."
+                                    placeholder="Details you want to remember..."
                                     rows={2}
                                     className={cn(
                                         'w-full px-2 py-1.5 rounded text-sm resize-none',

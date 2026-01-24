@@ -69,13 +69,14 @@ function DecisionToolbar({ onNewDecision, onOpenHistory }: DecisionToolbarProps)
         setCollapsed((prev) => !prev);
     }, [setCollapsed]);
 
-    // Add a new context node to the surface
+    // Add a new context node to the surface - spawn to the right side to avoid center clutter
     const handleAddContext = useCallback(() => {
         const newNode = {
             id: `context-${Date.now()}`,
             content: '',
             position: {
-                x: anchorPosition.x - 100 + Math.random() * 200,
+                // Spawn to the right side of the anchor, with some randomness
+                x: anchorPosition.x + 300 + Math.random() * 150,
                 y: anchorPosition.y - 100 + Math.random() * 200,
             },
             createdAt: Date.now(),
