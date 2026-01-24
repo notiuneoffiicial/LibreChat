@@ -79,6 +79,7 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
 
     /**
      * Generate latent tension points from a decision statement
+     * Uses real SSE stream when enabled, otherwise falls back to simulation
      */
     const generateInitialTensionPoints = useCallback(
         async (decisionStatement: string): Promise<ThoughtNodeData[]> => {
@@ -86,18 +87,40 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
             setError(null);
 
             try {
-                // Use simulation for now as backend stream is still strictly 3 questions
-                // In future, update backend to return tension objects
+                // Use real SSE stream if enabled
+                if (useRealStream) {
+                    console.log('[useTensionProbe] Using SSE stream for question generation');
+                    const streamNodes = await stream.generateQuestions(decisionStatement);
+
+                    // Adapt stream nodes to tension model (add intensity, concept, state: LATENT)
+                    const now = Date.now();
+                    const nodes: ThoughtNodeData[] = streamNodes.map((n, index) => ({
+                        ...n,
+                        state: 'LATENT' as const, // Start as LATENT for tension model
+                        concept: extractConceptFromQuestion(n.question),
+                        intensity: 0.4 + (Math.random() * 0.4), // Random intensity 0.4-0.8
+                        affinities: new Map(),
+                        source: 'initial',
+                        position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y, streamNodes.length),
+                        createdAt: now + index * 100,
+                    }));
+
+                    setThoughtNodes(nodes);
+                    return nodes;
+                }
+
+                // Fallback to simulation
+                console.log('[useTensionProbe] Using simulation for question generation');
                 const result = await simulateQuestionGeneration(decisionStatement);
 
                 const now = Date.now();
                 const nodes: ThoughtNodeData[] = result.questions.map((q, index) => ({
                     id: uuidv4(),
-                    state: 'LATENT' as const, // Start as LATENT, not DORMANT
+                    state: 'LATENT' as const,
                     question: q.question,
                     topicKey: q.category,
                     concept: extractConceptFromQuestion(q.question),
-                    intensity: 0.4 + (Math.random() * 0.4), // Random intensity 0.4-0.8 for start
+                    intensity: 0.4 + (Math.random() * 0.4),
                     category: getCategoryFromTopic(q.category),
                     expectedInfoType: q.expectedType,
                     position: getSpawnPosition(index, anchorPosition.x, anchorPosition.y, result.questions.length),
@@ -125,9 +148,6 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                 );
 
                 setThoughtNodes(nodes);
-
-                // Don't auto-select yet, let visualizer spawn them first
-
                 return nodes;
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Failed to generate tension points';
@@ -138,7 +158,7 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                 setIsProcessing(false);
             }
         },
-        [anchorPosition, setThoughtNodes, setSession],
+        [anchorPosition, setThoughtNodes, setSession, useRealStream, stream],
     );
 
     /**
@@ -220,6 +240,7 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
 
     /**
      * Process an answer to release tension
+     * Uses real SSE stream when enabled, otherwise falls back to simulation
      */
     const processAnswer = useCallback(
         async (
@@ -237,21 +258,78 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     answer.length * CONVERGENCE.TENSION_RELEASE_RATE
                 );
 
+                // Use real SSE stream if enabled
+                if (useRealStream) {
+                    console.log('[useTensionProbe] Using SSE stream for answer processing');
+                    await stream.processAnswer(nodeId, answer);
+
+                    // Apply tension reduction locally (stream handles core state)
+                    let nodeWasResolved = false;
+                    setThoughtNodes((prev) =>
+                        prev.map((node) => {
+                            if (node.id !== nodeId) return node;
+                            const currentIntensity = node.intensity || 0.5;
+                            const newIntensity = Math.max(0, currentIntensity - tensionRelease);
+                            const isResolved = newIntensity < CONVERGENCE.RESOLUTION_THRESHOLD;
+                            nodeWasResolved = isResolved;
+                            return {
+                                ...node,
+                                intensity: newIntensity,
+                                state: isResolved ? 'RESOLVED' : node.state,
+                            };
+                        }),
+                    );
+
+                    // Analyze behavior signals
+                    const behaviorSignals = analyzeInput(answer);
+                    const hasUncertainty = behaviorSignals.some(s => s.type === 'uncertainty' || (s.type === 'hedging' && s.indicates === 'confusion'));
+                    const hasAssumption = behaviorSignals.some(s => s.type === 'assumption');
+
+                    if (hasUncertainty || hasAssumption) {
+                        setOpenLoops(prev => [
+                            ...prev,
+                            {
+                                id: uuidv4(),
+                                description: hasAssumption ? 'Untested assumption' : 'Uncertainty detected',
+                                tensionPointId: nodeId,
+                                raisedAt: Date.now(),
+                                status: 'open',
+                            }
+                        ]);
+                    } else if (nodeWasResolved) {
+                        setOpenLoops(prev => prev.map(loop =>
+                            loop.tensionPointId === nodeId && loop.status === 'open'
+                                ? { ...loop, status: 'resolved' as const, resolvedAt: Date.now() }
+                                : loop
+                        ));
+                    }
+
+                    setActiveNodeId(null);
+                    setTimeout(() => selectNextProbe(), CONVERGENCE.AUTO_PROBE_DELAY);
+
+                    return {
+                        constraints: [],
+                        assumptions: [],
+                        optionsDiscovered: [],
+                        needsFollowUp: false,
+                        signals: behaviorSignals as NodeSignal[],
+                        informationGain: 0.5,
+                    };
+                }
+
+                // Fallback to simulation
+                console.log('[useTensionProbe] Using simulation for answer processing');
                 const result = await simulateAnswerProcessing(question, answer);
 
-                // Track if this answer resolves the node (for loop handling below)
                 let nodeWasResolved = false;
-
                 setThoughtNodes((prev) =>
                     prev.map((node) => {
                         if (node.id !== nodeId) return node;
 
                         const currentIntensity = node.intensity || 0.5;
                         const newIntensity = Math.max(0, currentIntensity - tensionRelease);
-
-                        // If intensity is very low, mark resolved
                         const isResolved = newIntensity < CONVERGENCE.RESOLUTION_THRESHOLD;
-                        nodeWasResolved = isResolved; // Capture for outer scope
+                        nodeWasResolved = isResolved;
 
                         return {
                             ...node,
@@ -264,9 +342,8 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     }),
                 );
 
-                // Open Loop Tracking
-                const behaviorSignals = analyzeInput(answer); // Analyze behavior (time, hedging)
-                const newSignals = [...(result.signals || []), ...behaviorSignals]; // Combine with simulation signals
+                const behaviorSignals = analyzeInput(answer);
+                const newSignals = [...(result.signals || []), ...behaviorSignals];
 
                 const hasUncertainty = newSignals.some(s => s.type === 'uncertainty' || (s.type === 'hedging' && s.indicates === 'confusion'));
                 const hasAssumption = newSignals.some(s => s.type === 'assumption');
@@ -283,7 +360,6 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                         }
                     ]);
                 } else if (nodeWasResolved) {
-                    // Resolve loops if node is resolved
                     setOpenLoops(prev => prev.map(loop =>
                         loop.tensionPointId === nodeId && loop.status === 'open'
                             ? { ...loop, status: 'resolved' as const, resolvedAt: Date.now() }
@@ -291,31 +367,25 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     ));
                 }
 
-                // Check if we need to spawn new tension points from this answer
                 if (result.needsFollowUp && result.followUpQuestion) {
-                    await regenerateQuestion('reality', answer); // Approximate category
+                    await regenerateQuestion('reality', answer);
                 }
 
-                // Clear active node immediately to fix selection persistence bug
                 setActiveNodeId(null);
-
-                // Auto-select next probe after short delay
-                setTimeout(() => {
-                    selectNextProbe();
-                }, CONVERGENCE.AUTO_PROBE_DELAY);
+                setTimeout(() => selectNextProbe(), CONVERGENCE.AUTO_PROBE_DELAY);
 
                 return result;
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Failed to process answer';
                 setError(message);
                 console.error('[useTensionProbe] Error processing answer:', err);
-                setActiveNodeId(null); // Clear even on error
+                setActiveNodeId(null);
                 return null;
             } finally {
                 setIsProcessing(false);
             }
         },
-        [setThoughtNodes, selectNextProbe, regenerateQuestion, setActiveNodeId],
+        [setThoughtNodes, selectNextProbe, regenerateQuestion, setActiveNodeId, useRealStream, stream, analyzeInput, setOpenLoops],
     );
 
     return {

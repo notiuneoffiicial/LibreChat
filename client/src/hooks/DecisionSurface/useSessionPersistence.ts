@@ -104,7 +104,16 @@ export function useSessionPersistence() {
      * Save current session to backend
      */
     const saveSession = useCallback(async () => {
-        if (!session?.id) return;
+        console.log('[useSessionPersistence] saveSession called', {
+            sessionId: session?.id,
+            phase,
+            nodesCount: nodes.length,
+        });
+
+        if (!session?.id) {
+            console.log('[useSessionPersistence] No session ID, skipping save');
+            return;
+        }
 
         setSaveStatus('saving');
 
@@ -123,9 +132,12 @@ export function useSessionPersistence() {
             insights: session.insights,
         };
 
+        console.log('[useSessionPersistence] Saving session data:', sessionData);
+
         try {
             await saveMutation.mutateAsync(sessionData);
             setActiveSessionId(session.id);
+            console.log('[useSessionPersistence] Session saved successfully');
         } catch (error) {
             console.error('[useSessionPersistence] Save failed:', error);
         }
@@ -135,6 +147,13 @@ export function useSessionPersistence() {
      * Auto-save with debounce when session state changes
      */
     useEffect(() => {
+        console.log('[useSessionPersistence] Auto-save effect triggered', {
+            sessionId: session?.id,
+            phase,
+            nodesCount: nodes.length,
+            willSave: !!(session?.id && phase !== 'IDLE'),
+        });
+
         // Only auto-save if we have an active session with content
         if (!session?.id || phase === 'IDLE') return;
 
@@ -145,6 +164,7 @@ export function useSessionPersistence() {
 
         // Set new timeout for auto-save
         saveTimeoutRef.current = setTimeout(() => {
+            console.log('[useSessionPersistence] Auto-save timeout fired, calling saveSession');
             saveSession();
         }, AUTO_SAVE_DELAY);
 
