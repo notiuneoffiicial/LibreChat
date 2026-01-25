@@ -127,6 +127,45 @@ async function streamController(req, res) {
                 break;
             }
 
+            case 'assess': {
+                const { nodeId, answer, sessionContext } = payload || {};
+                if (!nodeId || !answer) {
+                    manager.sendError('Missing nodeId or answer in payload');
+                    manager.endStream();
+                    return;
+                }
+
+                // Restore context from client (stateless design)
+                if (sessionContext) {
+                    manager.decisionStatement = sessionContext.statement || '';
+                    sessionContext.nodes?.forEach(node => {
+                        manager.nodes.set(node.id, {
+                            id: node.id,
+                            question: node.question,
+                            answer: node.answer,
+                            category: node.category,
+                            state: node.answer ? 'RESOLVED' : 'DORMANT',
+                            satellites: [],
+                            signals: [],
+                        });
+                        // Also build qaHistory for assessment agent
+                        if (node.answer) {
+                            manager.qaHistory.push({
+                                question: node.question,
+                                answer: node.answer,
+                                category: node.category,
+                                nodeId: node.id,
+                                timestamp: Date.now(),
+                            });
+                        }
+                    });
+                }
+
+                // Use the new clarity assessment flow
+                await manager.assessAndRespond(nodeId, answer);
+                break;
+            }
+
             default:
                 manager.sendError(`Unknown action: ${action}`);
         }

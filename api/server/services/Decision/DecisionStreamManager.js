@@ -8,6 +8,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('@librechat/data-schemas');
+const { ClarityAssessmentAgent } = require('./ClarityAssessmentAgent');
 
 // ============================================================================
 // System Prompts
@@ -77,6 +78,8 @@ const DecisionContentTypes = {
     NODE_UPDATE: 'decision_node_update',
     SESSION_UPDATE: 'decision_session_update',
     MERGE_SUGGESTION: 'decision_merge_suggestion',
+    CLARITY_ASSESSMENT: 'decision_clarity_assessment',
+    NEXT_QUESTION: 'decision_next_question',
     ERROR: 'decision_error',
 };
 
@@ -101,6 +104,12 @@ class DecisionStreamManager {
         this.constraints = [];
         this.assumptions = [];
         this.options = [];
+
+        // Q&A history for clarity assessment
+        this.qaHistory = [];
+
+        // Initialize clarity assessment agent
+        this.clarityAgent = new ClarityAssessmentAgent(this.sendMessageToModel);
 
         logger.debug('[DecisionStreamManager] Created session', { sessionId: this.sessionId });
     }
@@ -449,6 +458,131 @@ Answer 2: ${node2.answer}`;
 
         } catch (err) {
             logger.error('[DecisionStreamManager.detectMerge] Error', err);
+            return null;
+        }
+    }
+
+    // ==========================================================================
+    // Clarity Assessment Flow
+    // ==========================================================================
+
+    /**
+     * Assess an answer and determine next action
+     * This is the main method for the new clarity-aware flow
+     * 
+     * @param {string} nodeId - The node being answered
+     * @param {string} answer - The user's answer
+     * @returns {Promise<{assessment, nextQuestion}>}
+     */
+    async assessAndRespond(nodeId, answer) {
+        const node = this.nodes.get(nodeId);
+        if (!node) {
+            this.sendError(`Node ${nodeId} not found`);
+            return null;
+        }
+
+        logger.debug('[DecisionStreamManager.assessAndRespond] Starting', { nodeId });
+
+        try {
+            // 1. Record this Q&A pair in history
+            this.qaHistory.push({
+                question: node.question,
+                answer: answer,
+                category: node.category,
+                nodeId: nodeId,
+                timestamp: Date.now(),
+            });
+
+            // Update node state
+            node.answer = answer;
+            node.state = 'RESOLVED';
+            this.nodes.set(nodeId, node);
+
+            // 2. Run clarity assessment (independent LLM call)
+            const assessment = await this.clarityAgent.assessAnswer(
+                this.decisionStatement,
+                this.qaHistory,
+                answer
+            );
+
+            // Send assessment to client
+            this.writeSSE({
+                type: DecisionContentTypes.CLARITY_ASSESSMENT,
+                nodeId,
+                assessment,
+                clarityAchieved: this.clarityAgent.isClarityAchieved(),
+                specificityTrend: this.clarityAgent.getSpecificityTrend(),
+            });
+
+            logger.debug('[DecisionStreamManager.assessAndRespond] Assessment complete', {
+                recommendation: assessment.recommendation,
+                specificity: assessment.specificity,
+            });
+
+            // 3. If not clarity, generate contextual question (separate LLM call)
+            let nextQuestion = null;
+            if (assessment.recommendation !== 'clarity') {
+                nextQuestion = await this.clarityAgent.generateContextualQuestion(
+                    this.decisionStatement,
+                    this.qaHistory,
+                    assessment
+                );
+
+                if (nextQuestion && nextQuestion.shouldAsk) {
+                    // Create new node for the question
+                    const newNodeId = uuidv4();
+                    const newNode = {
+                        id: newNodeId,
+                        question: nextQuestion.question,
+                        category: nextQuestion.category,
+                        expectedType: nextQuestion.category === 'reality' ? 'fact'
+                            : nextQuestion.category === 'values' ? 'value' : 'option',
+                        state: 'DORMANT',
+                        satellites: [],
+                        signals: [],
+                        source: 'assessment',
+                    };
+
+                    this.nodes.set(newNodeId, newNode);
+
+                    // Send new question to client
+                    this.writeSSE({
+                        type: DecisionContentTypes.NEXT_QUESTION,
+                        nodeId: newNodeId,
+                        action: 'spawned',
+                        ...newNode,
+                        reasoning: nextQuestion.reasoning,
+                    });
+
+                    logger.debug('[DecisionStreamManager.assessAndRespond] Spawned follow-up', {
+                        newNodeId,
+                        category: nextQuestion.category,
+                    });
+                }
+            } else {
+                // Clarity achieved - send reflection if available
+                const reflection = await this.clarityAgent.generateContextualQuestion(
+                    this.decisionStatement,
+                    this.qaHistory,
+                    assessment
+                );
+
+                if (reflection && reflection.reflection) {
+                    this.sendSessionUpdate({
+                        status: 'clarity_achieved',
+                        reflection: reflection.reflection,
+                    });
+                }
+            }
+
+            return {
+                assessment,
+                nextQuestion,
+            };
+
+        } catch (err) {
+            logger.error('[DecisionStreamManager.assessAndRespond] Error', err);
+            this.sendError(err.message || 'Failed to assess and respond');
             return null;
         }
     }

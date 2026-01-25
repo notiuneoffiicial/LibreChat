@@ -19,6 +19,7 @@ import type {
     QuestionCategory,
     ExpectedInfoType,
     NodeSignal,
+    ClarityAssessment,
 } from '~/common/DecisionSession.types';
 
 // ============================================================================
@@ -67,7 +68,31 @@ interface ErrorEvent {
     error: string;
 }
 
-type SSEEvent = NodeUpdateEvent | SessionUpdateEvent | MergeSuggestionEvent | ErrorEvent;
+interface ClarityAssessmentEvent {
+    type: 'decision_clarity_assessment';
+    nodeId: string;
+    assessment: ClarityAssessment;
+    clarityAchieved: boolean;
+    specificityTrend: 'increasing' | 'stable' | 'decreasing';
+}
+
+interface NextQuestionEvent {
+    type: 'decision_next_question';
+    nodeId: string;
+    action: 'spawned';
+    question: string;
+    category: TopicKey;
+    expectedType: ExpectedInfoType;
+    reasoning?: string;
+}
+
+type SSEEvent =
+    | NodeUpdateEvent
+    | SessionUpdateEvent
+    | MergeSuggestionEvent
+    | ClarityAssessmentEvent
+    | NextQuestionEvent
+    | ErrorEvent;
 
 // ============================================================================
 // Hook
@@ -401,6 +426,125 @@ export function useDecisionStream() {
     );
 
     /**
+     * Process an answer with clarity assessment
+     * This is the new flow that:
+     * 1. Assesses answer quality with a dedicated LLM agent
+     * 2. Determines if/what follow-up question is needed
+     * 3. Spawns new nodes based on assessment recommendation
+     */
+    const assessAndRespond = useCallback(
+        async (nodeId: string, answer: string): Promise<{
+            assessment: ClarityAssessment | null;
+            clarityAchieved: boolean;
+            newNodeId?: string;
+        }> => {
+            let result = {
+                assessment: null as ClarityAssessment | null,
+                clarityAchieved: false,
+                newNodeId: undefined as string | undefined,
+            };
+
+            const sessionContext = {
+                statement: session?.draft?.statement || '',
+                nodes: thoughtNodes.map((n) => ({
+                    id: n.id,
+                    question: n.question,
+                    answer: n.answer,
+                    category: n.topicKey,
+                })),
+            };
+
+            await streamRequest('assess', { nodeId, answer, sessionContext }, (event) => {
+                if (event.type === 'decision_error') {
+                    setError(event.error);
+                    return;
+                }
+
+                // Handle clarity assessment event
+                if (event.type === 'decision_clarity_assessment') {
+                    const assessEvent = event as ClarityAssessmentEvent;
+                    result.assessment = assessEvent.assessment;
+                    result.clarityAchieved = assessEvent.clarityAchieved;
+
+                    // Update node state to RESOLVED
+                    setThoughtNodes((prev) =>
+                        prev.map((node) => {
+                            if (node.id !== nodeId) return node;
+                            return {
+                                ...node,
+                                answer,
+                                state: 'RESOLVED' as const,
+                                resolvedAt: Date.now(),
+                            };
+                        }),
+                    );
+
+                    console.log('[useDecisionStream] Clarity assessment received:', {
+                        recommendation: assessEvent.assessment.recommendation,
+                        specificity: assessEvent.assessment.specificity,
+                        clarityAchieved: assessEvent.clarityAchieved,
+                    });
+                }
+
+                // Handle new question spawned from assessment
+                if (event.type === 'decision_next_question') {
+                    const nextEvent = event as NextQuestionEvent;
+                    result.newNodeId = nextEvent.nodeId;
+
+                    // Find a good spawn position
+                    const existingNodes = thoughtNodes.length;
+                    const spawnIndex = existingNodes + 1;
+
+                    const newNode: ThoughtNodeData = {
+                        id: nextEvent.nodeId,
+                        state: 'LATENT' as const,
+                        question: nextEvent.question,
+                        topicKey: nextEvent.category,
+                        category: getCategoryFromTopic(nextEvent.category),
+                        expectedInfoType: nextEvent.expectedType,
+                        position: getSpawnPosition(
+                            spawnIndex,
+                            anchorPosition.x,
+                            anchorPosition.y,
+                            6
+                        ),
+                        satellites: [],
+                        signals: [],
+                        source: 'assessment' as const,
+                        createdAt: Date.now(),
+                    };
+
+                    setThoughtNodes((prev) => [...prev, newNode]);
+
+                    console.log('[useDecisionStream] New question spawned:', {
+                        nodeId: nextEvent.nodeId,
+                        category: nextEvent.category,
+                        reasoning: nextEvent.reasoning,
+                    });
+                }
+
+                // Handle session update for clarity achieved
+                if (event.type === 'decision_session_update') {
+                    const sessionEvent = event as SessionUpdateEvent;
+                    if (sessionEvent.status === 'clarity_achieved') {
+                        setSession((prev) => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                phase: 'SETTLING' as const,
+                                updatedAt: Date.now(),
+                            };
+                        });
+                    }
+                }
+            });
+
+            return result;
+        },
+        [session, thoughtNodes, anchorPosition, streamRequest, setThoughtNodes, setSession],
+    );
+
+    /**
      * Abort ongoing stream
      */
     const abort = useCallback(() => {
@@ -415,6 +559,7 @@ export function useDecisionStream() {
         error,
         generateQuestions,
         processAnswer,
+        assessAndRespond,
         detectMerge,
         abort,
     };

@@ -257,68 +257,59 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
             setError(null);
 
             try {
-                // Determine tension reduction based on answer length
+                // Determine tension reduction based on answer specificity (will be updated by assessment)
                 const tensionRelease = Math.min(
                     CONVERGENCE.MAX_TENSION_RELEASE,
                     answer.length * CONVERGENCE.TENSION_RELEASE_RATE
                 );
 
-                // Use real SSE stream if enabled
+                // Use real SSE stream with clarity assessment if enabled
                 if (useRealStream) {
-                    console.log('[useTensionProbe] Using SSE stream for answer processing');
-                    await stream.processAnswer(nodeId, answer);
+                    console.log('[useTensionProbe] Using clarity assessment stream for answer processing');
 
-                    // Apply tension reduction locally (stream handles core state)
-                    let nodeWasResolved = false;
+                    // Use the new assessAndRespond which:
+                    // 1. Sends answer to clarity assessment agent
+                    // 2. Gets quality assessment (specificity, coherence, etc.)
+                    // 3. Spawns follow-up questions if needed
+                    const { assessment, clarityAchieved } = await stream.assessAndRespond(nodeId, answer);
+
+                    // Apply tension reduction based on assessment specificity
+                    const specificityMultiplier = assessment?.specificity ? assessment.specificity / 5 : 0.5;
+                    const adjustedRelease = tensionRelease * specificityMultiplier;
+
                     setThoughtNodes((prev) =>
                         prev.map((node) => {
                             if (node.id !== nodeId) return node;
                             const currentIntensity = node.intensity || 0.5;
-                            const newIntensity = Math.max(0, currentIntensity - tensionRelease);
-                            const isResolved = newIntensity < CONVERGENCE.RESOLUTION_THRESHOLD;
-                            nodeWasResolved = isResolved;
+                            const newIntensity = Math.max(0, currentIntensity - adjustedRelease);
                             return {
                                 ...node,
                                 intensity: newIntensity,
-                                state: isResolved ? 'RESOLVED' : node.state,
+                                // State already set to RESOLVED by stream handler
                             };
                         }),
                     );
 
-                    // Analyze behavior signals
-                    const behaviorSignals = analyzeInput(answer);
-                    const hasUncertainty = behaviorSignals.some(s => s.type === 'uncertainty' || (s.type === 'hedging' && s.indicates === 'confusion'));
-                    const hasAssumption = behaviorSignals.some(s => s.type === 'assumption');
-
-                    if (hasUncertainty || hasAssumption) {
-                        setOpenLoops(prev => [
-                            ...prev,
-                            {
-                                id: uuidv4(),
-                                description: hasAssumption ? 'Untested assumption' : 'Uncertainty detected',
-                                tensionPointId: nodeId,
-                                raisedAt: Date.now(),
-                                status: 'open',
-                            }
-                        ]);
-                    } else if (nodeWasResolved) {
-                        setOpenLoops(prev => prev.map(loop =>
-                            loop.tensionPointId === nodeId && loop.status === 'open'
-                                ? { ...loop, status: 'resolved' as const, resolvedAt: Date.now() }
-                                : loop
-                        ));
+                    // If clarity achieved, transition to settling phase
+                    if (clarityAchieved) {
+                        console.log('[useTensionProbe] Clarity achieved! Transitioning to settling...');
+                        // Session phase update handled by stream
                     }
 
                     setActiveNodeId(null);
-                    setTimeout(() => selectNextProbe(), CONVERGENCE.AUTO_PROBE_DELAY);
+
+                    // Only auto-probe if not clarity achieved
+                    if (!clarityAchieved) {
+                        setTimeout(() => selectNextProbe(), CONVERGENCE.AUTO_PROBE_DELAY);
+                    }
 
                     return {
                         constraints: [],
                         assumptions: [],
                         optionsDiscovered: [],
-                        needsFollowUp: false,
-                        signals: behaviorSignals as NodeSignal[],
-                        informationGain: 0.5,
+                        needsFollowUp: assessment?.recommendation === 'probe_deeper' || assessment?.recommendation === 'explore_new',
+                        signals: [] as NodeSignal[],
+                        informationGain: (assessment?.specificity || 3) / 5,
                     };
                 }
 

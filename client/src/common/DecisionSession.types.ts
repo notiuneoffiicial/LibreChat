@@ -147,7 +147,72 @@ export interface ThoughtNodeData {
     /** Affinity strengths to other nodes (for clustering) */
     affinities?: Map<string, number>;
     /** How this node was created */
-    source?: 'initial' | 'discovered' | 'user_added';
+    source?: 'initial' | 'discovered' | 'user_added' | 'followup' | 'assessment';
+}
+
+// ============================================================================
+// Clarity Assessment Types
+// ============================================================================
+
+/**
+ * Specificity rating for an answer (1-5)
+ */
+export type SpecificityRating = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * How an answer relates to previous answers
+ */
+export type CoherenceType = 'contradicts' | 'neutral' | 'reinforces';
+
+/**
+ * Whether an answer opens or closes tension
+ */
+export type TensionDelta = 'new_tension' | 'no_change' | 'tension_closed';
+
+/**
+ * User's orientation toward action
+ */
+export type OrientationType = 'exploring' | 'transitioning' | 'action_ready';
+
+/**
+ * Assessment recommendation for next action
+ */
+export type AssessmentRecommendation = 'probe_deeper' | 'explore_new' | 'converging' | 'clarity';
+
+/**
+ * LLM assessment of an answer's quality and session progress
+ */
+export interface ClarityAssessment {
+    /** How concrete/specific was the answer (1-5) */
+    specificity: SpecificityRating;
+    /** How does this answer relate to previous ones */
+    coherence: CoherenceType;
+    /** Did this answer open or close tension */
+    tensionDelta: TensionDelta;
+    /** Is the user exploring, transitioning, or action-ready */
+    orientation: OrientationType;
+    /** Recommended next action */
+    recommendation: AssessmentRecommendation;
+    /** If probe_deeper or explore_new: what to focus on */
+    suggestedFocus?: string;
+    /** 1-2 sentence explanation of assessment */
+    reasoning: string;
+}
+
+/**
+ * Result from contextual question generator
+ */
+export interface ContextualQuestionResult {
+    /** Whether a question should be asked */
+    shouldAsk: boolean;
+    /** The question to ask (if shouldAsk) */
+    question?: string;
+    /** Category of question */
+    category?: TopicKey;
+    /** Why this question now */
+    reasoning?: string;
+    /** Reflection to show if clarity achieved */
+    reflection?: string;
 }
 
 // ============================================================================
