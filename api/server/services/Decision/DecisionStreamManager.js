@@ -586,6 +586,92 @@ Answer 2: ${node2.answer}`;
             return null;
         }
     }
+
+    // ==========================================================================
+    // Question Regeneration (for throw-to-regenerate gesture)
+    // ==========================================================================
+
+    /**
+     * Regenerate a question with improvement context
+     * Called when user throws a question to the right (rejection gesture)
+     * 
+     * @param {string} category - reality, values, or options
+     * @param {string} originalQuestion - The rejected question (optional)
+     */
+    async regenerateQuestion(category, originalQuestion = null) {
+        logger.debug('[DecisionStreamManager.regenerateQuestion] Regenerating', { category });
+
+        const improvementPrompt = `You are helping someone make a decision: "${this.decisionStatement}"
+
+The user REJECTED the following question (they want a better one):
+${originalQuestion ? `"${originalQuestion}"` : '(No original question provided)'}
+
+Generate a NEW, IMPROVED question for the "${category}" category that:
+1. Takes a DIFFERENT ANGLE on the topic
+2. Is MORE CONCRETE and specific to their situation
+3. Is MORE ACTIONABLE - something they can actually think about
+4. Avoids being too abstract or philosophical
+
+Previous context:
+${Array.from(this.nodes.values())
+                .filter(n => n.answer)
+                .map(n => `Q: ${n.question}\nA: ${n.answer}`)
+                .join('\n\n') || 'No previous answers yet.'}
+
+Respond with JSON:
+{
+  "question": "Your new, improved question",
+  "expectedType": "fact" | "value" | "option",
+  "reasoning": "Why this question is better than the rejected one"
+}`;
+
+        try {
+            const response = await this.sendMessageToModel([
+                { role: 'system', content: 'You generate improved decision-making questions. Respond only with valid JSON.' },
+                { role: 'user', content: improvementPrompt }
+            ], { temperature: 0.8 }); // Slightly higher temperature for variety
+
+            // Parse response
+            let result;
+            try {
+                const jsonMatch = response.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    result = JSON.parse(jsonMatch[0]);
+                }
+            } catch (parseErr) {
+                logger.warn('[DecisionStreamManager.regenerateQuestion] Failed to parse response', parseErr);
+                result = { question: 'What specific step could you take to move forward?', expectedType: 'option' };
+            }
+
+            if (result && result.question) {
+                // Send the new question as a node update
+                const nodeId = require('uuid').v4();
+
+                this.writeSSE({
+                    type: DecisionContentTypes.NODE_UPDATE,
+                    nodeId,
+                    action: 'created',
+                    question: result.question,
+                    category,
+                    expectedType: result.expectedType || 'fact',
+                    regenerated: true,
+                    originalQuestion,
+                });
+
+                logger.debug('[DecisionStreamManager.regenerateQuestion] Generated improved question', {
+                    nodeId,
+                    question: result.question?.substring(0, 50),
+                });
+
+                return result;
+            }
+        } catch (err) {
+            logger.error('[DecisionStreamManager.regenerateQuestion] Error', err);
+            this.sendError(err.message || 'Failed to regenerate question');
+        }
+
+        return null;
+    }
 }
 
 module.exports = {

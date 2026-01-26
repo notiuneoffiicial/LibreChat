@@ -84,6 +84,23 @@ export const hoveredNodeIdAtom = atom<string | null>({
 });
 
 /**
+ * Active throw zone during drag (for visual overlay)
+ * 'dismiss' = left zone active, 'regenerate' = right zone active
+ */
+export const activeThrowZoneAtom = atom<'dismiss' | 'regenerate' | null>({
+    key: 'activeThrowZone',
+    default: null,
+});
+
+/**
+ * Whether any node is currently being dragged
+ */
+export const isDraggingNodeAtom = atom<boolean>({
+    key: 'isDraggingNode',
+    default: false,
+});
+
+/**
  * Selector to get the currently active node
  */
 export const activeNodeSelector = selector<ThoughtNodeData | null>({

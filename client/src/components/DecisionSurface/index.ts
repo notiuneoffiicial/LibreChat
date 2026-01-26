@@ -23,6 +23,7 @@ export { default as FileNode } from './FileNode';
 export { default as MemoryPickerPopover } from './MemoryPickerPopover';
 export { default as FilesPickerPopover } from './FilesPickerPopover';
 export { default as ResourceConnections } from './ResourceConnections';
+export { default as ThrowZoneOverlay } from './ThrowZoneOverlay';
 
 // Re-export config
 export * from './nodeMotionConfig';

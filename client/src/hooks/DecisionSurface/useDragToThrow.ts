@@ -2,8 +2,10 @@
  * OptimismAI - Living Decision Surface
  * useDragToThrow - Hook for drag-to-throw gesture handling
  *
- * Enables users to drag question nodes and "throw" them out of view
- * to trigger regeneration of that question category.
+ * Enables users to drag question nodes with directional actions:
+ * - Throw LEFT = dismiss/erase the node
+ * - Throw RIGHT = regenerate with "improve" context
+ * - Regular drag = reposition the node freely
  */
 
 import { useCallback, useRef, useState, useEffect } from 'react';
@@ -16,6 +18,19 @@ import type { Position } from '~/common/DecisionSession.types';
 
 export type ThrowDirection = 'left' | 'right' | 'up' | 'down';
 
+/**
+ * Action type based on throw direction
+ * - dismiss: Throw left - remove node from surface
+ * - regenerate: Throw right - get improved question
+ * - reposition: Low velocity - just move the node
+ */
+export type ThrowAction = 'dismiss' | 'regenerate' | 'reposition';
+
+/**
+ * Visual feedback zone for throw direction
+ */
+export type ThrowZone = 'dismiss' | 'regenerate' | null;
+
 interface DragState {
     isDragging: boolean;
     startPosition: Position;
@@ -26,14 +41,16 @@ interface DragState {
 interface UseDragToThrowOptions {
     /** Node ID being dragged */
     nodeId: string;
-    /** Callback when node is thrown out */
-    onThrowOut: (nodeId: string, direction: ThrowDirection) => void;
+    /** Callback when node is thrown or repositioned */
+    onThrowAction: (nodeId: string, action: ThrowAction, newPosition?: Position) => void;
     /** Whether drag is enabled (default: true) */
     enabled?: boolean;
     /** Minimum velocity to trigger throw (default: from config) */
     velocityThreshold?: number;
     /** Container bounds for boundary detection */
     containerRef?: React.RefObject<HTMLElement>;
+    /** Current node position (for calculating final position) */
+    nodePosition?: Position;
 }
 
 interface UseDragToThrowResult {
@@ -50,6 +67,8 @@ interface UseDragToThrowResult {
     isExiting: boolean;
     /** Exit direction if exiting */
     exitDirection: ThrowDirection | null;
+    /** Active throw zone for visual feedback (dismiss = left, regenerate = right) */
+    pendingZone: ThrowZone;
 }
 
 // ============================================================================
@@ -100,10 +119,11 @@ function calculateVelocity(tracker: VelocityTracker): Position {
 
 export function useDragToThrow({
     nodeId,
-    onThrowOut,
+    onThrowAction,
     enabled = true,
     velocityThreshold = THROW.VELOCITY_THRESHOLD,
     containerRef,
+    nodePosition = { x: 0, y: 0 },
 }: UseDragToThrowOptions): UseDragToThrowResult {
     const [dragState, setDragState] = useState<DragState>({
         isDragging: false,
@@ -114,6 +134,7 @@ export function useDragToThrow({
 
     const [isExiting, setIsExiting] = useState(false);
     const [exitDirection, setExitDirection] = useState<ThrowDirection | null>(null);
+    const [pendingZone, setPendingZone] = useState<ThrowZone>(null);
 
     const velocityTrackerRef = useRef<VelocityTracker>(createVelocityTracker());
     const animationFrameRef = useRef<number>();
@@ -130,6 +151,39 @@ export function useDragToThrow({
         } else {
             return velocity.y > 0 ? 'down' : 'up';
         }
+    }, []);
+
+    /**
+     * Convert throw direction to action
+     * LEFT = dismiss, RIGHT = regenerate, UP/DOWN = reposition
+     */
+    const directionToAction = useCallback((direction: ThrowDirection): ThrowAction => {
+        switch (direction) {
+            case 'left':
+                return 'dismiss';
+            case 'right':
+                return 'regenerate';
+            default:
+                return 'reposition';
+        }
+    }, []);
+
+    /**
+     * Get pending zone based on current drag offset
+     */
+    const calculatePendingZone = useCallback((offset: Position): ThrowZone => {
+        const threshold = 80; // Pixels from edge to trigger zone
+        const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+
+        // Check if dragged far enough to left
+        if (offset.x < -threshold) {
+            return 'dismiss';
+        }
+        // Check if dragged far enough to right
+        if (offset.x > threshold) {
+            return 'regenerate';
+        }
+        return null;
     }, []);
 
     /**
@@ -157,22 +211,42 @@ export function useDragToThrow({
     }, [containerRef]);
 
     /**
-     * Handle drag end - check for throw
+     * Handle drag end - check for throw or reposition
      */
     const handleDragEnd = useCallback(() => {
         const velocity = calculateVelocity(velocityTrackerRef.current);
+        const currentOffset = dragState.currentOffset;
 
         if (isThrowVelocity(velocity)) {
             const direction = getThrowDirection(velocity);
-            setIsExiting(true);
-            setExitDirection(direction);
+            const action = directionToAction(direction);
 
-            // Trigger callback after brief delay for exit animation
-            setTimeout(() => {
-                onThrowOut(nodeId, direction);
-                setIsExiting(false);
-                setExitDirection(null);
-            }, THROW.EXIT_DURATION);
+            // Only show exit animation for dismiss/regenerate (horizontal throws)
+            if (action === 'dismiss' || action === 'regenerate') {
+                setIsExiting(true);
+                setExitDirection(direction);
+
+                // Trigger callback after brief delay for exit animation
+                setTimeout(() => {
+                    onThrowAction(nodeId, action);
+                    setIsExiting(false);
+                    setExitDirection(null);
+                }, THROW.EXIT_DURATION);
+            } else {
+                // Vertical throws = reposition
+                const newPosition: Position = {
+                    x: nodePosition.x + currentOffset.x,
+                    y: nodePosition.y + currentOffset.y,
+                };
+                onThrowAction(nodeId, 'reposition', newPosition);
+            }
+        } else if (currentOffset.x !== 0 || currentOffset.y !== 0) {
+            // Low velocity = reposition the node
+            const newPosition: Position = {
+                x: nodePosition.x + currentOffset.x,
+                y: nodePosition.y + currentOffset.y,
+            };
+            onThrowAction(nodeId, 'reposition', newPosition);
         }
 
         // Reset drag state
@@ -183,9 +257,12 @@ export function useDragToThrow({
             velocity: { x: 0, y: 0 },
         });
 
+        // Reset zones
+        setPendingZone(null);
+
         // Reset velocity tracker
         velocityTrackerRef.current = createVelocityTracker();
-    }, [nodeId, onThrowOut, isThrowVelocity, getThrowDirection]);
+    }, [nodeId, nodePosition, dragState.currentOffset, onThrowAction, isThrowVelocity, getThrowDirection, directionToAction]);
 
     /**
      * Handle pointer move during drag
@@ -198,12 +275,15 @@ export function useDragToThrow({
 
         trackPosition(velocityTrackerRef.current, clientX, clientY);
 
+        // Update pending zone for visual feedback
+        setPendingZone(calculatePendingZone({ x: offsetX, y: offsetY }));
+
         setDragState(prev => ({
             ...prev,
             currentOffset: { x: offsetX, y: offsetY },
             velocity: calculateVelocity(velocityTrackerRef.current),
         }));
-    }, [dragState.isDragging, dragState.startPosition]);
+    }, [dragState.isDragging, dragState.startPosition, calculatePendingZone]);
 
     /**
      * Mouse event handlers
@@ -298,6 +378,7 @@ export function useDragToThrow({
         isDragging: dragState.isDragging,
         isExiting,
         exitDirection,
+        pendingZone,
     };
 }
 

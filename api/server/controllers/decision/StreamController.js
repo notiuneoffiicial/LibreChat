@@ -166,6 +166,33 @@ async function streamController(req, res) {
                 break;
             }
 
+            case 'regenerate': {
+                // User threw question RIGHT - regenerate with improvement context
+                const { category, originalQuestion, statement, sessionContext } = payload || {};
+                if (!category || !statement) {
+                    manager.sendError('Missing category or statement in payload');
+                    manager.endStream();
+                    return;
+                }
+
+                logger.debug('[DecisionStreamController] Regenerating question', {
+                    category,
+                    originalQuestion: originalQuestion?.substring(0, 50)
+                });
+
+                // Restore context if provided
+                if (sessionContext) {
+                    manager.decisionStatement = statement;
+                    sessionContext.nodes?.forEach(node => {
+                        manager.nodes.set(node.id, node);
+                    });
+                }
+
+                // Generate improved question with rejection context
+                await manager.regenerateQuestion(category, originalQuestion);
+                break;
+            }
+
             default:
                 manager.sendError(`Unknown action: ${action}`);
         }

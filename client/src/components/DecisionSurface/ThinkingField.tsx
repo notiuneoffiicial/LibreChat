@@ -23,6 +23,7 @@ import LoadingRipples from './LoadingRipples';
 import MemoryNode from './MemoryNode';
 import FileNode from './FileNode';
 import ResourceConnections from './ResourceConnections';
+import ThrowZoneOverlay from './ThrowZoneOverlay';
 
 /**
  * ThinkingField - The living decision surface
@@ -58,6 +59,10 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const fileNodes = useRecoilValue(store.fileNodesAtom);
 
     const [softConfirmation, setSoftConfirmation] = useRecoilState(store.softConfirmationAtom);
+
+    // Throw zone overlay state
+    const activeThrowZone = useRecoilValue(store.activeThrowZoneAtom);
+    const isDraggingNode = useRecoilValue(store.isDraggingNodeAtom);
 
     // Session state machine hook
     const { submitDecision, selectNode, session, endSession, reopenSession } = useDecisionSession(conversationId);
@@ -168,27 +173,75 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
         setTraceOverlayOpen(true);
     }, [setTraceOverlayOpen]);
 
-    // Handle node throw-out for regeneration
-    const handleNodeThrowOut = useCallback(
-        async (nodeId: string, category: TopicKey) => {
-            console.log('[ThinkingField] Node thrown out:', nodeId, 'category:', category);
 
-            // 1. Mark node as exiting (triggers exit animation)
-            setThoughtNodes((prev) =>
-                prev.map((n) =>
-                    n.id === nodeId ? { ...n, state: 'EXITING' as const } : n,
-                ),
-            );
+    // Handle node throw actions: dismiss, regenerate, or reposition
+    const handleNodeThrowAction = useCallback(
+        async (
+            nodeId: string,
+            action: 'dismiss' | 'regenerate' | 'reposition',
+            category?: TopicKey,
+            newPosition?: { x: number; y: number }
+        ) => {
+            console.log('[ThinkingField] Node throw action:', action, 'nodeId:', nodeId);
 
-            // 2. Wait for exit animation to complete
-            await new Promise((resolve) => setTimeout(resolve, THROW.EXIT_DURATION));
+            switch (action) {
+                case 'dismiss': {
+                    // User threw LEFT - dismiss/remove the node
+                    console.log('[ThinkingField] Dismissing node:', nodeId);
 
-            // 3. Remove the old node
-            setThoughtNodes((prev) => prev.filter((n) => n.id !== nodeId));
+                    // Mark node as exiting for animation
+                    setThoughtNodes((prev) =>
+                        prev.map((n) =>
+                            n.id === nodeId ? { ...n, state: 'EXITING' as const } : n,
+                        ),
+                    );
 
-            // 4. Regenerate a new question for the same category
-            const statement = session?.draft?.statement || '';
-            await regenerateQuestion(category, statement);
+                    // Wait for exit animation, then remove
+                    await new Promise((resolve) => setTimeout(resolve, THROW.EXIT_DURATION));
+                    setThoughtNodes((prev) => prev.filter((n) => n.id !== nodeId));
+                    break;
+                }
+
+                case 'regenerate': {
+                    // User threw RIGHT - regenerate with "improve" context
+                    console.log('[ThinkingField] Regenerating node:', nodeId, 'category:', category);
+
+                    // Mark node as exiting
+                    setThoughtNodes((prev) =>
+                        prev.map((n) =>
+                            n.id === nodeId ? { ...n, state: 'EXITING' as const } : n,
+                        ),
+                    );
+
+                    // Wait for exit animation
+                    await new Promise((resolve) => setTimeout(resolve, THROW.EXIT_DURATION));
+
+                    // Remove the old node
+                    setThoughtNodes((prev) => prev.filter((n) => n.id !== nodeId));
+
+                    // Regenerate with improvement context
+                    if (category) {
+                        const statement = session?.draft?.statement || '';
+                        // TODO: Pass improvement context to regenerateQuestion
+                        // For now, just regenerate
+                        await regenerateQuestion(category, statement);
+                    }
+                    break;
+                }
+
+                case 'reposition': {
+                    // User dragged the node - update its position
+                    if (newPosition) {
+                        console.log('[ThinkingField] Repositioning node:', nodeId, newPosition);
+                        setThoughtNodes((prev) =>
+                            prev.map((n) =>
+                                n.id === nodeId ? { ...n, position: newPosition } : n,
+                            ),
+                        );
+                    }
+                    break;
+                }
+            }
         },
         [setThoughtNodes, session, regenerateQuestion],
     );
@@ -221,6 +274,12 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                     opacity: FIELD.GRAIN_OPACITY,
                     mixBlendMode: 'overlay',
                 }}
+            />
+
+            {/* Throw zone overlay for drag feedback */}
+            <ThrowZoneOverlay
+                activeZone={activeThrowZone}
+                isDragging={isDraggingNode}
             />
 
             {/* Soft grid - only show in dark mode */}
@@ -265,7 +324,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         isActive={node.id === activeNodeId}
                         anchorPosition={anchorPosition}
                         onSelect={handleNodeSelect}
-                        onThrowOut={handleNodeThrowOut}
+                        onThrowAction={handleNodeThrowAction}
                         otherNodeActive={hasActiveNode && node.id !== activeNodeId}
                         disableDrift={isMerging}
                     />

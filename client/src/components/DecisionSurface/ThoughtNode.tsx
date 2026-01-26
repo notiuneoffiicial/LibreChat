@@ -6,10 +6,12 @@
  * lightly labeled, not titled like a feature."
  */
 
-import { memo, useCallback, useRef, useMemo, useContext } from 'react';
+import { memo, useCallback, useRef, useMemo, useContext, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
+import { useSetRecoilState } from 'recoil';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
+import store from '~/store';
 import { useNodeMotion, useDragToThrow } from '~/hooks/DecisionSurface';
 import { THROW, TENSION } from './nodeMotionConfig';
 import type { ThoughtNodeProps, NodeSignal, TopicKey } from '~/common/DecisionSession.types';
@@ -38,8 +40,8 @@ interface ExtendedThoughtNodeProps extends ThoughtNodeProps {
     otherNodeActive?: boolean;
     /** Whether drift animation should be disabled (during merges) */
     disableDrift?: boolean;
-    /** Callback when node is thrown out for regeneration */
-    onThrowOut?: (nodeId: string, category: TopicKey) => void;
+    /** Callback when node action is triggered (dismiss, regenerate, or reposition) */
+    onThrowAction?: (nodeId: string, action: 'dismiss' | 'regenerate' | 'reposition', category?: TopicKey, newPosition?: { x: number; y: number }) => void;
     /** Whether drag-to-throw is enabled (default: true) */
     enableDrag?: boolean;
 }
@@ -53,7 +55,7 @@ interface ExtendedThoughtNodeProps extends ThoughtNodeProps {
  * - Tiny glyph indicating topic type
  * - Subtle idle drift animation
  * - Engage/disengage motion on selection
- * - Drag-to-throw gesture for regeneration
+ * - Drag-to-throw gesture: LEFT = dismiss, RIGHT = regenerate
  */
 function ThoughtNode({
     node,
@@ -62,7 +64,7 @@ function ThoughtNode({
     onSelect,
     otherNodeActive = false,
     disableDrift = false,
-    onThrowOut,
+    onThrowAction,
     enableDrag = true,
 }: ExtendedThoughtNodeProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -83,13 +85,20 @@ function ThoughtNode({
         intensity: node.intensity,
     });
 
-    // Drag-to-throw hook
-    const { dragHandlers, dragOffset, isDragging, isExiting } = useDragToThrow({
+    // Drag-to-throw hook with directional actions
+    const { dragHandlers, dragOffset, isDragging, isExiting, pendingZone } = useDragToThrow({
         nodeId: node.id,
-        onThrowOut: (nodeId) => {
-            onThrowOut?.(nodeId, node.topicKey);
+        onThrowAction: (nodeId, action, newPosition) => {
+            if (action === 'dismiss') {
+                onThrowAction?.(nodeId, 'dismiss', node.topicKey);
+            } else if (action === 'regenerate') {
+                onThrowAction?.(nodeId, 'regenerate', node.topicKey);
+            } else if (action === 'reposition' && newPosition) {
+                onThrowAction?.(nodeId, 'reposition', undefined, newPosition);
+            }
         },
-        enabled: enableDrag && !isActive && node.state === 'DORMANT',
+        enabled: enableDrag && !isActive && (node.state === 'DORMANT' || node.state === 'LATENT'),
+        nodePosition: node.position,
     });
 
     // Spring for drag offset animation
@@ -103,6 +112,23 @@ function ThoughtNode({
         }),
         [dragOffset, isDragging, isExiting],
     );
+
+    // Sync local drag state to global atoms for overlay feedback
+    const setActiveThrowZone = useSetRecoilState(store.activeThrowZoneAtom);
+    const setIsDraggingNode = useSetRecoilState(store.isDraggingNodeAtom);
+
+    useEffect(() => {
+        setIsDraggingNode(isDragging);
+        setActiveThrowZone(pendingZone);
+
+        // Cleanup when unmounting or drag ends
+        return () => {
+            if (isDragging) {
+                setIsDraggingNode(false);
+                setActiveThrowZone(null);
+            }
+        };
+    }, [isDragging, pendingZone, setIsDraggingNode, setActiveThrowZone]);
 
     // Handle click - only trigger if not dragging
     const handleClick = useCallback((e: React.MouseEvent) => {
