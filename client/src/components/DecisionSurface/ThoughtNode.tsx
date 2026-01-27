@@ -148,7 +148,8 @@ function ThoughtNode({
     }
 
     // Determine if drag is currently enabled for this node
-    const canDrag = enableDrag && !isActive && node.state === 'DORMANT';
+    // Must match the condition used in useDragToThrow hook
+    const canDrag = enableDrag && !isActive && (node.state === 'DORMANT' || node.state === 'LATENT');
 
     return (
         <animated.div

@@ -327,6 +327,7 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                         onThrowAction={handleNodeThrowAction}
                         otherNodeActive={hasActiveNode && node.id !== activeNodeId}
                         disableDrift={isMerging}
+                        enableDrag={!isMerging}
                     />
                 ))}
 
