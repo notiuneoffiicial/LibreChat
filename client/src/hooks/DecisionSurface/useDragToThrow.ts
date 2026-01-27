@@ -168,31 +168,30 @@ export function useDragToThrow({
         }
     }, []);
 
+    // Zone width constant - matches ThrowZoneOverlay (w-32 = 128px)
+    const ZONE_WIDTH = 128;
+
     /**
-     * Get pending zone based on current drag offset
+     * Get pending zone based on absolute screen position of the node
+     * This uses the node's final rendered position on screen
      */
     const calculatePendingZone = useCallback((offset: Position): ThrowZone => {
-        const threshold = 80; // Pixels from edge to trigger zone
         const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
 
-        // Check if dragged far enough to left
-        if (offset.x < -threshold) {
+        // Calculate where the node center is on screen
+        // nodePosition is in screen coordinates, offset is the drag delta
+        const nodeScreenX = nodePosition.x + offset.x;
+
+        // Check if node center is in the left zone (dismiss)
+        if (nodeScreenX < ZONE_WIDTH) {
             return 'dismiss';
         }
-        // Check if dragged far enough to right
-        if (offset.x > threshold) {
+        // Check if node center is in the right zone (regenerate)
+        if (nodeScreenX > screenWidth - ZONE_WIDTH) {
             return 'regenerate';
         }
         return null;
-    }, []);
-
-    /**
-     * Check if velocity exceeds threshold
-     */
-    const isThrowVelocity = useCallback((velocity: Position): boolean => {
-        const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-        return speed >= velocityThreshold;
-    }, [velocityThreshold]);
+    }, [nodePosition.x]);
 
     /**
      * Check if position is outside container bounds
@@ -211,37 +210,39 @@ export function useDragToThrow({
     }, [containerRef]);
 
     /**
-     * Handle drag end - check for throw or reposition
+     * Handle drag end - determine action based on which zone the node is in
+     * Position-based detection: action is determined by WHERE the node is, not throw velocity
      */
     const handleDragEnd = useCallback(() => {
-        const velocity = calculateVelocity(velocityTrackerRef.current);
         const currentOffset = dragState.currentOffset;
 
-        if (isThrowVelocity(velocity)) {
-            const direction = getThrowDirection(velocity);
-            const action = directionToAction(direction);
+        // Get the current zone based on node's screen position
+        const currentZone = calculatePendingZone(currentOffset);
 
-            // Only show exit animation for dismiss/regenerate (horizontal throws)
-            if (action === 'dismiss' || action === 'regenerate') {
-                setIsExiting(true);
-                setExitDirection(direction);
+        if (currentZone === 'dismiss') {
+            // Node is in the left dismiss zone
+            setIsExiting(true);
+            setExitDirection('left');
 
-                // Trigger callback after brief delay for exit animation
-                setTimeout(() => {
-                    onThrowAction(nodeId, action);
-                    setIsExiting(false);
-                    setExitDirection(null);
-                }, THROW.EXIT_DURATION);
-            } else {
-                // Vertical throws = reposition
-                const newPosition: Position = {
-                    x: nodePosition.x + currentOffset.x,
-                    y: nodePosition.y + currentOffset.y,
-                };
-                onThrowAction(nodeId, 'reposition', newPosition);
-            }
+            // Trigger callback after brief delay for exit animation
+            setTimeout(() => {
+                onThrowAction(nodeId, 'dismiss');
+                setIsExiting(false);
+                setExitDirection(null);
+            }, THROW.EXIT_DURATION);
+        } else if (currentZone === 'regenerate') {
+            // Node is in the right regenerate zone
+            setIsExiting(true);
+            setExitDirection('right');
+
+            // Trigger callback after brief delay for exit animation
+            setTimeout(() => {
+                onThrowAction(nodeId, 'regenerate');
+                setIsExiting(false);
+                setExitDirection(null);
+            }, THROW.EXIT_DURATION);
         } else if (currentOffset.x !== 0 || currentOffset.y !== 0) {
-            // Low velocity = reposition the node
+            // Node is in neutral zone - just reposition
             const newPosition: Position = {
                 x: nodePosition.x + currentOffset.x,
                 y: nodePosition.y + currentOffset.y,
@@ -262,7 +263,7 @@ export function useDragToThrow({
 
         // Reset velocity tracker
         velocityTrackerRef.current = createVelocityTracker();
-    }, [nodeId, nodePosition, dragState.currentOffset, onThrowAction, isThrowVelocity, getThrowDirection, directionToAction]);
+    }, [nodeId, nodePosition, dragState.currentOffset, onThrowAction, calculatePendingZone]);
 
     /**
      * Handle pointer move during drag
