@@ -97,7 +97,8 @@ function ThoughtNode({
                 onThrowAction?.(nodeId, 'reposition', undefined, newPosition);
             }
         },
-        enabled: enableDrag && !isActive && (node.state === 'DORMANT' || node.state === 'LATENT'),
+        // Allow dragging for non-active, non-exiting nodes
+        enabled: enableDrag && !isActive && ['DORMANT', 'LATENT', 'RESOLVED', 'PROBING'].includes(node.state),
         nodePosition: node.position,
     });
 
@@ -149,7 +150,8 @@ function ThoughtNode({
 
     // Determine if drag is currently enabled for this node
     // Must match the condition used in useDragToThrow hook
-    const canDrag = enableDrag && !isActive && (node.state === 'DORMANT' || node.state === 'LATENT');
+    // Allow dragging for DORMANT, LATENT, RESOLVED, and PROBING states
+    const canDrag = enableDrag && !isActive && ['DORMANT', 'LATENT', 'RESOLVED', 'PROBING'].includes(node.state);
 
     return (
         <animated.div

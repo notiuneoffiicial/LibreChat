@@ -219,8 +219,20 @@ export function useDragToThrow({
         // Get the current zone based on node's screen position
         const currentZone = calculatePendingZone(currentOffset);
 
+        // Debug logging
+        console.log('[useDragToThrow] handleDragEnd:', {
+            nodeId,
+            currentOffset,
+            nodePosition,
+            calculatedScreenX: nodePosition.x + currentOffset.x,
+            currentZone,
+            screenWidth: typeof window !== 'undefined' ? window.innerWidth : 1200,
+            ZONE_WIDTH,
+        });
+
         if (currentZone === 'dismiss') {
             // Node is in the left dismiss zone
+            console.log('[useDragToThrow] Triggering DISMISS action');
             setIsExiting(true);
             setExitDirection('left');
 

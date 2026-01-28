@@ -562,3 +562,89 @@ export function getSatellitePosition(
         angle: bestAngle,
     };
 }
+
+// ============================================================================
+// Collision Avoidance
+// ============================================================================
+
+const COLLISION = {
+    MIN_DISTANCE: 140, // Minimum pixels between node centers
+    MAX_ATTEMPTS: 20, // Maximum attempts to find non-overlapping position
+    SPIRAL_STEP: 30, // Pixels to step outward in spiral search
+    ANGLE_STEP: 45, // Degrees between spiral search positions
+};
+
+/**
+ * Check if a position collides with any existing node positions
+ */
+function hasCollision(
+    position: { x: number; y: number },
+    existingPositions: Array<{ x: number; y: number }>,
+    minDistance: number = COLLISION.MIN_DISTANCE
+): boolean {
+    for (const existing of existingPositions) {
+        const dx = position.x - existing.x;
+        const dy = position.y - existing.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < minDistance) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Calculate spawn position for a node with collision avoidance
+ * Uses the base getSpawnPosition and then adjusts if there's a collision
+ */
+export function getSpawnPositionWithCollisionAvoidance(
+    index: number,
+    anchorX: number,
+    anchorY: number,
+    nodeCount: number = 3,
+    existingPositions: Array<{ x: number; y: number }> = []
+): { x: number; y: number } {
+    // Get the base position first
+    const basePosition = getSpawnPosition(index, anchorX, anchorY, nodeCount);
+
+    // If no collision, return the base position
+    if (!hasCollision(basePosition, existingPositions)) {
+        return basePosition;
+    }
+
+    // Try to find a non-colliding position using spiral search
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+    for (let attempt = 0; attempt < COLLISION.MAX_ATTEMPTS; attempt++) {
+        // Spiral outward from base position
+        const spiralRadius = (Math.floor(attempt / 8) + 1) * COLLISION.SPIRAL_STEP;
+        const spiralAngle = (attempt % 8) * COLLISION.ANGLE_STEP;
+        const angleRad = (spiralAngle * Math.PI) / 180;
+
+        const candidate = {
+            x: basePosition.x + spiralRadius * Math.cos(angleRad),
+            y: basePosition.y + spiralRadius * Math.sin(angleRad),
+        };
+
+        // Apply bounds checking
+        candidate.x = Math.max(SPAWN.TOOLBAR_AVOID_WIDTH + SPAWN.EDGE_PADDING,
+            Math.min(candidate.x, screenWidth - SPAWN.EDGE_PADDING));
+        candidate.y = Math.max(SPAWN.EDGE_PADDING,
+            Math.min(candidate.y, screenHeight - SPAWN.EDGE_PADDING));
+
+        // Check for collision with this candidate
+        if (!hasCollision(candidate, existingPositions)) {
+            return candidate;
+        }
+    }
+
+    // Fallback: return a random position if all attempts failed
+    const fallbackX = SPAWN.TOOLBAR_AVOID_WIDTH + SPAWN.EDGE_PADDING +
+        Math.random() * (screenWidth - SPAWN.TOOLBAR_AVOID_WIDTH - 2 * SPAWN.EDGE_PADDING);
+    const fallbackY = SPAWN.EDGE_PADDING +
+        Math.random() * (screenHeight - 2 * SPAWN.EDGE_PADDING);
+
+    return { x: fallbackX, y: fallbackY };
+}
+

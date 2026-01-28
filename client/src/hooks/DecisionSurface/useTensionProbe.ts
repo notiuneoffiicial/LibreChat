@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
 import { useSetRecoilState, useRecoilValue, useRecoilState } from 'recoil';
 import { v4 as uuidv4 } from 'uuid';
 import store from '~/store';
-import { getSpawnPosition, TENSION, CONVERGENCE } from '~/components/DecisionSurface/nodeMotionConfig';
+import { getSpawnPosition, getSpawnPositionWithCollisionAvoidance, TENSION, CONVERGENCE } from '~/components/DecisionSurface/nodeMotionConfig';
 import { useDecisionStream } from './useDecisionStream';
 import { useBehaviorSignals } from './useBehaviorSignals';
 import type {
@@ -218,12 +218,13 @@ export function useTensionProbe(options: UseTensionProbeOptions = {}) {
                     intensity: 0.6,
                     category: getCategoryFromTopic(category),
                     expectedInfoType: result.expectedType,
-                    // Spawn at random angle to avoid overlap
-                    position: getSpawnPosition(
+                    // Spawn at random angle with collision avoidance
+                    position: getSpawnPositionWithCollisionAvoidance(
                         Math.floor(Math.random() * 6), // Random index 0-5 for varied angle
                         anchorPosition.x,
                         anchorPosition.y,
-                        6 // 6 positions around circle
+                        6, // 6 positions around circle
+                        thoughtNodes.map(n => n.position) // Existing node positions
                     ),
                     satellites: [],
                     signals: [],
