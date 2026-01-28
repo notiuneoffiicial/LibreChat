@@ -32,7 +32,7 @@ function ToolbarIcon({ icon: Icon, label, onClick, collapsed, isCurrentlyDark, i
             onClick={onClick}
             className={cn(
                 'flex items-center gap-3 w-full px-3 py-2.5 rounded-lg',
-                'transition-all duration-200 ease-out',
+                'transition-all duration-100 ease-out',
                 isCurrentlyDark
                     ? 'text-white/40 hover:text-white/70 hover:bg-white/5 focus:ring-white/20'
                     : 'text-slate-500 hover:text-slate-700 hover:bg-black/5 focus:ring-black/20',
@@ -116,7 +116,7 @@ function DecisionToolbar({ onNewDecision, onOpenHistory }: DecisionToolbarProps)
             className={cn(
                 'absolute left-0 top-0 bottom-0 z-40',
                 'flex flex-col',
-                'transition-all duration-200 ease-out',
+                'transition-all duration-100 ease-out',
                 isCurrentlyDark
                     ? 'bg-gradient-to-r from-black/40 to-transparent'
                     : 'bg-gradient-to-r from-white/60 to-transparent',
@@ -129,7 +129,7 @@ function DecisionToolbar({ onNewDecision, onOpenHistory }: DecisionToolbarProps)
                     onClick={handleToggle}
                     className={cn(
                         'p-1.5 rounded-md',
-                        'transition-all duration-200 ease-out',
+                        'transition-all duration-100 ease-out',
                         isCurrentlyDark
                             ? 'text-white/30 hover:text-white/60 hover:bg-white/5 focus:ring-white/20'
                             : 'text-slate-400 hover:text-slate-600 hover:bg-black/5 focus:ring-black/20',
@@ -140,7 +140,7 @@ function DecisionToolbar({ onNewDecision, onOpenHistory }: DecisionToolbarProps)
                     <ChevronRight
                         size={16}
                         className={cn(
-                            'transition-transform duration-200',
+                            'transition-transform duration-100',
                             !collapsed && 'rotate-180',
                         )}
                     />

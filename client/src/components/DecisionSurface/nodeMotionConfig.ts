@@ -568,9 +568,9 @@ export function getSatellitePosition(
 // ============================================================================
 
 const COLLISION = {
-    MIN_DISTANCE: 140, // Minimum pixels between node centers
-    MAX_ATTEMPTS: 20, // Maximum attempts to find non-overlapping position
-    SPIRAL_STEP: 30, // Pixels to step outward in spiral search
+    MIN_DISTANCE: 200, // Minimum pixels between node centers (increased from 140)
+    MAX_ATTEMPTS: 32, // Maximum attempts to find non-overlapping position (increased from 20)
+    SPIRAL_STEP: 50, // Pixels to step outward in spiral search (increased from 30)
     ANGLE_STEP: 45, // Degrees between spiral search positions
 };
 
