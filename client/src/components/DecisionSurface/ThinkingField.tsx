@@ -354,19 +354,34 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
             />
 
             {/* Start Session Button or Decision Composer */}
+            {/* Hide composer after submission if nodes exist, show StartSessionButton when all nodes dismissed */}
             {!isAnswering && (
-                composerVisible ? (
-                    <DecisionComposer
-                        onSubmit={handleComposerSubmit}
-                        isSubmitting={sessionPhase === 'INTAKE'}
-                        hasSubmitted={composerSubmitted}
-                        placeholder="What are you deciding?"
-                        animateIn={true}
-                        anchorPosition={anchorPosition}
-                    />
-                ) : (
-                    <StartSessionButton onStart={() => setComposerVisible(true)} anchorPosition={anchorPosition} />
-                )
+                // After submission and nodes exist: hide both composer and button
+                composerSubmitted && thoughtNodes.length > 0 ? null :
+                    // No nodes exist: show start button (reset session)
+                    thoughtNodes.length === 0 && (!composerVisible || composerSubmitted) ? (
+                        <StartSessionButton
+                            onStart={() => {
+                                // Reset state for new session
+                                setComposerSubmitted(false);
+                                setComposerVisible(true);
+                            }}
+                            anchorPosition={anchorPosition}
+                        />
+                    ) :
+                        // Composer is visible and not yet submitted: show composer
+                        composerVisible ? (
+                            <DecisionComposer
+                                onSubmit={handleComposerSubmit}
+                                isSubmitting={sessionPhase === 'INTAKE'}
+                                hasSubmitted={composerSubmitted}
+                                placeholder="What are you deciding?"
+                                animateIn={true}
+                                anchorPosition={anchorPosition}
+                            />
+                        ) : (
+                            <StartSessionButton onStart={() => setComposerVisible(true)} anchorPosition={anchorPosition} />
+                        )
             )}
 
             {/* Answer Input for main nodes */}
