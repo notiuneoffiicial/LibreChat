@@ -4,6 +4,7 @@
  */
 
 const { DecisionStreamManager } = require('~/server/services/Decision/DecisionStreamManager');
+const { InsightAgent } = require('~/server/services/Decision/InsightAgent');
 const { logger } = require('@librechat/data-schemas');
 
 /**
@@ -190,6 +191,50 @@ async function streamController(req, res) {
 
                 // Generate improved question with rejection context
                 await manager.regenerateQuestion(category, originalQuestion);
+                break;
+            }
+
+            case 'analyze_context': {
+                // Analyze conversation context and generate insights if needed
+                const { decisionStatement, qaHistory, currentQuestionId } = payload || {};
+                if (!decisionStatement) {
+                    manager.sendError('Missing decisionStatement in payload');
+                    manager.endStream();
+                    return;
+                }
+
+                logger.debug('[DecisionStreamController] Analyzing context for insights', {
+                    statement: decisionStatement.substring(0, 50),
+                    qaCount: qaHistory?.length || 0,
+                });
+
+                // Create InsightAgent
+                const sendMessageToModel = createModelCaller(req);
+                const insightAgent = new InsightAgent(sendMessageToModel, null); // No web search for now
+
+                // Find current question in qaHistory
+                const currentQuestion = qaHistory?.find(q => q.id === currentQuestionId);
+
+                // Check and generate insight
+                const insight = await insightAgent.checkAndGenerateInsight(
+                    decisionStatement,
+                    qaHistory || [],
+                    currentQuestion
+                );
+
+                if (insight) {
+                    // Send insight via SSE
+                    manager.sendEvent('insight', {
+                        ...insight,
+                        id: `insight-${Date.now()}`,
+                        linkedQuestionId: currentQuestionId,
+                    });
+                    logger.debug('[DecisionStreamController] Insight generated:', insight.title);
+                } else {
+                    // No insight needed
+                    manager.sendEvent('no_insight', { reason: 'No insight needed for this context' });
+                }
+
                 break;
             }
 

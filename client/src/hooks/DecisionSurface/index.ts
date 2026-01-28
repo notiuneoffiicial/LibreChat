@@ -13,3 +13,5 @@ export { useMagneticField } from './useMagneticField';
 export { useBehaviorSignals } from './useBehaviorSignals';
 export { useConvergence } from './useConvergence';
 export { useSessionPersistence } from './useSessionPersistence';
+export { useInsightNodes } from './useInsightNodes';
+export { useDragToConnect } from './useDragToConnect';

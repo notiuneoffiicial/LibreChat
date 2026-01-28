@@ -16,6 +16,8 @@ import type {
     ConceptCluster,
     BehaviorSignal,
     SoftConfirmation,
+    PathwayNode,
+    InsightNodeData,
 } from '~/common/DecisionSession.types';
 
 // ============================================================================
@@ -98,6 +100,22 @@ export const activeThrowZoneAtom = atom<'dismiss' | 'regenerate' | null>({
 export const isDraggingNodeAtom = atom<boolean>({
     key: 'isDraggingNode',
     default: false,
+});
+
+/**
+ * Progress pathway - resolved questions shown as breadcrumb trail at top
+ */
+export const progressPathwayAtom = atom<PathwayNode[]>({
+    key: 'progressPathway',
+    default: [],
+});
+
+/**
+ * AI Insight nodes - automatically surfaced resources based on conversation
+ */
+export const insightNodesAtom = atom<InsightNodeData[]>({
+    key: 'insightNodes',
+    default: [],
 });
 
 /**
@@ -477,6 +495,8 @@ export interface ContextNodeData {
     content: string;
     position: Position;
     createdAt: number;
+    /** IDs of questions this context is manually linked to */
+    linkedQuestionIds?: string[];
 }
 
 /**

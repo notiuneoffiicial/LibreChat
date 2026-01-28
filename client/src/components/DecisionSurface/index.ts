@@ -24,6 +24,9 @@ export { default as MemoryPickerPopover } from './MemoryPickerPopover';
 export { default as FilesPickerPopover } from './FilesPickerPopover';
 export { default as ResourceConnections } from './ResourceConnections';
 export { default as ThrowZoneOverlay } from './ThrowZoneOverlay';
+export { default as ProgressPathway } from './ProgressPathway';
+export { default as InsightNode } from './InsightNode';
+export { default as ConnectionPreview } from './ConnectionPreview';
 
 // Re-export config
 export * from './nodeMotionConfig';

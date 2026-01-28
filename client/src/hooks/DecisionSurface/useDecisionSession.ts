@@ -188,17 +188,33 @@ export function useDecisionSession(conversationId?: string) {
                 emotionEstimate: 'neutral',
             };
 
-            // Update session
-            setSession((prev) =>
-                prev
-                    ? {
+            // Update session - create new one if it doesn't exist
+            setSession((prev) => {
+                if (prev) {
+                    return {
                         ...prev,
                         draft,
                         phase: 'INTAKE',
                         updatedAt: Date.now(),
-                    }
-                    : prev,
-            );
+                    };
+                } else {
+                    // Create a new session if one doesn't exist
+                    const now = Date.now();
+                    return {
+                        id: uuidv4(),
+                        conversationId: conversationId || `decision-${uuidv4()}`,
+                        phase: 'INTAKE' as const,
+                        createdAt: now,
+                        updatedAt: now,
+                        draft,
+                        constraints: [],
+                        assumptions: [],
+                        options: [],
+                        insights: [],
+                        milestones: [],
+                    };
+                }
+            });
 
             setPhase('INTAKE');
             setComposerSubmitted(true);
@@ -232,7 +248,7 @@ export function useDecisionSession(conversationId?: string) {
                 }
             }, 600); // Wait for composer animation
         },
-        [phase, setSession, setPhase, setComposerSubmitted, generateInitialTensionPoints, generateInitialNodes, setNodes],
+        [phase, conversationId, setSession, setPhase, setComposerSubmitted, generateInitialTensionPoints, generateInitialNodes, setNodes],
     );
 
     /**

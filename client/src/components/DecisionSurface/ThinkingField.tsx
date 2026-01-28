@@ -11,7 +11,7 @@ import { animated, useSpring } from '@react-spring/web';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
-import { useDecisionSession, useTensionProbe, useDecisionChat, useMagneticField } from '~/hooks/DecisionSurface';
+import { useDecisionSession, useTensionProbe, useDecisionChat, useMagneticField, useInsightNodes, useDragToConnect } from '~/hooks/DecisionSurface';
 import { FIELD, COMPOSER, THROW } from './nodeMotionConfig';
 import type { ThinkingFieldProps, TopicKey } from '~/common/DecisionSession.types';
 import DecisionComposer from './DecisionComposer';
@@ -24,6 +24,9 @@ import MemoryNode from './MemoryNode';
 import FileNode from './FileNode';
 import ResourceConnections from './ResourceConnections';
 import ThrowZoneOverlay from './ThrowZoneOverlay';
+import ProgressPathway from './ProgressPathway';
+import InsightNode from './InsightNode';
+import ConnectionPreview from './ConnectionPreview';
 
 /**
  * ThinkingField - The living decision surface
@@ -64,6 +67,9 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
     const activeThrowZone = useRecoilValue(store.activeThrowZoneAtom);
     const isDraggingNode = useRecoilValue(store.isDraggingNodeAtom);
 
+    // Progress pathway state
+    const setProgressPathway = useSetRecoilState(store.progressPathwayAtom);
+
     // Session state machine hook
     const { submitDecision, selectNode, session, endSession, reopenSession } = useDecisionSession(conversationId);
 
@@ -75,6 +81,60 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
 
     // Chat integration hook for message persistence
     const { storeAnswer } = useDecisionChat({ conversationId });
+
+    // Insight nodes hook for AI-generated resources
+    const {
+        visibleInsightNodes,
+        toggleInsightExpanded,
+        dismissInsight,
+        updateInsightPosition,
+        checkForInsights,
+        clearInsights,
+    } = useInsightNodes();
+
+    // Drag-to-connect hook for linking context/insight nodes to questions
+    const {
+        isConnecting,
+        sourceNodeType,
+        sourcePosition,
+        cursorPosition,
+        startConnecting,
+        updateCursorPosition,
+        checkDropTarget,
+        completeConnection,
+        cancelConnection,
+    } = useDragToConnect();
+
+    // Handle global mouse events for drag-to-connect
+    useEffect(() => {
+        if (!isConnecting) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            updateCursorPosition({ x: e.clientX, y: e.clientY });
+        };
+
+        const handleMouseUp = (e: MouseEvent) => {
+            const targetId = checkDropTarget({ x: e.clientX, y: e.clientY });
+            if (targetId) {
+                completeConnection(targetId);
+            } else {
+                cancelConnection();
+            }
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isConnecting, updateCursorPosition, checkDropTarget, completeConnection, cancelConnection]);
+
+    // Handle context node connection start
+    const handleContextStartConnect = useCallback((nodeId: string, position: { x: number; y: number }) => {
+        startConnecting(nodeId, 'context', position);
+    }, [startConnecting]);
 
     // Get active node for answer input
     const activeNode = useMemo(
@@ -149,12 +209,31 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
             // Store the answer as a LibreChat message
             storeAnswer(nodeId, node.question, answer);
 
+            // Add to progress pathway before processing (so it shows up while thinking)
+            setProgressPathway((prev) => {
+                // Check if already in pathway
+                if (prev.some((p) => p.id === nodeId)) return prev;
+
+                const newPathwayNode = {
+                    id: nodeId,
+                    question: node.question,
+                    answer: answer,
+                    topicKey: node.topicKey,
+                    resolvedAt: Date.now(),
+                    order: prev.length,
+                };
+                return [...prev, newPathwayNode];
+            });
+
             // Process answer via question engine
             await processAnswer(nodeId, node.question, answer);
 
+            // Check for insights after answer (async, doesn't block)
+            checkForInsights(nodeId, node.question, answer);
+
             setActiveNodeId(null);
         },
-        [thoughtNodes, storeAnswer, processAnswer, setActiveNodeId],
+        [thoughtNodes, storeAnswer, processAnswer, setActiveNodeId, setProgressPathway, checkForInsights],
     );
 
     // Handle answer dismiss - reset node state and clear selection
@@ -282,6 +361,9 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 isDragging={isDraggingNode}
             />
 
+            {/* Progress pathway - breadcrumb trail of resolved questions */}
+            <ProgressPathway isDarkMode={isCurrentlyDark} />
+
             {/* Soft grid - only show in dark mode */}
             {isCurrentlyDark && (
                 <div
@@ -333,7 +415,11 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
 
                 {/* Context nodes */}
                 {contextNodes.map((contextNode) => (
-                    <ContextNode key={contextNode.id} node={contextNode} />
+                    <ContextNode
+                        key={contextNode.id}
+                        node={contextNode}
+                        onStartConnect={handleContextStartConnect}
+                    />
                 ))}
 
                 {/* Memory nodes */}
@@ -345,6 +431,17 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 {fileNodes.map((fileNode) => (
                     <FileNode key={fileNode.id} node={fileNode} />
                 ))}
+
+                {/* AI Insight nodes */}
+                {visibleInsightNodes.map((insightNode) => (
+                    <InsightNode
+                        key={insightNode.id}
+                        node={insightNode}
+                        onToggleExpand={toggleInsightExpanded}
+                        onDismiss={dismissInsight}
+                        onUpdatePosition={updateInsightPosition}
+                    />
+                ))}
             </div>
 
             {/* Resource connections overlay */}
@@ -353,35 +450,64 @@ function ThinkingField({ sessionId, conversationId }: ThinkingFieldProps) {
                 containerHeight={dimensions.height}
             />
 
+            {/* Connection preview line while dragging to connect */}
+            <ConnectionPreview
+                isActive={isConnecting}
+                sourcePosition={sourcePosition}
+                cursorPosition={cursorPosition}
+                sourceType={sourceNodeType}
+                containerWidth={dimensions.width}
+                containerHeight={dimensions.height}
+            />
+
             {/* Start Session Button or Decision Composer */}
-            {/* Hide composer after submission if nodes exist, show StartSessionButton when all nodes dismissed */}
+            {/* Logic:
+                1. During INTAKE (loading nodes): show composer with hasSubmitted=true for slide-down animation
+                2. After nodes appear (composerSubmitted && nodes exist): hide everything
+                3. All nodes dismissed (or never loaded): show StartSessionButton
+                4. Initial state (not submitted, composer visible): show composer
+                5. Initial state (composer not visible): show StartSessionButton
+            */}
             {!isAnswering && (
-                // After submission and nodes exist: hide both composer and button
-                composerSubmitted && thoughtNodes.length > 0 ? null :
-                    // No nodes exist: show start button (reset session)
-                    thoughtNodes.length === 0 && (!composerVisible || composerSubmitted) ? (
-                        <StartSessionButton
-                            onStart={() => {
-                                // Reset state for new session
-                                setComposerSubmitted(false);
-                                setComposerVisible(true);
-                            }}
-                            anchorPosition={anchorPosition}
-                        />
-                    ) :
-                        // Composer is visible and not yet submitted: show composer
-                        composerVisible ? (
-                            <DecisionComposer
-                                onSubmit={handleComposerSubmit}
-                                isSubmitting={sessionPhase === 'INTAKE'}
-                                hasSubmitted={composerSubmitted}
-                                placeholder="What are you deciding?"
-                                animateIn={true}
+                // During INTAKE phase: show composer with animation (regardless of node count)
+                sessionPhase === 'INTAKE' ? (
+                    <DecisionComposer
+                        onSubmit={handleComposerSubmit}
+                        isSubmitting={true}
+                        hasSubmitted={composerSubmitted}
+                        placeholder="What are you deciding?"
+                        animateIn={true}
+                        anchorPosition={anchorPosition}
+                    />
+                ) :
+                    // After submission and nodes exist: hide both composer and button
+                    composerSubmitted && thoughtNodes.length > 0 ? null :
+                        // Session ended or all nodes dismissed: show start button (only if session is IDLE or was active)
+                        thoughtNodes.length === 0 && composerSubmitted && sessionPhase !== 'INTAKE' ? (
+                            <StartSessionButton
+                                onStart={() => {
+                                    // Reset state for new session
+                                    setComposerSubmitted(false);
+                                    setComposerVisible(true);
+                                    setProgressPathway([]); // Clear pathway for new session
+                                    clearInsights(); // Clear any insight nodes
+                                }}
                                 anchorPosition={anchorPosition}
                             />
-                        ) : (
-                            <StartSessionButton onStart={() => setComposerVisible(true)} anchorPosition={anchorPosition} />
-                        )
+                        ) :
+                            // Composer is visible and not yet submitted: show composer
+                            composerVisible ? (
+                                <DecisionComposer
+                                    onSubmit={handleComposerSubmit}
+                                    isSubmitting={sessionPhase === 'INTAKE'}
+                                    hasSubmitted={composerSubmitted}
+                                    placeholder="What are you deciding?"
+                                    animateIn={true}
+                                    anchorPosition={anchorPosition}
+                                />
+                            ) : (
+                                <StartSessionButton onStart={() => setComposerVisible(true)} anchorPosition={anchorPosition} />
+                            )
             )}
 
             {/* Answer Input for main nodes */}

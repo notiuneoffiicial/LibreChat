@@ -33,10 +33,11 @@ function DecisionComposer({
     const isCurrentlyDark = isDark(theme);
 
     // Spring animation for position and scale
+    // If hasSubmitted is true, start in the "slid down" position
     const [springStyle, api] = useSpring(() => ({
-        y: 0,
-        scale: animateIn ? 0.95 : 1,
-        opacity: animateIn ? 0 : 1,
+        y: hasSubmitted ? COMPOSER.GLIDE_DOWN_DISTANCE : 0,
+        scale: animateIn && !hasSubmitted ? 0.95 : 1,
+        opacity: animateIn && !hasSubmitted ? 0 : 1,
         config: {
             tension: 180,
             friction: 24,

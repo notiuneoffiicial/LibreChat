@@ -6,14 +6,17 @@
 import { memo, useState, useCallback, useRef, useEffect, useContext } from 'react';
 import { useSetRecoilState } from 'recoil';
 import { animated, useSpring } from '@react-spring/web';
-import { X } from 'lucide-react';
+import { X, Link2 } from 'lucide-react';
 import { ThemeContext, isDark } from '@librechat/client';
 import { cn } from '~/utils';
 import store from '~/store';
 import type { ContextNodeData } from '~/store/decisionSession';
+import type { Position } from '~/common/DecisionSession.types';
 
 interface ContextNodeProps {
     node: ContextNodeData;
+    /** Callback to start a connection drag */
+    onStartConnect?: (nodeId: string, position: Position) => void;
 }
 
 /**
@@ -24,8 +27,9 @@ interface ContextNodeProps {
  * - Draggable positioning
  * - Glass-morphism styling matching existing nodes
  * - Delete button to remove from surface
+ * - Connection handle to link to question nodes
  */
-function ContextNode({ node }: ContextNodeProps) {
+function ContextNode({ node, onStartConnect }: ContextNodeProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const setContextNodes = useSetRecoilState(store.contextNodesAtom);
     const [content, setContent] = useState(node.content);
@@ -33,6 +37,7 @@ function ContextNode({ node }: ContextNodeProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [position, setPosition] = useState(node.position);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [isHoveringHandle, setIsHoveringHandle] = useState(false);
 
     // Theme
     const { theme } = useContext(ThemeContext);
@@ -198,6 +203,67 @@ function ContextNode({ node }: ContextNodeProps) {
                 )}
                 rows={3}
             />
+
+            {/* Connection handle - link icon on the right */}
+            {onStartConnect && (
+                <div
+                    className={cn(
+                        'absolute -right-3 top-1/2 -translate-y-1/2',
+                        'w-6 h-6 rounded-full',
+                        'flex items-center justify-center',
+                        'cursor-crosshair',
+                        'transition-all duration-200',
+                        isHoveringHandle
+                            ? (isCurrentlyDark
+                                ? 'bg-amber-500 scale-110 shadow-lg shadow-amber-500/30'
+                                : 'bg-amber-500 scale-110 shadow-lg shadow-amber-500/30')
+                            : (isCurrentlyDark
+                                ? 'bg-amber-500/50 hover:bg-amber-500'
+                                : 'bg-amber-500/50 hover:bg-amber-500'),
+                        'border-2',
+                        isCurrentlyDark ? 'border-white/20' : 'border-black/10',
+                    )}
+                    onMouseEnter={() => setIsHoveringHandle(true)}
+                    onMouseLeave={() => setIsHoveringHandle(false)}
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Calculate the center of the handle in page coordinates
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const handlePosition = {
+                            x: rect.left + rect.width / 2,
+                            y: rect.top + rect.height / 2,
+                        };
+                        onStartConnect(node.id, handlePosition);
+                    }}
+                    title="Drag to connect to a question"
+                >
+                    <Link2
+                        size={12}
+                        className={cn(
+                            'transition-colors',
+                            isHoveringHandle
+                                ? 'text-white'
+                                : (isCurrentlyDark ? 'text-white/70' : 'text-white/90')
+                        )}
+                    />
+                </div>
+            )}
+
+            {/* Link count indicator */}
+            {(node.linkedQuestionIds?.length || 0) > 0 && (
+                <div className={cn(
+                    'absolute -right-1 -top-1',
+                    'w-4 h-4 rounded-full',
+                    'flex items-center justify-center',
+                    'text-[10px] font-bold',
+                    isCurrentlyDark
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-amber-500 text-white',
+                )}>
+                    {node.linkedQuestionIds?.length}
+                </div>
+            )}
         </animated.div>
     );
 }

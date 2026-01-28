@@ -151,6 +151,64 @@ export interface ThoughtNodeData {
 }
 
 // ============================================================================
+// Progress Pathway Types
+// ============================================================================
+
+/**
+ * PathwayNode - Represents a resolved question in the progress pathway
+ * These appear as a breadcrumb trail at the top showing the user's journey
+ */
+export interface PathwayNode {
+    /** Unique identifier (same as original ThoughtNode) */
+    id: string;
+    /** The question that was answered */
+    question: string;
+    /** The user's answer */
+    answer: string;
+    /** Topic/category of the question */
+    topicKey: TopicKey;
+    /** When this question was resolved */
+    resolvedAt: number;
+    /** Order in the pathway (based on resolution order) */
+    order: number;
+}
+
+// ============================================================================
+// AI Insight Node Types
+// ============================================================================
+
+/**
+ * InsightNodeData - AI-generated insight nodes that surface relevant resources
+ * These appear automatically when the AI detects knowledge gaps or uncertainty
+ */
+export interface InsightNodeData {
+    /** Unique identifier */
+    id: string;
+    /** Node type discriminator */
+    type: 'insight';
+    /** Short title for the insight */
+    title: string;
+    /** 2-3 sentence summary of the insight */
+    summary: string;
+    /** Source URL if from web search */
+    sourceUrl?: string;
+    /** Display name of the source */
+    sourceName?: string;
+    /** Why this insight is relevant to the decision */
+    relevance: string;
+    /** IDs of questions this insight relates to */
+    linkedQuestionIds: string[];
+    /** When this insight was generated */
+    createdAt: number;
+    /** Position on the canvas */
+    position: Position;
+    /** Whether the insight card is expanded */
+    isExpanded: boolean;
+    /** Current visual state */
+    state: 'appearing' | 'visible' | 'dismissed';
+}
+
+// ============================================================================
 // Clarity Assessment Types
 // ============================================================================
 
